@@ -1,0 +1,72 @@
+name: preview-e2e
+
+on:
+  deployment_status:
+
+permissions:
+  contents: read
+
+# Not a required check. Empty preview secrets must not affect the `checks` job.
+concurrency:
+  group: preview-e2e-${{ github.event.deployment.sha }}
+  cancel-in-progress: true
+
+jobs:
+  preview-e2e:
+    name: preview-e2e
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    if: ${{ github.event.deployment_status.state == 'success' && startsWith(github.event.deployment.environment, 'Preview') }}
+    steps:
+      - name: Checkout deployment commit
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.deployment.sha }}
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Resolve Playwright version
+        id: playwright-version
+        run: echo "version=$(pnpm exec playwright --version | awk '{print $2}')" >> "$GITHUB_OUTPUT"
+
+      - name: Cache Playwright browsers
+        uses: actions/cache@v6
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ runner.os }}-playwright-${{ steps.playwright-version.outputs.version }}
+
+      - name: Install Playwright Chromium
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: End-to-end tests against the preview
+        env:
+          PLAYWRIGHT_BASE_URL: ${{ github.event.deployment_status.environment_url || github.event.deployment_status.target_url }}
+          VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
+          E2E_USERNAME: ${{ secrets.E2E_USERNAME }}
+          E2E_PASSWORD: ${{ secrets.E2E_PASSWORD }}
+        run: |
+          if [ -z "${PLAYWRIGHT_BASE_URL}" ]; then
+            echo "deployment_status had no environment_url or target_url."
+            exit 1
+          fi
+          echo "Preview base URL: ${PLAYWRIGHT_BASE_URL}"
+          pnpm exec playwright test
+
+      - name: Upload Playwright report
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 14
+          if-no-files-found: ignore
