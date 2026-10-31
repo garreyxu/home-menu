@@ -48,25 +48,18 @@ jobs:
       - name: Install Playwright Chromium
         run: pnpm exec playwright install --with-deps chromium
 
+      # No artifacts: this repo is public, and a trace or HTML report can leak the bypass header.
       - name: End-to-end tests against the preview
         env:
           PLAYWRIGHT_BASE_URL: ${{ github.event.deployment_status.environment_url || github.event.deployment_status.target_url }}
           VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
           E2E_USERNAME: ${{ secrets.E2E_USERNAME }}
           E2E_PASSWORD: ${{ secrets.E2E_PASSWORD }}
+          PLAYWRIGHT_TRACE: off
         run: |
           if [ -z "${PLAYWRIGHT_BASE_URL}" ]; then
             echo "deployment_status had no environment_url or target_url."
             exit 1
           fi
           echo "Preview base URL: ${PLAYWRIGHT_BASE_URL}"
-          pnpm exec playwright test
-
-      - name: Upload Playwright report
-        if: failure()
-        uses: actions/upload-artifact@v7
-        with:
-          name: playwright-report
-          path: playwright-report/
-          retention-days: 14
-          if-no-files-found: ignore
+          pnpm exec playwright test --trace off
