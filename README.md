@@ -22,7 +22,7 @@ pnpm exec playwright install chromium
 pnpm test:e2e
 ```
 
-`pnpm test:e2e` starts the dev server itself. To point Playwright at an already running site (for example a preview URL in CI later), set `PLAYWRIGHT_BASE_URL`. When that variable is set, Playwright does not start a local server.
+`pnpm test:e2e` starts the dev server itself. To point Playwright at an already running site, set `PLAYWRIGHT_BASE_URL`. When that variable is set, Playwright does not start a local server. The `preview-e2e` workflow sets it to the Vercel preview URL.
 
 ## Scripts
 
@@ -36,6 +36,13 @@ pnpm test:e2e
 | `format`    | `pnpm format`    | Format the repo with Prettier                     |
 | `test`      | `pnpm test`      | Unit tests (Vitest)                               |
 | `test:e2e`  | `pnpm test:e2e`  | End-to-end smoke test (Playwright, Chromium)      |
+
+## CI
+
+- `ci` (`.github/workflows/ci.yml`) runs on pull requests and pushes to `main`. Its job `checks` is the required status check: lint, typecheck, unit tests, the production build, and Playwright against the local dev server.
+- `preview-e2e` (`.github/workflows/preview-e2e.yml`) runs after a successful Vercel Preview deployment and is not a required check. It runs Playwright against that preview URL. It does not run until the Vercel Git integration is connected.
+
+`preview-e2e` reads these GitHub Actions secret names when they are set: `VERCEL_AUTOMATION_BYPASS_SECRET`, `E2E_USERNAME`, and `E2E_PASSWORD`. Missing secrets do not affect `checks`.
 
 ## License
 
