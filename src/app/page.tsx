@@ -2,6 +2,8 @@ import { requireSession } from "@/lib/auth/require-session";
 import { Button } from "@/components/ui/button";
 import { formatSiteHeading } from "@/lib/site";
 
+export const dynamic = "force-dynamic";
+
 export default async function Home() {
   await requireSession();
 

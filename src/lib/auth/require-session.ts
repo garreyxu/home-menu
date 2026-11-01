@@ -13,10 +13,12 @@ export type Session = {
 };
 
 async function readVerifiedSession(): Promise<Session | null> {
-  // A missing or short secret must surface as a server error, not as a redirect.
-  readSessionSecret();
+  // Read the cookie first so a cookieless render can bail out before touching
+  // SESSION_SECRET. That keeps `next build` from failing when the secret is
+  // only present at runtime. A cookie we cannot verify still fails closed.
   const token = (await cookies()).get(SESSION_COOKIE_NAME)?.value;
   if (!token) return null;
+  readSessionSecret();
   return verifySession(token);
 }
 

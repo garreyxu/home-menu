@@ -50,9 +50,9 @@ describe("requireSession", () => {
     expect(redirect).not.toHaveBeenCalled();
   });
 
-  it("fails closed when SESSION_SECRET is too short", async () => {
+  it("fails closed when a cookie is present but SESSION_SECRET is too short", async () => {
     process.env.SESSION_SECRET = "short";
-    mockCookie(undefined);
+    mockCookie("present-but-unusable");
     await expect(requireSession()).rejects.toBeInstanceOf(AuthConfigError);
     expect(redirect).not.toHaveBeenCalled();
   });
