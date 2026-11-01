@@ -30,18 +30,17 @@ describe("session tokens", () => {
   it("rejects a tampered signature and a tampered payload", async () => {
     const token = await signSession({ secret: SECRET });
     const [header, payload, signature] = token.split(".");
-    expect(signature).toBeDefined();
-    const flipped =
-      signature!.slice(0, -1) + (signature!.endsWith("a") ? "b" : "a");
+    expect(header && payload && signature).toBeTruthy();
+    // Flip an early base64url digit. The last digit can encode unused bits,
+    // so changing only that character sometimes leaves the signature valid.
+    const flip = (segment: string) =>
+      `${segment.slice(0, 1)}${segment[1] === "A" ? "B" : "A"}${segment.slice(2)}`;
 
     await expect(
-      verifySession(`${header}.${payload}.${flipped}`, SECRET),
+      verifySession(`${header}.${payload}.${flip(signature!)}`, SECRET),
     ).resolves.toBeNull();
-
-    const flippedPayload =
-      payload!.slice(0, -1) + (payload!.endsWith("a") ? "b" : "a");
     await expect(
-      verifySession(`${header}.${flippedPayload}.${signature}`, SECRET),
+      verifySession(`${header}.${flip(payload!)}.${signature}`, SECRET),
     ).resolves.toBeNull();
   });
 
