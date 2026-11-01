@@ -11,10 +11,7 @@ function endSession(request: Request): NextResponse {
   return response;
 }
 
-export function GET(request: Request) {
-  return endSession(request);
-}
-
+// POST only. A GET handler would let a cross-site image tag log the family out.
 export function POST(request: Request) {
   return endSession(request);
 }

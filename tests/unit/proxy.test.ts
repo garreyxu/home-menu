@@ -1,6 +1,7 @@
+import { unstable_doesMiddlewareMatch } from "next/experimental/testing/server";
 import { NextRequest } from "next/server";
 import { afterEach, describe, expect, it } from "vitest";
-import { proxy } from "@/proxy";
+import { config, proxy } from "@/proxy";
 import { SESSION_COOKIE_NAME, signSession } from "@/lib/auth/session";
 
 const SECRET = "unit-test-session-secret-not-for-production";
@@ -16,6 +17,26 @@ async function callProxy(path: string, cookie?: string) {
   if (cookie) headers.set("cookie", `${SESSION_COOKIE_NAME}=${cookie}`);
   return proxy(new NextRequest(`http://127.0.0.1:3000${path}`, { headers }));
 }
+
+function proxyMatches(url: string): boolean {
+  return unstable_doesMiddlewareMatch({ config, url });
+}
+
+describe("proxy matcher", () => {
+  it("always matches /api, including static-looking extensions", () => {
+    expect(proxyMatches("/api/photos/x.webp")).toBe(true);
+    expect(proxyMatches("/api/anything.js")).toBe(true);
+    expect(proxyMatches("/foo.png")).toBe(true);
+    expect(proxyMatches("/")).toBe(true);
+  });
+
+  it("skips Next static files, the favicon, and /assets", () => {
+    expect(proxyMatches("/_next/static/chunks/app.js")).toBe(false);
+    expect(proxyMatches("/_next/image")).toBe(false);
+    expect(proxyMatches("/favicon.ico")).toBe(false);
+    expect(proxyMatches("/assets/pixel.png")).toBe(false);
+  });
+});
 
 describe("proxy", () => {
   it("returns a clear 500 when SESSION_SECRET is too short", async () => {
@@ -40,6 +61,15 @@ describe("proxy", () => {
     const api = await callProxy("/api/dishes");
     expect(api.status).toBe(401);
     await expect(api.json()).resolves.toEqual({ error: "Unauthorized" });
+
+    const photo = await callProxy("/api/photos/x.webp");
+    expect(photo.status).toBe(401);
+
+    const image = await callProxy("/foo.png");
+    expect(image.status).toBe(307);
+    expect(
+      new URL(image.headers.get("location")!).searchParams.get("next"),
+    ).toBe("/foo.png");
   });
 
   it("allows a request with a valid session cookie", async () => {

@@ -1,7 +1,10 @@
+import { requireSession } from "@/lib/auth/require-session";
 import { Button } from "@/components/ui/button";
 import { formatSiteHeading } from "@/lib/site";
 
-export default function Home() {
+export default async function Home() {
+  await requireSession();
+
   return (
     <main className="flex min-h-svh flex-col">
       <header className="flex justify-end px-4 py-4">

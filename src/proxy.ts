@@ -44,6 +44,10 @@ export async function proxy(request: NextRequest) {
 
 export const config = {
   matcher: [
-    "/((?!_next/|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|css|js|map|txt|xml|webmanifest|woff2?)$).*)",
+    // Own matcher so an API path is gated even when it ends in .webp, .js, etc.
+    "/api/:path*",
+    // Everything else except Next's own static files, the favicon, and
+    // public pixel art under public/assets (served at /assets/*).
+    "/((?!_next/static|_next/image|favicon.ico|assets/).*)",
   ],
 };

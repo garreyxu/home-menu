@@ -9,6 +9,25 @@ test("unauthenticated API request returns 401", async ({ request }) => {
   expect(await response.json()).toEqual({ error: "Unauthorized" });
 });
 
+test("unauthenticated API path with an image extension returns 401", async ({
+  request,
+}) => {
+  const response = await request.get("/api/photos/x.webp");
+  expect(response.status()).toBe(401);
+  expect(await response.json()).toEqual({ error: "Unauthorized" });
+});
+
+test("unauthenticated image path outside /assets redirects to /login", async ({
+  page,
+}) => {
+  await page.goto("/foo.png");
+
+  await expect(page).toHaveURL(/\/login/);
+  const url = new URL(page.url());
+  expect(url.pathname).toBe("/login");
+  expect(url.searchParams.get("next")).toBe("/foo.png");
+});
+
 test("unauthenticated visit to / redirects to /login", async ({ page }) => {
   await page.goto("/");
 
@@ -53,7 +72,9 @@ test.describe("credential login", () => {
       page.getByRole("heading", { name: "家庭菜单 · 建设中" }),
     ).toBeVisible();
 
-    await page.getByRole("button", { name: "退出" }).click();
+    const logoutForm = page.locator('form[action="/logout"]');
+    await expect(logoutForm).toHaveAttribute("method", "post");
+    await logoutForm.getByRole("button", { name: "退出" }).click();
     await expect(page).toHaveURL(/\/login/);
     expect(new URL(page.url()).pathname).toBe("/login");
 
