@@ -1,6 +1,6 @@
 # home-menu
 
-家庭菜单 is a small web app for planning a family's weekly meals, with a Chinese interface. The repository is public (MIT). It is hosted on Vercel Hobby with a Neon Postgres database. Sign-in will be a single shared family username and password; there is no users table yet. The home page is still a placeholder.
+家庭菜单 is a small web app for planning a family's weekly meals, with a Chinese interface. The repository is public (MIT). It is hosted on Vercel Hobby with a Neon Postgres database. Sign-in is one shared family username and password from environment variables; there is no users table. The home page is still a placeholder.
 
 ## Local setup
 
@@ -9,11 +9,11 @@
 
 ```bash
 pnpm install
-cp .env.example .env.local   # set DATABASE_URL when you have a database; leave it empty otherwise
+cp .env.example .env.local   # set the auth variables below; set DATABASE_URL when you have a database
 pnpm dev
 ```
 
-Open [http://127.0.0.1:3000](http://127.0.0.1:3000). The home page is a placeholder (`家庭菜单 · 建设中`).
+Open [http://127.0.0.1:3000](http://127.0.0.1:3000). Until you sign in, pages redirect to `/login`. The home page is a placeholder (`家庭菜单 · 建设中`). If `SESSION_SECRET` is missing or shorter than 32 characters, the server refuses every request with a clear error instead of signing a session.
 
 End-to-end tests need the Chromium browser that Playwright downloads:
 
@@ -38,6 +38,35 @@ pnpm test:e2e
 | `format`     | `pnpm format`     | Format the repo with Prettier                                                                                                                               |
 | `test`       | `pnpm test`       | Unit tests (Vitest). They do not connect to a database                                                                                                      |
 | `test:e2e`   | `pnpm test:e2e`   | End-to-end smoke test (Playwright, Chromium)                                                                                                                |
+| `auth:hash`  | `pnpm auth:hash`  | Read a password from stdin (no echo, never from argv) and print a bcrypt hash for `AUTH_PASSWORD_HASH`                                                      |
+
+## Family login
+
+The whole site is private behind one shared username and password. Credentials are read from the environment only:
+
+| Variable             | Purpose                                                                                             |
+| -------------------- | --------------------------------------------------------------------------------------------------- |
+| `AUTH_USERNAME`      | Shared username. It is matched exactly.                                                             |
+| `AUTH_PASSWORD_HASH` | bcrypt hash of the shared password. Do not put the plaintext password here.                         |
+| `SESSION_SECRET`     | Signs the session cookie. Must be at least 32 characters. A missing or shorter secret fails closed. |
+
+Generate the password hash with `pnpm auth:hash`. The password is read from stdin and is not echoed. Do not pass it as an argument. A trailing newline on a piped password is removed. The command prints only the hash:
+
+```bash
+pnpm auth:hash
+```
+
+Generate a session secret:
+
+```bash
+openssl rand -base64 48
+```
+
+The session cookie is httpOnly, `SameSite=Lax`, `Secure` in production, and expires after 30 days. Signing uses an HS256 JWT (`jose`); the proxy checks that signature and does not run bcrypt. Logout clears the cookie.
+
+Login allows 5 failures per IP per 10 minutes, then rejects further attempts until the window passes. The counter is in memory on that server instance only. It resets on restart and is not shared across instances.
+
+End-to-end tests that sign in read `E2E_USERNAME` and `E2E_PASSWORD`. They are skipped when either variable is unset. The dev server still needs `AUTH_USERNAME` (the same username), `AUTH_PASSWORD_HASH` (the hash of `E2E_PASSWORD`), and `SESSION_SECRET`. The `ci` job generates a throwaway password, bcrypt hash, and session secret at runtime and does not store them. `preview-e2e` passes the `E2E_USERNAME` and `E2E_PASSWORD` GitHub Actions secrets and skips login tests when they are absent. The preview deployment itself needs the three auth variables above.
 
 ## Data model
 
@@ -72,7 +101,7 @@ Scripts read `.env*` files the same way Next.js does and never print connection 
 - `ci` (`.github/workflows/ci.yml`) runs on pull requests and pushes to `main`. Its job `checks` is the required status check: lint, typecheck, unit tests, the production build, and Playwright against the local dev server.
 - `preview-e2e` (`.github/workflows/preview-e2e.yml`) runs after a successful Vercel Preview deployment and is not a required check. It runs Playwright against that preview URL. It does not run until the Vercel Git integration is connected.
 
-`preview-e2e` reads these GitHub Actions secret names when they are set: `VERCEL_AUTOMATION_BYPASS_SECRET`, `E2E_USERNAME`, and `E2E_PASSWORD`. Missing secrets do not affect `checks`.
+`preview-e2e` reads these GitHub Actions secret names when they are set: `VERCEL_AUTOMATION_BYPASS_SECRET`, `E2E_USERNAME`, and `E2E_PASSWORD`. Missing secrets do not affect `checks`. Login tests in that workflow are skipped when `E2E_USERNAME` or `E2E_PASSWORD` is absent. The `checks` job generates its own throwaway auth values when it runs Playwright and does not commit them.
 
 ## License
 

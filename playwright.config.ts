@@ -2,7 +2,7 @@ import { defineConfig, devices } from "@playwright/test";
 
 const baseURL = process.env.PLAYWRIGHT_BASE_URL ?? "http://127.0.0.1:3000";
 
-// Auth tests will read E2E_USERNAME and E2E_PASSWORD once login exists.
+// Login tests read E2E_USERNAME and E2E_PASSWORD and skip when either is unset.
 const vercelProtectionBypass = process.env.VERCEL_AUTOMATION_BYPASS_SECRET;
 
 // preview-e2e sets this. "off" stays off on retry; "on-first-retry" would record headers.

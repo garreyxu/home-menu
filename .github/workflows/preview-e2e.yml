@@ -62,4 +62,7 @@ jobs:
             exit 1
           fi
           echo "Preview base URL: ${PLAYWRIGHT_BASE_URL}"
+          if [ -z "${E2E_USERNAME}" ] || [ -z "${E2E_PASSWORD}" ]; then
+            echo "E2E_USERNAME or E2E_PASSWORD is unset; login tests will skip."
+          fi
           pnpm exec playwright test --trace off
