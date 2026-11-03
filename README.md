@@ -124,7 +124,7 @@ Scripts read `.env*` files the same way Next.js does and never print connection 
 ## CI
 
 - `ci` (`.github/workflows/ci.yml`) runs on pull requests and pushes to `main`. Its job `checks` is the required status check: lint, typecheck, unit tests, the production build, and Playwright against the local dev server.
-- `preview-e2e` (`.github/workflows/preview-e2e.yml`) runs after a successful Vercel Preview deployment and is not a required check. It runs Playwright against that preview URL. It does not run until the Vercel Git integration is connected.
+- `preview-e2e` (`.github/workflows/preview-e2e.yml`) runs when Vercel sends a `vercel.deployment.success` repository dispatch whose `client_payload.environment` is `preview`, checks out `client_payload.git.sha`, and runs Playwright against that preview URL. It posts a `preview-e2e` commit status on that sha and is not a required check. The dispatch trigger takes effect only after this workflow is merged to `main`, and only if Vercel is sending `repository_dispatch` events; `workflow_dispatch` with inputs `url` and `sha` can run it before that.
 
 `preview-e2e` reads these GitHub Actions secret names when they are set: `VERCEL_AUTOMATION_BYPASS_SECRET`, `E2E_USERNAME`, and `E2E_PASSWORD`. Missing secrets do not affect `checks`. Login tests in that workflow are skipped when `E2E_USERNAME` or `E2E_PASSWORD` is absent. The `checks` job generates its own throwaway auth values when it runs Playwright and does not commit them.
 

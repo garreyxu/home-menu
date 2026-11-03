@@ -1,14 +1,35 @@
 name: preview-e2e
 
+# Vercel does not create GitHub Deployments for this repo. It sends repository_dispatch
+# instead. The workflow file on the default branch is what GitHub runs, so checkout
+# client_payload.git.sha explicitly.
+# https://vercel.com/docs/git/vercel-for-github#repository-dispatch-events
+# Payload: https://github.com/vercel/repository-dispatch/blob/main/packages/repository-dispatch/README.md
 on:
-  deployment_status:
+  repository_dispatch:
+    types: [vercel.deployment.success]
+  workflow_dispatch:
+    inputs:
+      url:
+        description: Preview deployment URL. https:// is added when it has no scheme.
+        required: true
+        type: string
+      sha:
+        description: 40-character commit SHA to check out and report status on.
+        required: true
+        type: string
 
 permissions:
   contents: read
+  statuses: write
+  # upload-artifact and actions/cache save need this. No other scopes.
+  actions: write
 
 # Not a required check. Empty preview secrets must not affect the `checks` job.
+# Preview runs share a group per commit SHA. Other environments get a unique group
+# so a production dispatch cannot cancel the in-progress preview run.
 concurrency:
-  group: preview-e2e-${{ github.event.deployment.sha }}
+  group: ${{ (github.event_name == 'workflow_dispatch' || github.event.client_payload.environment == 'preview') && format('preview-e2e-{0}', github.event.client_payload.git.sha || inputs.sha) || format('preview-e2e-other-{0}', github.run_id) }}
   cancel-in-progress: true
 
 jobs:
@@ -16,12 +37,69 @@ jobs:
     name: preview-e2e
     runs-on: ubuntu-latest
     timeout-minutes: 20
-    if: ${{ github.event.deployment_status.state == 'success' && startsWith(github.event.deployment.environment, 'Preview') }}
+    # The published payload example sets environment to "production". Run only for preview.
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.client_payload.environment == 'preview' }}
     steps:
+      - name: Mark preview-e2e pending on the commit
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          STATUS_SHA: ${{ github.event.client_payload.git.sha || inputs.sha }}
+          STATUS_STATE: pending
+          STATUS_DESCRIPTION: Preview end-to-end tests are running
+          TARGET_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          if [[ ! "${STATUS_SHA}" =~ ^[0-9a-fA-F]{40}$ ]]; then
+            echo "Commit SHA must be the 40-character client_payload.git.sha or workflow_dispatch sha input."
+            exit 1
+          fi
+          echo "Commit: ${STATUS_SHA}"
+          gh api \
+            --method POST \
+            --silent \
+            --header "Accept: application/vnd.github+json" \
+            --header "X-GitHub-Api-Version: 2022-11-28" \
+            "/repos/${GITHUB_REPOSITORY}/statuses/${STATUS_SHA}" \
+            --raw-field state="${STATUS_STATE}" \
+            --raw-field context="preview-e2e" \
+            --raw-field target_url="${TARGET_URL}" \
+            --raw-field description="${STATUS_DESCRIPTION}"
+
+      - name: Resolve preview base URL
+        env:
+          RAW_URL: ${{ (github.event_name == 'workflow_dispatch' && inputs.url) || github.event.client_payload.url }}
+        run: |
+          set -euo pipefail
+          if [ -z "${RAW_URL}" ]; then
+            echo "Deployment URL is missing. Expected client_payload.url or the workflow_dispatch url input."
+            exit 1
+          fi
+          if [[ "${RAW_URL}" == *$'\n'* || "${RAW_URL}" == *$'\r'* ]]; then
+            echo "Deployment URL contains a newline."
+            exit 1
+          fi
+          scheme="${RAW_URL%%://*}"
+          if [ "${RAW_URL}" != "${scheme}" ]; then
+            scheme_lower="$(printf '%s' "${scheme}" | tr '[:upper:]' '[:lower:]')"
+            if [ "${scheme_lower}" != "http" ] && [ "${scheme_lower}" != "https" ]; then
+              echo "Deployment URL scheme is not http or https."
+              exit 1
+            fi
+            base="${RAW_URL}"
+          else
+            base="https://${RAW_URL}"
+          fi
+          {
+            echo "PLAYWRIGHT_BASE_URL<<__PREVIEW_BASE_URL__"
+            printf '%s\n' "${base}"
+            echo "__PREVIEW_BASE_URL__"
+          } >> "${GITHUB_ENV}"
+          echo "Preview base URL: ${base}"
+
       - name: Checkout deployment commit
         uses: actions/checkout@v7
         with:
-          ref: ${{ github.event.deployment.sha }}
+          ref: ${{ github.event.client_payload.git.sha || inputs.sha }}
 
       - name: Install pnpm
         uses: pnpm/action-setup@v6
@@ -51,14 +129,14 @@ jobs:
       # Traces and the HTML report stay off: this repo is public and they can leak the bypass header.
       - name: End-to-end tests against the preview
         env:
-          PLAYWRIGHT_BASE_URL: ${{ github.event.deployment_status.environment_url || github.event.deployment_status.target_url }}
           VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
           E2E_USERNAME: ${{ secrets.E2E_USERNAME }}
           E2E_PASSWORD: ${{ secrets.E2E_PASSWORD }}
           PLAYWRIGHT_TRACE: off
         run: |
-          if [ -z "${PLAYWRIGHT_BASE_URL}" ]; then
-            echo "deployment_status had no environment_url or target_url."
+          set -euo pipefail
+          if [ -z "${PLAYWRIGHT_BASE_URL-}" ]; then
+            echo "Preview base URL is unset."
             exit 1
           fi
           echo "Preview base URL: ${PLAYWRIGHT_BASE_URL}"
@@ -70,13 +148,13 @@ jobs:
       # Page images only. Do not upload traces; those can contain the bypass header.
       - name: Screenshot the signed-in dish wall
         env:
-          PLAYWRIGHT_BASE_URL: ${{ github.event.deployment_status.environment_url || github.event.deployment_status.target_url }}
           VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
           E2E_USERNAME: ${{ secrets.E2E_USERNAME }}
           E2E_PASSWORD: ${{ secrets.E2E_PASSWORD }}
           PLAYWRIGHT_TRACE: off
           PREVIEW_SCREENSHOTS: "1"
         run: |
+          set -euo pipefail
           if [ -z "${E2E_USERNAME}" ] || [ -z "${E2E_PASSWORD}" ]; then
             echo "E2E credentials are unset; skipping preview screenshots."
             exit 0
@@ -92,3 +170,29 @@ jobs:
           path: preview-screenshots/
           retention-days: 14
           if-no-files-found: ignore
+
+      - name: Report preview-e2e result on the commit
+        if: ${{ always() && !cancelled() }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          STATUS_SHA: ${{ github.event.client_payload.git.sha || inputs.sha }}
+          STATUS_STATE: ${{ job.status == 'success' && 'success' || 'failure' }}
+          STATUS_DESCRIPTION: ${{ job.status == 'success' && 'Preview end-to-end tests passed' || 'Preview end-to-end tests failed' }}
+          TARGET_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          if [[ ! "${STATUS_SHA}" =~ ^[0-9a-fA-F]{40}$ ]]; then
+            echo "Commit SHA must be the 40-character client_payload.git.sha or workflow_dispatch sha input."
+            exit 1
+          fi
+          echo "preview-e2e status: ${STATUS_STATE}"
+          gh api \
+            --method POST \
+            --silent \
+            --header "Accept: application/vnd.github+json" \
+            --header "X-GitHub-Api-Version: 2022-11-28" \
+            "/repos/${GITHUB_REPOSITORY}/statuses/${STATUS_SHA}" \
+            --raw-field state="${STATUS_STATE}" \
+            --raw-field context="preview-e2e" \
+            --raw-field target_url="${TARGET_URL}" \
+            --raw-field description="${STATUS_DESCRIPTION}"
