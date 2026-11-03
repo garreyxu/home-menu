@@ -1,19 +1,28 @@
 /**
- * In-memory per-IP login failure limiter: 5 failures per 10 minutes.
+ * In-memory per-IP login failure limiter.
+ *
+ * Five failures inside a 15-minute counting window lock that IP for 15
+ * minutes, measured from the fifth failure. A failure stops counting once
+ * it is 15 minutes old. A successful login clears the counter.
  *
  * The counters live in this server process only. They reset when the process
  * restarts and are not shared across instances, so on Vercel each isolate has
  * its own window. This is a basic brake for v1, not a global lockout.
  */
 export const LOGIN_FAILURE_LIMIT = 5;
-export const LOGIN_WINDOW_MS = 10 * 60 * 1000;
+export const LOGIN_WINDOW_MS = 15 * 60 * 1000;
+export const LOGIN_LOCK_MS = 15 * 60 * 1000;
 
 type Bucket = {
-  failures: number;
-  windowStart: number;
+  failures: number[];
+  lockedUntil: number | null;
 };
 
 const buckets = new Map<string, Bucket>();
+
+function countingFailures(failures: number[], nowMs: number): number[] {
+  return failures.filter((timestamp) => nowMs - timestamp < LOGIN_WINDOW_MS);
+}
 
 export function resetLoginRateLimit(): void {
   buckets.clear();
@@ -22,20 +31,30 @@ export function resetLoginRateLimit(): void {
 export function isLoginRateLimited(ip: string, nowMs = Date.now()): boolean {
   const bucket = buckets.get(ip);
   if (!bucket) return false;
-  if (nowMs - bucket.windowStart >= LOGIN_WINDOW_MS) {
-    buckets.delete(ip);
-    return false;
-  }
-  return bucket.failures >= LOGIN_FAILURE_LIMIT;
+  if (bucket.lockedUntil !== null && nowMs < bucket.lockedUntil) return true;
+
+  bucket.lockedUntil = null;
+  bucket.failures = countingFailures(bucket.failures, nowMs);
+  if (bucket.failures.length === 0) buckets.delete(ip);
+  return false;
 }
 
 export function recordLoginFailure(ip: string, nowMs = Date.now()): void {
-  const bucket = buckets.get(ip);
-  if (!bucket || nowMs - bucket.windowStart >= LOGIN_WINDOW_MS) {
-    buckets.set(ip, { failures: 1, windowStart: nowMs });
-    return;
+  const existing = buckets.get(ip);
+  const bucket: Bucket = existing ?? { failures: [], lockedUntil: null };
+  if (!existing) buckets.set(ip, bucket);
+
+  if (bucket.lockedUntil !== null && nowMs >= bucket.lockedUntil) {
+    bucket.lockedUntil = null;
   }
-  bucket.failures += 1;
+  bucket.failures = countingFailures(bucket.failures, nowMs);
+  // The lock stays anchored to the fifth failure.
+  if (bucket.lockedUntil !== null) return;
+
+  bucket.failures.push(nowMs);
+  if (bucket.failures.length >= LOGIN_FAILURE_LIMIT) {
+    bucket.lockedUntil = nowMs + LOGIN_LOCK_MS;
+  }
 }
 
 export function clearLoginFailures(ip: string): void {

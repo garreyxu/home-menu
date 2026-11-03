@@ -1,6 +1,6 @@
 import { unstable_doesMiddlewareMatch } from "next/experimental/testing/server";
 import { NextRequest } from "next/server";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { config, proxy } from "@/proxy";
 import { SESSION_COOKIE_NAME, signSession } from "@/lib/auth/session";
 
@@ -39,13 +39,25 @@ describe("proxy matcher", () => {
 });
 
 describe("proxy", () => {
-  it("returns a clear 500 when SESSION_SECRET is too short", async () => {
+  it("returns a generic 500 when SESSION_SECRET is too short", async () => {
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
     process.env.SESSION_SECRET = "too-short";
-    const response = await callProxy("/");
-    expect(response.status).toBe(500);
-    const body = await response.text();
-    expect(body).toMatch(/SESSION_SECRET/);
-    expect(body).not.toContain("too-short");
+    try {
+      const response = await callProxy("/");
+      expect(response.status).toBe(500);
+      const body = await response.text();
+      expect(body).toMatch(/SESSION_SECRET/);
+      expect(body).not.toContain("too-short");
+      expect(body).not.toMatch(/length \d+/);
+      expect(body).not.toContain("too short");
+      const logged = errorSpy.mock.calls
+        .map((args) => args.join(" "))
+        .join("\n");
+      expect(logged).toContain("length 9");
+      expect(logged).not.toContain("too-short");
+    } finally {
+      errorSpy.mockRestore();
+    }
   });
 
   it("redirects anonymous HTML requests and rejects API requests", async () => {

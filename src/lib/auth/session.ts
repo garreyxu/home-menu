@@ -8,11 +8,15 @@ export const MIN_SESSION_SECRET_LENGTH = 32;
 const SESSION_SUBJECT = "family";
 
 export function assertSessionSecret(secret: string): void {
-  if (secret.length < MIN_SESSION_SECRET_LENGTH) {
-    throw new AuthConfigError(
-      "SESSION_SECRET must be set to at least 32 characters. Refusing to authenticate.",
-    );
-  }
+  if (secret.length >= MIN_SESSION_SECRET_LENGTH) return;
+  const reason = secret.length === 0 ? "missing" : "too short";
+  // Length only. Never write the secret, the username, or the password hash.
+  console.error(
+    `[auth] SESSION_SECRET is ${reason} (length ${secret.length}, expected at least ${MIN_SESSION_SECRET_LENGTH}).`,
+  );
+  throw new AuthConfigError(
+    "SESSION_SECRET must be set to at least 32 characters. Refusing to authenticate.",
+  );
 }
 
 export function readSessionSecret(): string {

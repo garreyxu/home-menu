@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { decideAccess } from "@/lib/auth/guard";
 import { signSession } from "@/lib/auth/session";
 
@@ -21,13 +21,23 @@ async function access(
 
 describe("decideAccess", () => {
   it("fails closed when the session secret is missing or short", async () => {
-    for (const secret of [undefined, "", "short-secret-value"]) {
-      const decision = await access({ secret });
-      expect(decision.kind).toBe("misconfigured");
-      if (decision.kind === "misconfigured") {
-        expect(decision.message).toMatch(/SESSION_SECRET/);
-        expect(decision.message).not.toContain("short-secret-value");
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    try {
+      for (const secret of [undefined, "", "short-secret-value"]) {
+        const decision = await access({ secret });
+        expect(decision.kind).toBe("misconfigured");
+        if (decision.kind === "misconfigured") {
+          expect(decision.message).toMatch(/SESSION_SECRET/);
+          expect(decision.message).not.toContain("short-secret-value");
+          expect(decision.message).not.toMatch(/length \d+/);
+        }
       }
+      const logged = errorSpy.mock.calls
+        .map((args) => args.join(" "))
+        .join("\n");
+      expect(logged).not.toContain("short-secret-value");
+    } finally {
+      errorSpy.mockRestore();
     }
   });
 
