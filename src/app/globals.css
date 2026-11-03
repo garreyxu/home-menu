@@ -13,8 +13,9 @@
   --color-sand: #f3e3c3;
   --color-cream: #fff6e3;
   --color-coral: #e2533b;
+  /* Darker coral for white button text and for small text on cream (>= 4.5:1). */
   --color-coral-deep: #b43322;
-  --color-coral-ink: #b54432;
+  --color-sand-deep: #e7d3ae;
   --color-sun: #f6c445;
   --color-ink: #2b1e16;
   /* Spec token "muted". Shadcn already uses --color-muted for a surface. */
@@ -86,11 +87,11 @@
   --primary-foreground: #ffffff;
   --secondary: #fff6e3;
   --secondary-foreground: #2b1e16;
-  --muted: #e7d3ae;
+  --muted: var(--color-sand-deep);
   --muted-foreground: #7a6650;
   --accent: #1f8a8a;
   --accent-foreground: #ffffff;
-  --destructive: #b54432;
+  --destructive: var(--color-coral-deep);
   --border: #2b1e16;
   --input: #2b1e16;
   --ring: #1f8a8a;
@@ -108,40 +109,6 @@
   --sidebar-accent-foreground: oklch(0.205 0 0);
   --sidebar-border: oklch(0.922 0 0);
   --sidebar-ring: oklch(0.708 0 0);
-}
-
-.dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.556 0 0);
 }
 
 @layer base {

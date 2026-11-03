@@ -46,7 +46,7 @@ The UI source of truth is [docs/design/design-spec-pixel-seaside.md](docs/design
 
 Pixel borders and buttons are CSS (2px ink border, 2px clipped corners, 4px solid offset shadow). Scene and category slots expose `data-asset` so image files can replace that CSS later without changing the component tree. There are no bitmap assets in this version.
 
-Colors from the spec are Tailwind theme tokens (`sea`, `sea-deep`, `sand`, `cream`, `coral`, `sun`, `ink`, `kelp`). The spec's `muted` text color is the `driftwood` token, because shadcn already uses `muted` for a surface. White on the spec coral (`#E2533B`) measures about 3.8:1, so button fills use `coral-deep` (`#B43322`, about 6.1:1 with white) and small coral text uses `coral-ink` (`#B54432`, about 5.1:1 on cream).
+Colors from the spec are Tailwind theme tokens (`sea`, `sea-deep`, `sand`, `cream`, `coral`, `sun`, `ink`, `kelp`). The spec's `muted` text color is the `driftwood` token, because shadcn already uses `muted` for a surface. White on the spec coral (`#E2533B`) measures about 3.8:1, so buttons and small coral text use `coral-deep` (`#B43322`: about 6.1:1 with white, and above 4.5:1 on cream). `sand-deep` (`#E7D3AE`) is the darker sand used for the plate rim and skeletons.
 
 ## Fonts
 

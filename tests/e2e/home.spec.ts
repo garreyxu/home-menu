@@ -19,6 +19,9 @@ test.describe("dish wall", () => {
     await expect(
       page.getByRole("heading", { name: "紫菜蛋花汤" }),
     ).toBeVisible();
+    await expect(page.getByRole("button", { name: "+加到哪天" })).toHaveCount(
+      0,
+    );
 
     const soup = page.getByRole("link", { name: "汤品" });
     await expect(soup).toHaveAttribute("href", /\?category=/);

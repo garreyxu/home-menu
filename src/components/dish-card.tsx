@@ -1,5 +1,5 @@
 import Image from "next/image";
-import { PixelButton, PixelFrame } from "@/components/pixel-frame";
+import { PixelFrame } from "@/components/pixel-frame";
 import { Card } from "@/components/ui/card";
 
 export type DishCardProps = {
@@ -69,15 +69,6 @@ export function DishCard({
         <p className="font-pixel pixel-type text-pixel-1 text-driftwood">
           {categoryName}
         </p>
-        <PixelButton
-          type="button"
-          tone="coral"
-          size="sm"
-          disabled
-          className="mt-auto w-full"
-        >
-          +加到哪天
-        </PixelButton>
       </Card>
     </PixelFrame>
   );
@@ -90,7 +81,6 @@ export function DishCardSkeleton() {
         <div className="pixel-skeleton pixel-inset aspect-square" />
         <div className="pixel-skeleton h-5 w-2/3" />
         <div className="pixel-skeleton h-4 w-1/3" />
-        <div className="pixel-skeleton mt-auto h-11 w-full" />
       </div>
     </PixelFrame>
   );

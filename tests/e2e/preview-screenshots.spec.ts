@@ -1,0 +1,35 @@
+import { mkdir } from "node:fs/promises";
+import { expect, test } from "@playwright/test";
+import { e2eCredentials, login } from "./credentials";
+
+const credentials = e2eCredentials();
+
+const widths = [
+  { width: 390, height: 844 },
+  { width: 1440, height: 900 },
+  { width: 3440, height: 1440 },
+] as const;
+
+test("signed-in dish wall screenshots", async ({ page }) => {
+  test.skip(
+    !process.env.PREVIEW_SCREENSHOTS,
+    "preview screenshots run only in preview-e2e",
+  );
+  test.skip(!credentials, "E2E_USERNAME and E2E_PASSWORD are not set");
+  const { username, password } = credentials!;
+
+  await login(page, username, password);
+  await mkdir("preview-screenshots", { recursive: true });
+
+  for (const viewport of widths) {
+    await page.setViewportSize(viewport);
+    await page.goto("/");
+    await expect(
+      page.getByRole("heading", { name: "我家海上食堂", level: 1 }),
+    ).toBeVisible();
+    await page.screenshot({
+      path: `preview-screenshots/dish-wall-${viewport.width}.png`,
+      fullPage: true,
+    });
+  }
+});

@@ -161,7 +161,7 @@
     2% 70%,
     2% 30%
   );
-  box-shadow: inset 0 0 0 6px #e7d3ae;
+  box-shadow: inset 0 0 0 6px var(--color-sand-deep);
 }
 
 .dish-badge {
@@ -175,7 +175,7 @@
 }
 
 .pixel-skeleton {
-  background-color: #e7d3ae;
+  background-color: var(--color-sand-deep);
   background-image:
     linear-gradient(45deg, #f3e3c3 25%, transparent 25%),
     linear-gradient(-45deg, #f3e3c3 25%, transparent 25%),
@@ -209,6 +209,13 @@
   margin-inline: -1rem;
   background: var(--color-sand);
   padding: 12px 16px 8px;
+}
+
+/* sm:px-6 is 24px; -1rem leaves 8px of page padding on each side. */
+@media (min-width: 640px) and (max-width: 1023px) {
+  .category-nav {
+    margin-inline: -1.5rem;
+  }
 }
 
 .category-nav-list {

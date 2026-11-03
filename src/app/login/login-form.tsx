@@ -1,12 +1,11 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useEffect, useRef } from "react";
 import { login } from "@/app/login/actions";
 import { PixelButton, PixelFrame } from "@/components/pixel-frame";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import type { LoginState } from "@/lib/auth/messages";
-import { cn } from "@/lib/utils";
 
 const fieldClass =
   "h-11 rounded-none border-2 border-ink bg-cream px-3 text-base text-ink shadow-none focus-visible:border-sea focus-visible:ring-2 focus-visible:ring-sun";
@@ -16,10 +15,28 @@ export function LoginForm({ nextPath }: { nextPath: string }) {
     LoginState | null,
     FormData
   >(login, null);
+  const signRef = useRef<HTMLDivElement>(null);
   const invalid = Boolean(state?.error);
 
+  useEffect(() => {
+    const sign = signRef.current;
+    if (!sign || !state?.error) return;
+    // Remove and re-add so a later failure replays the one-shot animation.
+    sign.classList.remove("pixel-shake");
+    void sign.offsetWidth;
+    sign.classList.add("pixel-shake");
+  }, [state]);
+
   return (
-    <div className={cn("w-full max-w-sm", invalid && "pixel-shake")}>
+    <div
+      ref={signRef}
+      className="w-full max-w-sm"
+      onAnimationEnd={(event) => {
+        if (event.target !== event.currentTarget) return;
+        if (event.animationName !== "pixel-shake") return;
+        event.currentTarget.classList.remove("pixel-shake");
+      }}
+    >
       <PixelFrame faceClassName="flex flex-col gap-5 px-5 py-6 sm:px-6">
         <form action={formAction} className="flex flex-col gap-5">
           <div className="flex flex-col gap-1 text-center">
@@ -60,7 +77,11 @@ export function LoginForm({ nextPath }: { nextPath: string }) {
             />
           </div>
           {state?.error ? (
-            <p id="login-error" role="alert" className="text-sm text-coral-ink">
+            <p
+              id="login-error"
+              role="alert"
+              className="text-sm text-coral-deep"
+            >
               {state.error}
             </p>
           ) : null}
