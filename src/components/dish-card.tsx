@@ -12,6 +12,7 @@ export type DishCardProps = {
    * must not be passed here.
    */
   photoUrl?: string | null;
+  tried?: boolean;
   plannedCount?: number;
   action?: ReactNode;
 };
@@ -20,6 +21,7 @@ export function DishCard({
   name,
   categoryName,
   photoUrl = null,
+  tried = false,
   plannedCount = 0,
   action = null,
 }: DishCardProps) {
@@ -71,6 +73,7 @@ export function DishCard({
         </h3>
         <p className="font-pixel pixel-type text-pixel-1 text-driftwood">
           {categoryName}
+          {tried ? <span className="text-kelp"> 做过</span> : null}
         </p>
         {action}
       </Card>

@@ -1,0 +1,202 @@
+import { describe, expect, it } from "vitest";
+
+import { fetchNotionSnapshots } from "@/server/notion/client";
+import {
+  assertDownloadUrl,
+  fileIdentity,
+  sniffImage,
+} from "@/server/notion/photo";
+import { dishPhotoUrl } from "@/lib/dish-photo";
+
+const DATABASE = "ff95d9e8-3ae1-44ff-aaa4-61286c9652ad";
+const DATA_SOURCE = "b8a7d4f9-5bfd-4ed3-bacd-5a5298796038";
+const TRIED = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa";
+const UNTRIED = "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb";
+const TOKEN = "ntn_supersecretvalue";
+
+function json(body: unknown, status = 200): Response {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { "content-type": "application/json" },
+  });
+}
+
+describe("fetchNotionSnapshots", () => {
+  it("queries the data source, follows the cursor, and reads blocks only for tried pages", async () => {
+    const calls: { url: string; body?: string; version?: string | null }[] = [];
+    const fetchImpl: typeof fetch = async (input, init) => {
+      const url = String(input);
+      calls.push({
+        url,
+        body: typeof init?.body === "string" ? init.body : undefined,
+        version: new Headers(init?.headers).get("Notion-Version"),
+      });
+      if (url.endsWith(`/databases/${DATABASE}`)) {
+        return json({
+          data_sources: [{ id: DATA_SOURCE, name: "Recipe" }],
+        });
+      }
+      if (url.endsWith(`/data_sources/${DATA_SOURCE}`)) {
+        return json({
+          properties: {
+            菜名: { type: "title" },
+            "已尝试?": { type: "checkbox" },
+          },
+        });
+      }
+      if (url.endsWith(`/data_sources/${DATA_SOURCE}/query`)) {
+        const body = JSON.parse(String(init?.body)) as {
+          start_cursor?: string;
+        };
+        if (!body.start_cursor) {
+          return json({
+            results: [
+              {
+                id: UNTRIED,
+                properties: {
+                  菜名: { type: "title", title: [{ plain_text: "青菜" }] },
+                  "已尝试?": { type: "checkbox", checkbox: false },
+                },
+                cover: null,
+              },
+            ],
+            has_more: true,
+            next_cursor: "cursor-2",
+          });
+        }
+        return json({
+          results: [
+            {
+              id: TRIED,
+              properties: {
+                菜名: { type: "title", title: [{ plain_text: "红烧肉" }] },
+                "已尝试?": { type: "checkbox", checkbox: true },
+              },
+              cover: null,
+            },
+          ],
+          has_more: false,
+          next_cursor: null,
+        });
+      }
+      if (url.includes(`/blocks/${TRIED}/children`)) {
+        return json({
+          results: [
+            {
+              id: "step",
+              type: "paragraph",
+              paragraph: { rich_text: [{ plain_text: "炖" }] },
+              has_children: false,
+            },
+          ],
+          has_more: false,
+          next_cursor: null,
+        });
+      }
+      if (url.includes(`/blocks/${UNTRIED}/`)) {
+        throw new Error("untried page body was requested");
+      }
+      return json({ message: "unexpected" }, 500);
+    };
+
+    const pages = await fetchNotionSnapshots({
+      token: TOKEN,
+      databaseId: DATABASE,
+      dataSourceId: DATA_SOURCE,
+      fetchImpl,
+      minIntervalMs: 0,
+    });
+
+    expect(calls.map((call) => call.version)).toEqual([
+      "2026-03-11",
+      "2026-03-11",
+      "2026-03-11",
+      "2026-03-11",
+      "2026-03-11",
+    ]);
+    expect(calls[2]?.body).not.toContain("start_cursor");
+    expect(calls[3]?.body).toContain("cursor-2");
+    expect(
+      calls.some(
+        (call) =>
+          call.url.includes("/databases/") && call.url.includes("/query"),
+      ),
+    ).toBe(false);
+    expect(pages.map((page) => page.id)).toEqual([UNTRIED, TRIED]);
+    expect(pages[1]?.blocks).toEqual([
+      expect.objectContaining({ id: "step", type: "paragraph" }),
+    ]);
+    expect(pages[0]?.blocks).toEqual([]);
+  });
+
+  it("stops before changing anything when 已尝试? is not a checkbox", async () => {
+    const fetchImpl: typeof fetch = async (input) => {
+      const url = String(input);
+      if (url.includes("/databases/")) {
+        return json({ data_sources: [{ id: DATA_SOURCE }] });
+      }
+      return json({
+        properties: { "已尝试?": { type: "select" } },
+      });
+    };
+
+    await expect(
+      fetchNotionSnapshots({
+        token: TOKEN,
+        databaseId: DATABASE,
+        dataSourceId: DATA_SOURCE,
+        fetchImpl,
+        minIntervalMs: 0,
+      }),
+    ).rejects.toThrow("没有改菜单");
+  });
+
+  it("does not include the token when Notion rejects the request", async () => {
+    const fetchImpl: typeof fetch = async () => json({ message: TOKEN }, 401);
+    await expect(
+      fetchNotionSnapshots({
+        token: TOKEN,
+        databaseId: DATABASE,
+        dataSourceId: DATA_SOURCE,
+        fetchImpl,
+        minIntervalMs: 0,
+      }),
+    ).rejects.toThrow(/NOTION_TOKEN/);
+    try {
+      await fetchNotionSnapshots({
+        token: TOKEN,
+        databaseId: DATABASE,
+        dataSourceId: DATA_SOURCE,
+        fetchImpl,
+        minIntervalMs: 0,
+      });
+    } catch (error) {
+      expect(error instanceof Error ? error.message : "").not.toContain(TOKEN);
+    }
+  });
+});
+
+describe("photo safety", () => {
+  it("rejects unsafe urls and ignores the expiring query string", () => {
+    expect(() => assertDownloadUrl("http://cdn.example/a.jpg")).toThrow(
+      "不是 https",
+    );
+    expect(() => assertDownloadUrl("https://127.0.0.1/a.jpg")).toThrow(
+      "不安全",
+    );
+    expect(() => assertDownloadUrl("https://169.254.169.254/latest")).toThrow(
+      "不安全",
+    );
+    expect(fileIdentity("https://cdn.example/a.jpg?X-Amz-Signature=abc")).toBe(
+      "cdn.example/a.jpg",
+    );
+    expect(sniffImage(Uint8Array.of(0xff, 0xd8, 0xff))).toBe("image/jpeg");
+    expect(sniffImage(new TextEncoder().encode("<svg></svg>"))).toBeNull();
+  });
+
+  it("does not turn a public url into a photo address", () => {
+    expect(dishPhotoUrl("abc", "dishes/abc")).toBe("/api/photos/abc");
+    expect(dishPhotoUrl("abc", "https://cdn.example/a.jpg")).toBeNull();
+    expect(dishPhotoUrl("abc", null)).toBeNull();
+  });
+});

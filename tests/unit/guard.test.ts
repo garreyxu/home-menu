@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { decideAccess } from "@/lib/auth/guard";
+import { NOTION_CRON_PATH } from "@/lib/notion-cron";
 import { signSession } from "@/lib/auth/session";
 
 const SECRET = "unit-test-session-secret-not-for-production";
@@ -50,6 +51,27 @@ describe("decideAccess", () => {
       expect(url.pathname).toBe("/login");
       expect(url.searchParams.get("next")).toBe("/week?d=1");
     }
+  });
+
+  it("allows the Notion cron only with the bearer secret", async () => {
+    const secret = "cron-secret-value";
+    await expect(
+      access({ pathname: NOTION_CRON_PATH, cronSecret: secret }),
+    ).resolves.toEqual({ kind: "unauthorized" });
+    await expect(
+      access({
+        pathname: NOTION_CRON_PATH,
+        authorization: "Bearer wrong-secret-value",
+        cronSecret: secret,
+      }),
+    ).resolves.toEqual({ kind: "unauthorized" });
+    await expect(
+      access({
+        pathname: NOTION_CRON_PATH,
+        authorization: `Bearer ${secret}`,
+        cronSecret: secret,
+      }),
+    ).resolves.toEqual({ kind: "allow", authenticated: false });
   });
 
   it("returns 401-shaped unauthorized for anonymous API requests", async () => {

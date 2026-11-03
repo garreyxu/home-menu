@@ -17,11 +17,13 @@
     "format": "prettier --write .",
     "test": "vitest run",
     "test:e2e": "playwright test",
-    "auth:hash": "node scripts/auth-hash.mjs"
+    "auth:hash": "node scripts/auth-hash.mjs",
+    "notion:import": "tsx scripts/notion-import.ts"
   },
   "dependencies": {
     "@base-ui/react": "^1.9.0",
     "@neondatabase/serverless": "^1.2.0",
+    "@vercel/blob": "^2.8.2",
     "bcryptjs": "^3.0.3",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",

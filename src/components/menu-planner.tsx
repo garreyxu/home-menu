@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { addDishToSlot, removeDishFromSlot } from "@/app/week-actions";
 import { AddToDay } from "@/components/add-to-day";
 import { DishCard } from "@/components/dish-card";
+import { NotionSyncButton } from "@/components/notion-sync-button";
 import { EmptyMenu } from "@/components/empty-menu";
 import { PixelButton } from "@/components/pixel-frame";
 import { WeekBoard } from "@/components/week-board";
@@ -20,6 +21,8 @@ export type PlannerDish = {
   id: string;
   name: string;
   categoryName: string;
+  photoUrl?: string | null;
+  tried?: boolean;
 };
 
 type Toast = { tone: "ok" | "err"; text: string };
@@ -204,17 +207,20 @@ export function MenuPlanner({
               道菜
             </p>
           </div>
-          <PixelButton
-            type="button"
-            tone="cream"
-            size="sm"
-            className="week-drawer-toggle"
-            aria-expanded={drawerOpen}
-            aria-controls="week-drawer"
-            onClick={() => setDrawerOpen((open) => !open)}
-          >
-            本周 {items.length}
-          </PixelButton>
+          <div className="flex w-full min-w-0 max-w-full flex-wrap items-end justify-end gap-3 sm:w-auto">
+            <NotionSyncButton />
+            <PixelButton
+              type="button"
+              tone="cream"
+              size="sm"
+              className="week-drawer-toggle"
+              aria-expanded={drawerOpen}
+              aria-controls="week-drawer"
+              onClick={() => setDrawerOpen((open) => !open)}
+            >
+              本周 {items.length}
+            </PixelButton>
+          </div>
         </div>
         {emptyMessage ? (
           <EmptyMenu message={emptyMessage} />
@@ -232,7 +238,8 @@ export function MenuPlanner({
                   <DishCard
                     name={dish.name}
                     categoryName={dish.categoryName}
-                    photoUrl={null}
+                    photoUrl={dish.photoUrl}
+                    tried={dish.tried}
                     plannedCount={plannedCount}
                     action={
                       <AddToDay
