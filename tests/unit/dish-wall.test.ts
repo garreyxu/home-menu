@@ -1,6 +1,7 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { categoryFilterHref } from "@/lib/category-filter";
+import { listDishesByCategory } from "@/server/menu";
 import { sampleDishCatalog } from "@/server/sample-catalog";
 import {
   buildDishWall,
@@ -212,6 +213,42 @@ describe("sampleDishCatalog", () => {
     );
     expect(catalog.flatMap((category) => category.dishes)).toHaveLength(12);
   });
+});
+
+describe("listDishesByCategory", () => {
+  const originalDatabaseUrl = process.env.DATABASE_URL;
+  const originalVercelEnv = process.env.VERCEL_ENV;
+
+  afterEach(() => {
+    if (originalDatabaseUrl === undefined) delete process.env.DATABASE_URL;
+    else process.env.DATABASE_URL = originalDatabaseUrl;
+    if (originalVercelEnv === undefined) delete process.env.VERCEL_ENV;
+    else process.env.VERCEL_ENV = originalVercelEnv;
+    vi.restoreAllMocks();
+  });
+
+  it("uses the sample catalog when DATABASE_URL and VERCEL_ENV are unset", async () => {
+    delete process.env.DATABASE_URL;
+    delete process.env.VERCEL_ENV;
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    await expect(listDishesByCategory()).resolves.toEqual(sampleDishCatalog());
+    expect(error).not.toHaveBeenCalled();
+  });
+
+  it.each(["production", "preview", "development"])(
+    "throws when DATABASE_URL is missing and VERCEL_ENV is %s",
+    async (vercelEnv) => {
+      delete process.env.DATABASE_URL;
+      process.env.VERCEL_ENV = vercelEnv;
+      const error = vi.spyOn(console, "error").mockImplementation(() => {});
+
+      await expect(listDishesByCategory()).rejects.toThrow(
+        "DATABASE_URL is not set.",
+      );
+      expect(error).toHaveBeenCalledWith("[db] DATABASE_URL is not set.");
+    },
+  );
 });
 
 describe("categoryFilterHref", () => {

@@ -56,11 +56,15 @@ export async function listCategoriesWithDishes(): Promise<
 
 /**
  * Categories by sort_order, each with its active dishes by name.
- * When DATABASE_URL is unset, returns the committed sample catalog so local
- * dev and CI can render the dish wall without Neon.
+ * Off Vercel, a missing DATABASE_URL uses the committed sample catalog so
+ * local dev and CI can render without Neon. On Vercel it fails closed.
  */
 export async function listDishesByCategory(): Promise<CategoryWithDishes[]> {
   if (!process.env.DATABASE_URL?.trim()) {
+    if (process.env.VERCEL_ENV?.trim()) {
+      console.error("[db] DATABASE_URL is not set.");
+      throw new Error("DATABASE_URL is not set.");
+    }
     return sampleDishCatalog();
   }
 

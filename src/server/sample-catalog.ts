@@ -5,7 +5,7 @@ import {
   type CategoryWithDishes,
 } from "@/server/menu-view";
 
-/** Sample menu used only when DATABASE_URL is unset. Ids are stable, not UUIDs. */
+/** Sample menu for local dev and CI when DATABASE_URL is unset. Ids are stable, not UUIDs. */
 export function sampleDishCatalog(): CategoryWithDishes[] {
   const rows: CategoryDishJoinRow[] = [];
 

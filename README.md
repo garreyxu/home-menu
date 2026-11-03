@@ -108,7 +108,7 @@ Two phones can add the same dish at once: the insert uses `ON CONFLICT DO NOTHIN
 The server client is `getDb()` in `src/server/db/index.ts`. It reads `DATABASE_URL` (the Neon pooled URL) and is marked `server-only`. Query helpers in `src/server/menu.ts`:
 
 - `listCategoriesWithDishes()` — categories by `sort_order`, each with its dishes (including inactive) by name. `photo_key` is returned as stored.
-- `listDishesByCategory()` — categories by `sort_order`, each with its active dishes by name. `photo_key` stays a storage key. When `DATABASE_URL` is unset, this returns the sample catalog from `src/server/db/seed-data.ts` so the dish wall and its tests can run without Neon. A configured database is the source of truth.
+- `listDishesByCategory()` — categories by `sort_order`, each with its active dishes by name. `photo_key` stays a storage key. When `DATABASE_URL` is unset and `VERCEL_ENV` is unset, this returns the sample catalog from `src/server/db/seed-data.ts` so local dev and CI can render without Neon. On Vercel (`VERCEL_ENV` set to any value), a missing `DATABASE_URL` throws and is logged. A configured database is the source of truth.
 - `getOrCreateWeek(weekStart)` — `weekStart` is a `YYYY-MM-DD` Sunday.
 - `addMenuItem({ weekStart, dayOfWeek, meal, dishId })` — creates the week if needed, then inserts. A conflicting row is left in place.
 - `removeMenuItem({ weekStart, dayOfWeek, meal, dishId })` — deletes that row.
