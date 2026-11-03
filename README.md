@@ -13,7 +13,7 @@ cp .env.example .env.local   # set the auth variables below; set DATABASE_URL wh
 pnpm dev
 ```
 
-Open [http://127.0.0.1:3000](http://127.0.0.1:3000). Until you sign in, pages redirect to `/login`. The home page is a placeholder (`家庭菜单 · 建设中`). If `SESSION_SECRET` is missing or shorter than 32 characters, the server refuses every request with a clear error instead of signing a session.
+Open [http://127.0.0.1:3000](http://127.0.0.1:3000). Until you sign in, pages redirect to `/login`. The home page is a placeholder (`家庭菜单 · 建设中`). If `SESSION_SECRET` is missing or shorter than 32 characters, the server refuses every request with a generic 500 instead of signing a session. The server log says whether the secret is missing or too short and records its length only.
 
 End-to-end tests need the Chromium browser that Playwright downloads:
 
@@ -68,13 +68,13 @@ The proxy runs for every path except `/_next/static`, `/_next/image`, `/favicon.
 
 The proxy is the outer gate, not the only one. Every Server Action, route handler, and server component that reads data must call `requireSession()` from `src/lib/auth/require-session.ts`. Route handlers that respond with JSON use `requireApiSession()` and return that 401 response when it is not null. Do not rely on the proxy alone. The login action and POST `/logout` are the exceptions, because they run before a session exists. The home page calls `requireSession()`.
 
-Login allows 5 failures per IP per 10 minutes, then rejects further attempts until the window passes. The counter is in memory on that server instance only. It resets on restart and is not shared across instances.
+Five failed logins from one IP inside a 15-minute window lock that IP for 15 minutes, counted from the fifth failure. A failure stops counting once it is 15 minutes old, and a successful login clears the counter. The counter is in memory on that server instance only. It resets on restart and is not shared across instances.
 
 End-to-end tests that sign in read `E2E_USERNAME` and `E2E_PASSWORD`. They are skipped when either variable is unset. The dev server still needs `AUTH_USERNAME` (the same username), `AUTH_PASSWORD_HASH` (the hash of `E2E_PASSWORD`), and `SESSION_SECRET`. The `ci` job generates a throwaway password, bcrypt hash, and session secret at runtime and does not store them. `preview-e2e` passes the `E2E_USERNAME` and `E2E_PASSWORD` GitHub Actions secrets and skips login tests when they are absent. The preview deployment itself needs the three auth variables above.
 
 ## Deploying auth
 
-Set `AUTH_USERNAME`, `AUTH_PASSWORD_HASH`, and `SESSION_SECRET` on the Vercel project for both Production and Preview before merging. If any of them is missing, or `SESSION_SECRET` is shorter than 32 characters, the deployed site returns 500 instead of the login page.
+Set `AUTH_USERNAME`, `AUTH_PASSWORD_HASH`, and `SESSION_SECRET` on the Vercel project for both Production and Preview before merging. If any of them is missing, `SESSION_SECRET` is shorter than 32 characters, or `AUTH_PASSWORD_HASH` is not a 60-character `$2a$` / `$2b$` / `$2y$` bcrypt hash, the deployed site returns a generic 500. The server log names the failed check (missing, wrong prefix, or wrong length for the hash; missing or too short, with the length only, for the secret) and does not include the hash, the username, or the secret.
 
 Preview must use a different username and password from production. Put that preview pair in the GitHub Actions secrets `E2E_USERNAME` and `E2E_PASSWORD`. Do not reuse the production password there.
 
