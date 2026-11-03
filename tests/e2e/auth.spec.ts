@@ -36,8 +36,10 @@ test("unauthenticated visit to / redirects to /login", async ({ page }) => {
   expect(url.pathname).toBe("/login");
   expect(url.searchParams.get("next")).toBe("/");
   await expect(page.locator("html")).toHaveAttribute("lang", "zh-CN");
-  await expect(page.getByRole("heading", { name: "登录" })).toBeVisible();
-  await expect(page.getByRole("button", { name: "登录" })).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "我家海上食堂" }),
+  ).toBeVisible();
+  await expect(page.getByRole("button", { name: "开店" })).toBeVisible();
 });
 
 test.describe("credential login", () => {
@@ -51,7 +53,7 @@ test.describe("credential login", () => {
     await page.goto("/login");
     await page.getByLabel("用户名").fill(username);
     await page.getByLabel("密码").fill(wrong);
-    await page.getByRole("button", { name: "登录" }).click();
+    await page.getByRole("button", { name: "开店" }).click();
 
     await expect(page.getByText("用户名或密码不对")).toBeVisible();
     await expect(page).toHaveURL(/\/login/);
@@ -65,20 +67,38 @@ test.describe("credential login", () => {
     await page.goto("/login?next=%2F");
     await page.getByLabel("用户名").fill(username);
     await page.getByLabel("密码").fill(password);
-    await page.getByRole("button", { name: "登录" }).click();
+    await page.getByRole("button", { name: "开店" }).click();
 
     await expect(page).toHaveURL("/");
     await expect(
-      page.getByRole("heading", { name: "家庭菜单 · 建设中" }),
+      page.getByRole("heading", { name: "我家海上食堂" }),
     ).toBeVisible();
+    await expect(page.getByRole("heading", { name: "番茄炒蛋" })).toBeVisible();
 
     const logoutForm = page.locator('form[action="/logout"]');
     await expect(logoutForm).toHaveAttribute("method", "post");
+    const logoutResponse = page.waitForResponse((response) => {
+      return (
+        response.request().method() === "POST" &&
+        new URL(response.url()).pathname === "/logout"
+      );
+    });
     await logoutForm.getByRole("button", { name: "退出" }).click();
+    const posted = await logoutResponse;
+    expect(posted.status()).toBe(303);
+    expect(posted.headers()["cache-control"] ?? "").toMatch(/no-store/i);
     await expect(page).toHaveURL(/\/login/);
     expect(new URL(page.url()).pathname).toBe("/login");
 
+    await page.goBack();
+    await expect(page.getByRole("heading", { name: "番茄炒蛋" })).toHaveCount(
+      0,
+    );
+
     await page.goto("/");
     await expect(page).toHaveURL(/\/login/);
+    await expect(page.getByRole("heading", { name: "番茄炒蛋" })).toHaveCount(
+      0,
+    );
   });
 });

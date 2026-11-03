@@ -48,7 +48,7 @@ jobs:
       - name: Install Playwright Chromium
         run: pnpm exec playwright install --with-deps chromium
 
-      # No artifacts: this repo is public, and a trace or HTML report can leak the bypass header.
+      # Traces and the HTML report stay off: this repo is public and they can leak the bypass header.
       - name: End-to-end tests against the preview
         env:
           PLAYWRIGHT_BASE_URL: ${{ github.event.deployment_status.environment_url || github.event.deployment_status.target_url }}
@@ -66,3 +66,29 @@ jobs:
             echo "E2E_USERNAME or E2E_PASSWORD is unset; login tests will skip."
           fi
           pnpm exec playwright test --trace off
+
+      # Page images only. Do not upload traces; those can contain the bypass header.
+      - name: Screenshot the signed-in dish wall
+        env:
+          PLAYWRIGHT_BASE_URL: ${{ github.event.deployment_status.environment_url || github.event.deployment_status.target_url }}
+          VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
+          E2E_USERNAME: ${{ secrets.E2E_USERNAME }}
+          E2E_PASSWORD: ${{ secrets.E2E_PASSWORD }}
+          PLAYWRIGHT_TRACE: off
+          PREVIEW_SCREENSHOTS: "1"
+        run: |
+          if [ -z "${E2E_USERNAME}" ] || [ -z "${E2E_PASSWORD}" ]; then
+            echo "E2E credentials are unset; skipping preview screenshots."
+            exit 0
+          fi
+          pnpm exec playwright test tests/e2e/preview-screenshots.spec.ts --trace off
+
+      - name: Upload preview screenshots
+        if: always()
+        continue-on-error: true
+        uses: actions/upload-artifact@v7
+        with:
+          name: preview-screenshots
+          path: preview-screenshots/
+          retention-days: 14
+          if-no-files-found: ignore

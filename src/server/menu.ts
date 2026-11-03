@@ -4,7 +4,9 @@ import { and, asc, eq } from "drizzle-orm";
 
 import { getDb } from "@/server/db";
 import { categories, dishes, menuItems, weeklyMenus } from "@/server/db/schema";
+import { sampleDishCatalog } from "@/server/sample-catalog";
 import {
+  groupActiveDishesByCategory,
   groupCategoriesWithDishes,
   orderMenuItems,
   type CategoryWithDishes,
@@ -50,6 +52,42 @@ export async function listCategoriesWithDishes(): Promise<
     .orderBy(asc(categories.sortOrder), asc(categories.name), asc(dishes.name));
 
   return groupCategoriesWithDishes(rows);
+}
+
+/**
+ * Categories by sort_order, each with its active dishes by name.
+ * Off Vercel, a missing DATABASE_URL uses the committed sample catalog so
+ * local dev and CI can render without Neon. On Vercel it fails closed.
+ */
+export async function listDishesByCategory(): Promise<CategoryWithDishes[]> {
+  if (!process.env.DATABASE_URL?.trim()) {
+    if (process.env.VERCEL_ENV?.trim()) {
+      console.error("[db] DATABASE_URL is not set.");
+      throw new Error("DATABASE_URL is not set.");
+    }
+    return sampleDishCatalog();
+  }
+
+  const rows = await getDb()
+    .select({
+      categoryId: categories.id,
+      categoryName: categories.name,
+      sortOrder: categories.sortOrder,
+      dishId: dishes.id,
+      notionPageId: dishes.notionPageId,
+      dishName: dishes.name,
+      description: dishes.description,
+      photoKey: dishes.photoKey,
+      isActive: dishes.isActive,
+    })
+    .from(categories)
+    .leftJoin(
+      dishes,
+      and(eq(dishes.categoryId, categories.id), eq(dishes.isActive, true)),
+    )
+    .orderBy(asc(categories.sortOrder), asc(categories.name), asc(dishes.name));
+
+  return groupActiveDishesByCategory(rows);
 }
 
 export async function getOrCreateWeek(weekStart: string) {

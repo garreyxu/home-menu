@@ -91,5 +91,6 @@ describe("proxy", () => {
     expect(response.headers.get("location")).toBeNull();
     expect(response.status).not.toBe(401);
     expect(response.status).not.toBe(500);
+    expect(response.headers.get("cache-control")).toBe("private, no-store");
   });
 });

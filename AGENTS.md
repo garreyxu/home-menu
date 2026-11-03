@@ -7,3 +7,7 @@ This version has breaking changes — APIs, conventions, and file structure may 
 This block is written and re-added by `next dev` — verify at `node_modules/next/dist/server/lib/generate-agent-files.js`. Removing it from a diff only re-creates the uncommitted change; committing it with your work keeps the tree clean.
 
 <!-- END:nextjs-agent-rules -->
+
+## Design
+
+The UI source of truth is [docs/design/design-spec-pixel-seaside.md](docs/design/design-spec-pixel-seaside.md). Information architecture is [docs/design/ia-and-flows.md](docs/design/ia-and-flows.md). When a concept mockup disagrees with the design spec, follow the spec.

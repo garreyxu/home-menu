@@ -1,0 +1,767 @@
+/* Pixel chrome and the seaside scene. Borders stay 2px; the scene scale
+   (--px) is 2x / 3x / 4x. Image assets can replace [data-asset] slots later.
+   Pixel type sizes live in globals.css so Tailwind can emit them. */
+
+.pixel-type {
+  font-weight: 400;
+  font-synthesis: none;
+  letter-spacing: 0;
+  -webkit-font-smoothing: none;
+  font-smooth: never;
+}
+
+.pixel-hit {
+  display: inline-flex;
+  max-width: 100%;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  text-align: inherit;
+  text-decoration: none;
+  appearance: none;
+  vertical-align: top;
+}
+
+.pixel-hit:focus-visible {
+  outline: 2px solid var(--color-ink);
+  outline-offset: 4px;
+  box-shadow: 0 0 0 2px var(--color-sun);
+}
+
+.pixel-shadow {
+  display: flex;
+  width: 100%;
+  filter: drop-shadow(4px 4px 0 rgb(43 30 22 / 25%));
+}
+
+.pixel-face {
+  display: block;
+  width: 100%;
+  border: 2px solid var(--color-ink);
+  background: var(--color-cream);
+  color: var(--color-ink);
+  clip-path: polygon(
+    2px 0,
+    calc(100% - 2px) 0,
+    100% 2px,
+    100% calc(100% - 2px),
+    calc(100% - 2px) 100%,
+    2px 100%,
+    0 calc(100% - 2px),
+    0 2px
+  );
+}
+
+.pixel-button-face {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 44px;
+  padding: 8px 12px;
+}
+
+.pixel-tone-coral .pixel-face {
+  background: var(--color-coral-deep);
+  color: #fff;
+}
+
+.pixel-tone-cream .pixel-face {
+  background: var(--color-cream);
+  color: var(--color-ink);
+}
+
+.pixel-tone-sea .pixel-face,
+.pixel-hit[aria-current="page"] .pixel-face {
+  background: var(--color-sea);
+  color: #fff;
+}
+
+.pixel-press:hover .pixel-face {
+  border-color: var(--color-sea);
+}
+
+.pixel-hit[aria-current="page"]:hover .pixel-face,
+.pixel-hit:disabled:hover .pixel-face {
+  border-color: var(--color-ink);
+}
+
+.pixel-press:active,
+.pixel-hit.is-pressed {
+  transform: translate(2px, 2px);
+}
+
+.pixel-press:active .pixel-shadow,
+.pixel-hit.is-pressed .pixel-shadow {
+  filter: none;
+}
+
+.pixel-hit:disabled {
+  cursor: not-allowed;
+}
+
+.pixel-hit:disabled.pixel-press:active {
+  transform: none;
+}
+
+.pixel-hit:disabled .pixel-shadow {
+  filter: drop-shadow(4px 4px 0 rgb(43 30 22 / 25%));
+}
+
+.pixel-hit:disabled .pixel-face {
+  background: var(--color-sand);
+  color: var(--color-ink);
+}
+
+.pixel-hit:disabled.pixel-tone-coral .pixel-face {
+  background: var(--color-coral-deep);
+  color: #fff;
+}
+
+.dish-card {
+  transition: transform 80ms steps(1, end);
+}
+
+.dish-card:hover {
+  transform: translateY(-2px);
+}
+
+.pixel-inset {
+  border: 2px solid var(--color-ink);
+  clip-path: polygon(
+    2px 0,
+    calc(100% - 2px) 0,
+    100% 2px,
+    100% calc(100% - 2px),
+    calc(100% - 2px) 100%,
+    2px 100%,
+    0 calc(100% - 2px),
+    0 2px
+  );
+  overflow: hidden;
+}
+
+.dish-plate {
+  display: grid;
+  width: 72%;
+  aspect-ratio: 1;
+  place-items: center;
+  background: var(--color-cream);
+  border: 2px solid var(--color-ink);
+  clip-path: polygon(
+    30% 2%,
+    70% 2%,
+    98% 30%,
+    98% 70%,
+    70% 98%,
+    30% 98%,
+    2% 70%,
+    2% 30%
+  );
+  box-shadow: inset 0 0 0 6px var(--color-sand-deep);
+}
+
+.dish-badge {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  border: 2px solid var(--color-ink);
+  background: var(--color-sun);
+  color: var(--color-ink);
+  padding: 2px 6px;
+}
+
+.pixel-skeleton {
+  background-color: var(--color-sand-deep);
+  background-image:
+    linear-gradient(45deg, #f3e3c3 25%, transparent 25%),
+    linear-gradient(-45deg, #f3e3c3 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, #f3e3c3 75%),
+    linear-gradient(-45deg, transparent 75%, #f3e3c3 75%);
+  background-size: 8px 8px;
+  background-position:
+    0 0,
+    0 4px,
+    4px -4px,
+    -4px 0;
+}
+
+.category-glyph {
+  display: inline-flex;
+  width: 32px;
+  height: 32px;
+  flex: none;
+}
+
+.category-glyph svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.category-nav {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  margin-inline: -1rem;
+  background: var(--color-sand);
+  padding: 12px 16px 8px;
+}
+
+/* sm:px-6 is 24px; -1rem leaves 8px of page padding on each side. */
+@media (min-width: 640px) and (max-width: 1023px) {
+  .category-nav {
+    margin-inline: -1.5rem;
+  }
+}
+
+.category-nav-list {
+  display: flex;
+  gap: 12px;
+  overflow-x: auto;
+  padding: 4px;
+}
+
+.pixel-boat {
+  position: relative;
+  width: 72px;
+  height: 56px;
+}
+
+.pixel-boat-sail {
+  position: absolute;
+  top: 0;
+  left: 30px;
+  width: 4px;
+  height: 28px;
+  background: var(--color-ink);
+}
+
+.pixel-boat-sail::before {
+  content: "";
+  position: absolute;
+  left: 4px;
+  top: 4px;
+  border-left: 18px solid #fff;
+  border-bottom: 16px solid transparent;
+  filter: drop-shadow(2px 0 0 var(--color-ink));
+}
+
+.pixel-boat-hull {
+  position: absolute;
+  left: 8px;
+  bottom: 6px;
+  width: 56px;
+  height: 16px;
+  background: #8b5a2b;
+  border: 2px solid var(--color-ink);
+  clip-path: polygon(8% 0, 92% 0, 100% 100%, 0 100%);
+}
+
+@keyframes pixel-shake {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  25% {
+    transform: translateX(-4px);
+  }
+  75% {
+    transform: translateX(4px);
+  }
+}
+
+.pixel-shake {
+  animation: pixel-shake 0.36s steps(2, end) 1;
+}
+
+/* Scene. --px is the integer asset scale: phone 2, desktop 3, ultrawide 4. */
+.seaside-scene {
+  --px: 2px;
+  position: relative;
+  height: 160px;
+  overflow: hidden;
+  background-color: #b7e6fb;
+  background-image: linear-gradient(#b7e6fb 0 46%, #8ecff2 46% 100%);
+}
+
+.seaside-scene-screen {
+  height: 100svh;
+  min-height: 100svh;
+}
+
+.scene-sky {
+  position: absolute;
+  inset: 0;
+}
+
+.scene-sea {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 0;
+  height: calc(var(--px) * 14);
+  background-color: #1f8a8a;
+  background-image: linear-gradient(
+    to bottom,
+    #3aafae 0 var(--px),
+    #1f8a8a var(--px) calc(var(--px) * 4),
+    #176f78 calc(var(--px) * 4) calc(var(--px) * 8),
+    #0e4f5c calc(var(--px) * 8) calc(var(--px) * 14)
+  );
+}
+
+.scene-sea::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image: linear-gradient(
+    to bottom,
+    rgb(215 244 242 / 85%) 0 var(--px),
+    transparent var(--px) calc(var(--px) * 4),
+    rgb(215 244 242 / 55%) calc(var(--px) * 4) calc(var(--px) * 5),
+    transparent calc(var(--px) * 5) 100%
+  );
+  animation: scene-wave 1.6s steps(2, end) infinite;
+}
+
+@keyframes scene-wave {
+  from {
+    transform: translateY(0);
+  }
+  to {
+    transform: translateY(calc(var(--px) * 2));
+  }
+}
+
+.scene-slot {
+  position: absolute;
+  bottom: 0;
+  z-index: 1;
+  width: calc(var(--px) * 78);
+  height: calc(var(--px) * 46);
+}
+
+.scene-slot-left {
+  left: 0;
+}
+
+.scene-slot-right {
+  right: 0;
+}
+
+.scene-art {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+.px-sun {
+  position: absolute;
+  top: calc(var(--px) * 3);
+  left: calc(var(--px) * 8);
+  z-index: 1;
+  width: calc(var(--px) * 8);
+  height: calc(var(--px) * 8);
+  background: #f6c445;
+  border: var(--px) solid var(--color-ink);
+}
+
+.px-cloud {
+  position: absolute;
+  z-index: 1;
+  height: calc(var(--px) * 4);
+  background: #fffef8;
+  border: var(--px) solid var(--color-ink);
+}
+
+.px-cloud span {
+  position: absolute;
+  bottom: calc(var(--px) * 2);
+  display: block;
+  height: calc(var(--px) * 4);
+  background: #fffef8;
+  border: var(--px) solid var(--color-ink);
+}
+
+.px-cloud-a {
+  top: calc(var(--px) * 5);
+  left: 34%;
+  width: calc(var(--px) * 16);
+}
+
+.px-cloud-a span:first-child {
+  left: calc(var(--px) * 2);
+  width: calc(var(--px) * 6);
+}
+
+.px-cloud-a span:last-child {
+  right: calc(var(--px) * 1);
+  width: calc(var(--px) * 5);
+  bottom: calc(var(--px) * 3);
+}
+
+.px-cloud-b {
+  top: calc(var(--px) * 8);
+  right: 18%;
+  width: calc(var(--px) * 12);
+}
+
+.px-cloud-b span {
+  left: calc(var(--px) * 3);
+  width: calc(var(--px) * 5);
+}
+
+.px-palm {
+  position: absolute;
+  bottom: calc(var(--px) * 12);
+  left: calc(var(--px) * 4);
+  width: calc(var(--px) * 20);
+  height: calc(var(--px) * 28);
+}
+
+.px-palm-trunk {
+  position: absolute;
+  bottom: 0;
+  left: calc(var(--px) * 8);
+  width: calc(var(--px) * 3);
+  height: calc(var(--px) * 16);
+  background: #8b5a2b;
+  border: var(--px) solid var(--color-ink);
+}
+
+.px-palm-leaf {
+  position: absolute;
+  top: calc(var(--px) * 4);
+  height: calc(var(--px) * 3);
+  background: #4e9f3d;
+  border: var(--px) solid var(--color-ink);
+}
+
+.px-palm-leaf-a {
+  left: 0;
+  width: calc(var(--px) * 10);
+}
+
+.px-palm-leaf-b {
+  left: calc(var(--px) * 8);
+  width: calc(var(--px) * 12);
+}
+
+.px-palm-leaf-c {
+  top: 0;
+  left: calc(var(--px) * 6);
+  width: calc(var(--px) * 4);
+  height: calc(var(--px) * 8);
+}
+
+.px-hut {
+  position: absolute;
+  right: calc(var(--px) * 4);
+  bottom: calc(var(--px) * 12);
+  width: calc(var(--px) * 36);
+}
+
+.px-roof {
+  height: calc(var(--px) * 6);
+  margin-inline: calc(var(--px) * 4);
+  background: #a33b2b;
+  border: var(--px) solid var(--color-ink);
+}
+
+.px-awning {
+  height: calc(var(--px) * 5);
+  background: repeating-linear-gradient(
+    90deg,
+    #e2533b 0 calc(var(--px) * 3),
+    #fff6e3 calc(var(--px) * 3) calc(var(--px) * 6)
+  );
+  border: var(--px) solid var(--color-ink);
+}
+
+.px-wall {
+  display: flex;
+  justify-content: space-evenly;
+  align-items: flex-end;
+  height: calc(var(--px) * 14);
+  margin-inline: calc(var(--px) * 3);
+  background: #c48a4a;
+  border: var(--px) solid var(--color-ink);
+  border-top: 0;
+}
+
+.px-window {
+  width: calc(var(--px) * 6);
+  height: calc(var(--px) * 6);
+  margin-bottom: calc(var(--px) * 3);
+  background: #8ecff2;
+  border: var(--px) solid var(--color-ink);
+}
+
+.px-door {
+  width: calc(var(--px) * 6);
+  height: calc(var(--px) * 9);
+  background: #6b3e1e;
+  border: var(--px) solid var(--color-ink);
+  border-bottom: 0;
+}
+
+.px-lantern {
+  position: absolute;
+  top: calc(var(--px) * 10);
+  right: calc(var(--px) * -1);
+  width: calc(var(--px) * 3);
+  height: calc(var(--px) * 4);
+  background: #e2533b;
+  border: var(--px) solid var(--color-ink);
+}
+
+.px-dock {
+  position: absolute;
+  right: 0;
+  bottom: calc(var(--px) * 10);
+  left: 0;
+  height: calc(var(--px) * 4);
+  background: repeating-linear-gradient(
+    90deg,
+    #a56b3c 0 calc(var(--px) * 6),
+    #6b3e1e calc(var(--px) * 6) calc(var(--px) * 7)
+  );
+  border-top: var(--px) solid var(--color-ink);
+}
+
+.px-post {
+  position: absolute;
+  bottom: calc(var(--px) * 2);
+  width: calc(var(--px) * 3);
+  height: calc(var(--px) * 12);
+  background: #6b3e1e;
+  border: var(--px) solid var(--color-ink);
+}
+
+.px-post-a {
+  left: calc(var(--px) * 10);
+}
+
+.px-post-b {
+  right: calc(var(--px) * 8);
+}
+
+.px-hill {
+  position: absolute;
+  bottom: calc(var(--px) * 12);
+  border: var(--px) solid var(--color-ink);
+}
+
+.px-hill-back {
+  right: calc(var(--px) * 8);
+  width: calc(var(--px) * 28);
+  height: calc(var(--px) * 12);
+  background: #3d8b4f;
+}
+
+.px-hill-front {
+  right: calc(var(--px) * 18);
+  width: calc(var(--px) * 22);
+  height: calc(var(--px) * 8);
+  background: #2f7a3a;
+}
+
+.px-boat {
+  position: absolute;
+  bottom: calc(var(--px) * 6);
+  left: calc(var(--px) * 6);
+  width: calc(var(--px) * 22);
+  height: calc(var(--px) * 16);
+}
+
+.px-sail {
+  position: absolute;
+  top: 0;
+  left: calc(var(--px) * 8);
+  width: calc(var(--px) * 2);
+  height: calc(var(--px) * 10);
+  background: var(--color-ink);
+}
+
+.px-sail::before {
+  content: "";
+  position: absolute;
+  top: calc(var(--px) * 1);
+  left: calc(var(--px) * 2);
+  border-bottom: calc(var(--px) * 8) solid transparent;
+  border-left: calc(var(--px) * 8) solid #fffef8;
+}
+
+.px-hull {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  height: calc(var(--px) * 5);
+  background: #f4f0e4;
+  border: var(--px) solid var(--color-ink);
+  clip-path: polygon(8% 0, 92% 0, 100% 100%, 0 100%);
+}
+
+.px-ring {
+  position: absolute;
+  right: calc(var(--px) * 4);
+  bottom: calc(var(--px) * 14);
+  width: calc(var(--px) * 8);
+  height: calc(var(--px) * 8);
+  background: #e2533b;
+  border: var(--px) solid var(--color-ink);
+  border-radius: 0;
+}
+
+.px-ring::after {
+  content: "";
+  position: absolute;
+  inset: calc(var(--px) * 2);
+  background: #fff6e3;
+  border: var(--px) solid var(--color-ink);
+}
+
+.scene-gull {
+  position: absolute;
+  z-index: 1;
+  width: calc(var(--px) * 10);
+  height: calc(var(--px) * 6);
+  animation: gull-travel 7s linear infinite;
+}
+
+.scene-gull-a {
+  top: calc(var(--px) * 3);
+  left: 28%;
+}
+
+.scene-gull-b {
+  top: calc(var(--px) * 7);
+  left: 58%;
+  animation-duration: 9s;
+  animation-delay: -3s;
+}
+
+.scene-gull::before,
+.scene-gull::after {
+  content: "";
+  position: absolute;
+  bottom: calc(var(--px) * 2);
+  width: calc(var(--px) * 5);
+  height: calc(var(--px) * 2);
+  background: #fffef8;
+  box-shadow: 0 var(--px) 0 #2b1e16;
+  animation: gull-flap 0.7s steps(2, end) infinite;
+}
+
+.scene-gull::before {
+  left: 0;
+}
+
+.scene-gull::after {
+  right: 0;
+  animation-delay: -0.35s;
+}
+
+@keyframes gull-travel {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(calc(var(--px) * 18));
+  }
+}
+
+@keyframes gull-flap {
+  from {
+    transform: translateY(0);
+  }
+  to {
+    transform: translateY(calc(var(--px) * -2));
+  }
+}
+
+.scene-title {
+  position: absolute;
+  top: 42%;
+  left: 50%;
+  z-index: 2;
+  transform: translate(-50%, -50%);
+  max-width: calc(100% - 7rem);
+}
+
+.scene-actions {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 3;
+}
+
+@media (min-width: 1024px) {
+  .seaside-scene {
+    --px: 3px;
+    height: 200px;
+  }
+
+  .seaside-scene-screen {
+    height: 100svh;
+  }
+
+  .category-glyph {
+    width: 48px;
+    height: 48px;
+  }
+
+  .category-nav {
+    position: sticky;
+    top: 16px;
+    z-index: 10;
+    width: 200px;
+    margin: 0;
+    background: transparent;
+    padding: 4px;
+  }
+
+  .category-nav-list {
+    flex-direction: column;
+    overflow: visible;
+    gap: 16px;
+  }
+}
+
+@media (min-width: 2560px) {
+  .seaside-scene {
+    --px: 4px;
+    height: 220px;
+  }
+
+  .seaside-scene-screen {
+    height: 100svh;
+  }
+
+  .category-glyph {
+    width: 64px;
+    height: 64px;
+  }
+
+  .category-nav {
+    width: 220px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .scene-gull,
+  .scene-gull::before,
+  .scene-gull::after,
+  .scene-sea::after,
+  .pixel-shake,
+  .dish-card {
+    animation: none;
+    transition: none;
+  }
+}
