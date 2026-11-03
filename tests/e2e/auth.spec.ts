@@ -73,14 +73,32 @@ test.describe("credential login", () => {
     await expect(
       page.getByRole("heading", { name: "我家海上食堂" }),
     ).toBeVisible();
+    await expect(page.getByRole("heading", { name: "番茄炒蛋" })).toBeVisible();
 
     const logoutForm = page.locator('form[action="/logout"]');
     await expect(logoutForm).toHaveAttribute("method", "post");
+    const logoutResponse = page.waitForResponse((response) => {
+      return (
+        response.request().method() === "POST" &&
+        new URL(response.url()).pathname === "/logout"
+      );
+    });
     await logoutForm.getByRole("button", { name: "退出" }).click();
+    const posted = await logoutResponse;
+    expect(posted.status()).toBe(303);
+    expect(posted.headers()["cache-control"] ?? "").toMatch(/no-store/i);
     await expect(page).toHaveURL(/\/login/);
     expect(new URL(page.url()).pathname).toBe("/login");
 
+    await page.goBack();
+    await expect(page.getByRole("heading", { name: "番茄炒蛋" })).toHaveCount(
+      0,
+    );
+
     await page.goto("/");
     await expect(page).toHaveURL(/\/login/);
+    await expect(page.getByRole("heading", { name: "番茄炒蛋" })).toHaveCount(
+      0,
+    );
   });
 });

@@ -11,6 +11,7 @@ export function CategoryNav({
   selected,
 }: {
   categories: readonly CategoryNavItem[];
+  /** Null means 全部. An unknown name matches nothing, including 全部. */
   selected: string | null;
 }) {
   return (

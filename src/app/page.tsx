@@ -33,7 +33,7 @@ export default async function Home({ searchParams }: PageProps<"/">) {
       <div className="flex w-full flex-col gap-4 px-4 py-4 sm:px-6 lg:flex-row lg:items-start lg:gap-6 min-[2560px]:gap-5 min-[2560px]:px-8">
         <CategoryNav
           categories={wall.categories}
-          selected={wall.unknownCategory ? null : wall.selectedCategory}
+          selected={wall.selectedCategory}
         />
         <main className="min-w-0 flex-1">
           <div className="mb-4 inline-flex max-w-full flex-col gap-1 bg-cream px-3 py-2">
@@ -88,6 +88,8 @@ export default async function Home({ searchParams }: PageProps<"/">) {
 }
 
 function LogoutForm() {
+  // Plain HTML post. A Server Action or router.push would be a client
+  // transition and can replay the cached dish wall after logout.
   return (
     <form action="/logout" method="post">
       <PixelButton type="submit" tone="cream" size="sm">

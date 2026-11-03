@@ -57,6 +57,7 @@ test.describe("dish wall", () => {
     await page.goto("/?category=" + encodeURIComponent("没有的分类"));
     await expect(page.getByText("没有这个分类。")).toBeVisible();
     await expect(page.getByRole("heading", { name: "红烧肉" })).toHaveCount(0);
+    await expect(page.locator("[aria-current='page']")).toHaveCount(0);
   });
 
   const viewports = [

@@ -3,7 +3,7 @@ import { sanitizeNextPath } from "@/lib/auth/next-path";
 import { assertSessionSecret, verifySession } from "@/lib/auth/session";
 
 export type AccessDecision =
-  | { kind: "allow" }
+  | { kind: "allow"; authenticated: boolean }
   | { kind: "redirect"; to: string }
   | { kind: "unauthorized" }
   | { kind: "misconfigured"; message: string };
@@ -67,10 +67,10 @@ export async function decideAccess(
         to: new URL(nextPath, request.origin).toString(),
       };
     }
-    return { kind: "allow" };
+    return { kind: "allow", authenticated: session !== null };
   }
 
-  if (session) return { kind: "allow" };
+  if (session) return { kind: "allow", authenticated: true };
 
   if (isApiPath(request.pathname)) return { kind: "unauthorized" };
 

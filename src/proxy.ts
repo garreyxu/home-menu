@@ -24,8 +24,19 @@ export async function proxy(request: NextRequest) {
   });
 
   switch (decision.kind) {
-    case "allow":
-      return NextResponse.next();
+    case "allow": {
+      const response = NextResponse.next();
+      // Authenticated HTML must not be stored. A cached `/` can reappear
+      // after logout, including via the back button.
+      if (
+        decision.authenticated &&
+        request.method === "GET" &&
+        !request.nextUrl.pathname.startsWith("/api/")
+      ) {
+        response.headers.set("cache-control", "private, no-store");
+      }
+      return response;
+    }
     case "redirect":
       return withNoStore(NextResponse.redirect(decision.to));
     case "unauthorized":

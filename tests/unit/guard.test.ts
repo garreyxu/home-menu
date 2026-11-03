@@ -61,9 +61,11 @@ describe("decideAccess", () => {
   it("allows login and logout without a session", async () => {
     await expect(access({ pathname: "/login" })).resolves.toEqual({
       kind: "allow",
+      authenticated: false,
     });
     await expect(access({ pathname: "/logout" })).resolves.toEqual({
       kind: "allow",
+      authenticated: false,
     });
   });
 
@@ -71,6 +73,7 @@ describe("decideAccess", () => {
     const token = await signSession({ secret: SECRET });
     await expect(access({ sessionToken: token })).resolves.toEqual({
       kind: "allow",
+      authenticated: true,
     });
     await expect(access({ sessionToken: `${token}x` })).resolves.toMatchObject({
       kind: "redirect",
