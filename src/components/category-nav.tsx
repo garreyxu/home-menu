@@ -9,17 +9,20 @@ export type CategoryNavItem = {
 export function CategoryNav({
   categories,
   selected,
+  week = null,
 }: {
   categories: readonly CategoryNavItem[];
   /** Null means 全部. An unknown name matches nothing, including 全部. */
   selected: string | null;
+  /** Sunday week start to keep while changing category. */
+  week?: string | null;
 }) {
   return (
     <nav aria-label="菜品分类" className="category-nav">
       <ul className="category-nav-list">
         <li className="lg:w-full">
           <PixelLink
-            href={categoryFilterHref(null)}
+            href={categoryFilterHref(null, week)}
             current={selected === null}
             className="shrink-0 lg:w-full"
           >
@@ -30,7 +33,7 @@ export function CategoryNav({
         {categories.map((category) => (
           <li key={category.name} className="lg:w-full">
             <PixelLink
-              href={categoryFilterHref(category.name)}
+              href={categoryFilterHref(category.name, week)}
               current={selected === category.name}
               className="shrink-0 lg:w-full"
             >

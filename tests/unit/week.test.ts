@@ -6,7 +6,10 @@ import {
   assertDayOfWeek,
   assertMeal,
   assertSundayWeekStart,
+  formatWeekRange,
   isSundayWeekStart,
+  parseMenuSlot,
+  shiftWeek,
 } from "@/server/week";
 
 describe("toWeekStart", () => {
@@ -63,5 +66,55 @@ describe("week and meal guards", () => {
     expect(assertMeal("lunch")).toBe("lunch");
     expect(assertMeal("dinner")).toBe("dinner");
     expect(() => assertMeal("snack")).toThrow(MenuInputError);
+  });
+});
+
+describe("week navigation", () => {
+  it("shifts by whole Sundays and formats the range", () => {
+    expect(isSundayWeekStart("2026-12-27")).toBe(true);
+    expect(shiftWeek("2026-01-04", 1)).toBe("2026-01-11");
+    expect(shiftWeek("2026-01-04", -1)).toBe("2025-12-28");
+    expect(shiftWeek("2026-12-27", 0)).toBe("2026-12-27");
+    expect(formatWeekRange("2026-01-04")).toBe("1月4日–1月10日");
+    expect(formatWeekRange("2025-12-28")).toBe("12月28日–1月3日");
+    expect(() => shiftWeek("2026-01-05", 1)).toThrow(MenuInputError);
+  });
+});
+
+describe("parseMenuSlot", () => {
+  const slot = {
+    weekStart: "2026-01-04",
+    dayOfWeek: 2,
+    meal: "dinner",
+    dishId: "sample-dish:番茄炒蛋",
+  };
+
+  it("accepts a Sunday slot and trims the dish id", () => {
+    expect(
+      parseMenuSlot({ ...slot, dishId: "  sample-dish:番茄炒蛋  " }),
+    ).toEqual(slot);
+  });
+
+  it("rejects dates, days, meals, and ids that are not a slot", () => {
+    expect(() => parseMenuSlot(null)).toThrow(MenuInputError);
+    expect(() => parseMenuSlot([])).toThrow(MenuInputError);
+    expect(() => parseMenuSlot({ ...slot, weekStart: "2026-01-05" })).toThrow(
+      MenuInputError,
+    );
+    expect(() => parseMenuSlot({ ...slot, dayOfWeek: "2" })).toThrow(
+      MenuInputError,
+    );
+    expect(() => parseMenuSlot({ ...slot, dayOfWeek: 7 })).toThrow(
+      MenuInputError,
+    );
+    expect(() => parseMenuSlot({ ...slot, meal: "snack" })).toThrow(
+      MenuInputError,
+    );
+    expect(() => parseMenuSlot({ ...slot, dishId: "   " })).toThrow(
+      MenuInputError,
+    );
+    expect(() => parseMenuSlot({ ...slot, dishId: "x".repeat(201) })).toThrow(
+      MenuInputError,
+    );
   });
 });

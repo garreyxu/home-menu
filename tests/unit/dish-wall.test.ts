@@ -257,5 +257,9 @@ describe("categoryFilterHref", () => {
     expect(categoryFilterHref("汤品")).toBe(
       `/?${new URLSearchParams({ category: "汤品" }).toString()}`,
     );
+    expect(categoryFilterHref(null, "2026-01-04")).toBe("/?week=2026-01-04");
+    expect(categoryFilterHref("汤品", "2026-01-04")).toBe(
+      `/?${new URLSearchParams({ category: "汤品", week: "2026-01-04" }).toString()}`,
+    );
   });
 });
