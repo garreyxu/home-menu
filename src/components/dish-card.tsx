@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import Image from "next/image";
 import { PixelFrame } from "@/components/pixel-frame";
 import { Card } from "@/components/ui/card";
@@ -12,6 +13,7 @@ export type DishCardProps = {
    */
   photoUrl?: string | null;
   plannedCount?: number;
+  action?: ReactNode;
 };
 
 export function DishCard({
@@ -19,6 +21,7 @@ export function DishCard({
   categoryName,
   photoUrl = null,
   plannedCount = 0,
+  action = null,
 }: DishCardProps) {
   const initial = Array.from(name)[0] ?? "菜";
 
@@ -69,6 +72,7 @@ export function DishCard({
         <p className="font-pixel pixel-type text-pixel-1 text-driftwood">
           {categoryName}
         </p>
+        {action}
       </Card>
     </PixelFrame>
   );

@@ -1,6 +1,12 @@
-export function categoryFilterHref(name: string | null): string {
-  if (!name) return "/";
-  return `/?${new URLSearchParams({ category: name }).toString()}`;
+export function categoryFilterHref(
+  name: string | null,
+  week?: string | null,
+): string {
+  const params = new URLSearchParams();
+  if (name) params.set("category", name);
+  if (week) params.set("week", week);
+  const query = params.toString();
+  return query ? `/?${query}` : "/";
 }
 
 export function firstQueryValue(

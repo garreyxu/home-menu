@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import type { LoginState } from "@/lib/auth/messages";
 
 const fieldClass =
-  "h-11 rounded-none border-2 border-ink bg-cream px-3 text-base text-ink shadow-none focus-visible:border-sea focus-visible:ring-2 focus-visible:ring-sun";
+  "h-11 rounded-none border-2 border-ink bg-cream px-3 text-base text-ink shadow-none focus-visible:border-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink focus-visible:ring-2 focus-visible:ring-sun";
 
 export function LoginForm({ nextPath }: { nextPath: string }) {
   const [state, formAction, pending] = useActionState<

@@ -20,7 +20,7 @@ test.describe("dish wall", () => {
       page.getByRole("heading", { name: "紫菜蛋花汤" }),
     ).toBeVisible();
     await expect(page.getByRole("button", { name: "+加到哪天" })).toHaveCount(
-      0,
+      12,
     );
 
     const soup = page.getByRole("link", { name: "汤品" });
@@ -34,6 +34,9 @@ test.describe("dish wall", () => {
     await expect(page.getByRole("heading", { name: "番茄炒蛋" })).toHaveCount(
       0,
     );
+    await expect(page.getByRole("button", { name: "+加到哪天" })).toHaveCount(
+      2,
+    );
     await expect(page.getByRole("link", { name: "汤品" })).toHaveAttribute(
       "aria-current",
       "page",
@@ -42,6 +45,9 @@ test.describe("dish wall", () => {
     await page.getByRole("link", { name: "全部" }).click();
     await expect(page).toHaveURL("/");
     await expect(page.getByRole("heading", { name: "番茄炒蛋" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "+加到哪天" })).toHaveCount(
+      12,
+    );
   });
 
   test("category query is linkable", async ({ page }) => {
@@ -89,7 +95,7 @@ test.describe("dish wall", () => {
         expect(box!.width).toBeGreaterThan(120);
         expect(box!.width).toBeLessThan(220);
       } else {
-        expect(box!.width).toBeGreaterThan(240);
+        expect(box!.width).toBeGreaterThan(200);
         expect(box!.width).toBeLessThan(420);
       }
 
@@ -107,12 +113,32 @@ test.describe("dish wall", () => {
         expect(nav!.width).toBeLessThan(260);
       }
 
-      if (viewport.name === "ultrawide") {
-        expect(nav!.x).toBeLessThanOrEqual(120);
-        expect(viewport.width - (main!.x + main!.width)).toBeLessThanOrEqual(
-          120,
-        );
-        expect(main!.x + main!.width - nav!.x).toBeGreaterThanOrEqual(3200);
+      const board = page.getByRole("region", { name: "一周菜单" });
+      if (viewport.name === "mobile") {
+        await expect(
+          page.getByRole("button", { name: /本周已点 \d+ 道/ }),
+        ).toBeVisible();
+        await expect(board).toHaveCount(0);
+      } else {
+        await expect(board).toBeVisible();
+        const boardBox = await board.boundingBox();
+        expect(boardBox).not.toBeNull();
+        expect(boardBox!.x).toBeGreaterThan(main!.x);
+        if (viewport.name === "desktop") {
+          expect(boardBox!.width).toBeGreaterThanOrEqual(376);
+          expect(boardBox!.width).toBeLessThanOrEqual(384);
+        }
+        if (viewport.name === "ultrawide") {
+          expect(nav!.x).toBeLessThanOrEqual(120);
+          expect(
+            viewport.width - (boardBox!.x + boardBox!.width),
+          ).toBeLessThanOrEqual(120);
+          expect(boardBox!.x + boardBox!.width - nav!.x).toBeGreaterThanOrEqual(
+            3200,
+          );
+          expect(boardBox!.width).toBeGreaterThanOrEqual(476);
+          expect(boardBox!.width).toBeLessThanOrEqual(484);
+        }
       }
     });
   }
