@@ -4,7 +4,9 @@ import { and, asc, eq } from "drizzle-orm";
 
 import { getDb } from "@/server/db";
 import { categories, dishes, menuItems, weeklyMenus } from "@/server/db/schema";
+import { sampleDishCatalog } from "@/server/sample-catalog";
 import {
+  groupActiveDishesByCategory,
   groupCategoriesWithDishes,
   orderMenuItems,
   type CategoryWithDishes,
@@ -50,6 +52,38 @@ export async function listCategoriesWithDishes(): Promise<
     .orderBy(asc(categories.sortOrder), asc(categories.name), asc(dishes.name));
 
   return groupCategoriesWithDishes(rows);
+}
+
+/**
+ * Categories by sort_order, each with its active dishes by name.
+ * When DATABASE_URL is unset, returns the committed sample catalog so local
+ * dev and CI can render the dish wall without Neon.
+ */
+export async function listDishesByCategory(): Promise<CategoryWithDishes[]> {
+  if (!process.env.DATABASE_URL?.trim()) {
+    return sampleDishCatalog();
+  }
+
+  const rows = await getDb()
+    .select({
+      categoryId: categories.id,
+      categoryName: categories.name,
+      sortOrder: categories.sortOrder,
+      dishId: dishes.id,
+      notionPageId: dishes.notionPageId,
+      dishName: dishes.name,
+      description: dishes.description,
+      photoKey: dishes.photoKey,
+      isActive: dishes.isActive,
+    })
+    .from(categories)
+    .leftJoin(
+      dishes,
+      and(eq(dishes.categoryId, categories.id), eq(dishes.isActive, true)),
+    )
+    .orderBy(asc(categories.sortOrder), asc(categories.name), asc(dishes.name));
+
+  return groupActiveDishesByCategory(rows);
 }
 
 export async function getOrCreateWeek(weekStart: string) {

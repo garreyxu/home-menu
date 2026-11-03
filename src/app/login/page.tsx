@@ -1,24 +1,23 @@
 import type { Metadata } from "next";
+import { SeasideScene } from "@/components/seaside-scene";
 import { sanitizeNextPath } from "@/lib/auth/next-path";
+import { firstQueryValue } from "@/lib/category-filter";
 import { LoginForm } from "./login-form";
 
 export const metadata: Metadata = {
-  title: "登录 · 家庭菜单",
+  title: "登录 · 我家海上食堂",
 };
-
-function firstQueryValue(value: string | string[] | undefined): string | null {
-  if (typeof value === "string") return value;
-  if (Array.isArray(value)) return value[0] ?? null;
-  return null;
-}
 
 export default async function LoginPage({ searchParams }: PageProps<"/login">) {
   const params = await searchParams;
   const nextPath = sanitizeNextPath(firstQueryValue(params.next));
 
   return (
-    <main className="flex min-h-svh items-center justify-center px-6 py-16">
-      <LoginForm nextPath={nextPath} />
+    <main className="relative min-h-svh">
+      <SeasideScene variant="screen" />
+      <div className="absolute inset-0 z-10 flex items-center justify-center px-4 py-10">
+        <LoginForm nextPath={nextPath} />
+      </div>
     </main>
   );
 }

@@ -90,6 +90,126 @@ export function groupCategoriesWithDishes(
   return categories;
 }
 
+export type DishWallCategory = {
+  id: string;
+  name: string;
+  sortOrder: number;
+  dishCount: number;
+};
+
+export type DishWallDish = {
+  id: string;
+  name: string;
+  categoryName: string;
+  description: string | null;
+  photoKey: string | null;
+};
+
+export type DishWall = {
+  categories: DishWallCategory[];
+  dishes: DishWallDish[];
+  selectedCategory: string | null;
+  unknownCategory: boolean;
+};
+
+function compareZh(a: string, b: string): number {
+  return a.localeCompare(b, "zh-CN");
+}
+
+/**
+ * Active dishes only. Categories stay even when every dish is inactive.
+ * Categories are ordered by sort_order, then name. Dishes are ordered by name.
+ * Row order from the database is not trusted.
+ */
+export function groupActiveDishesByCategory(
+  rows: readonly CategoryDishJoinRow[],
+): CategoryWithDishes[] {
+  const visible = rows.map((row) => {
+    if (row.dishId === null || row.dishName === null || row.isActive !== true) {
+      return {
+        ...row,
+        dishId: null,
+        notionPageId: null,
+        dishName: null,
+        description: null,
+        photoKey: null,
+        isActive: null,
+      };
+    }
+    return row;
+  });
+
+  const grouped = groupCategoriesWithDishes(visible).map((category) => {
+    const seen = new Set<string>();
+    return {
+      ...category,
+      dishes: category.dishes
+        .filter((dish) => {
+          if (!dish.isActive || seen.has(dish.id)) return false;
+          seen.add(dish.id);
+          return true;
+        })
+        .sort((a, b) => compareZh(a.name, b.name) || a.id.localeCompare(b.id)),
+    };
+  });
+
+  grouped.sort(
+    (a, b) => a.sortOrder - b.sortOrder || compareZh(a.name, b.name),
+  );
+  return grouped;
+}
+
+export function buildDishWall(
+  categories: readonly CategoryWithDishes[],
+  categoryParam: string | null | undefined,
+): DishWall {
+  const selected = categoryParam?.trim() ?? "";
+  const nav = categories.map((category) => ({
+    id: category.id,
+    name: category.name,
+    sortOrder: category.sortOrder,
+    dishCount: category.dishes.length,
+  }));
+
+  const toDish =
+    (category: CategoryWithDishes) =>
+    (dish: DishSummary): DishWallDish => ({
+      id: dish.id,
+      name: dish.name,
+      categoryName: category.name,
+      description: dish.description,
+      photoKey: dish.photoKey,
+    });
+
+  if (!selected) {
+    return {
+      categories: nav,
+      dishes: categories.flatMap((category) =>
+        category.dishes.map(toDish(category)),
+      ),
+      selectedCategory: null,
+      unknownCategory: false,
+    };
+  }
+
+  const match = categories.find((category) => category.name === selected);
+  if (!match) {
+    return {
+      categories: nav,
+      dishes: [],
+      selectedCategory: selected,
+      unknownCategory: true,
+    };
+  }
+
+  return {
+    categories: nav,
+    dishes: match.dishes.map(toDish(match)),
+    selectedCategory: match.name,
+    unknownCategory: false,
+  };
+}
+
 export function orderMenuItems<
   T extends { id: string; dayOfWeek: number; meal: Meal; createdAt: Date },
 >(items: readonly T[]): T[] {
