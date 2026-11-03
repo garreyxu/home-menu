@@ -61,8 +61,32 @@ jobs:
         run: pnpm exec playwright install --with-deps chromium
 
       # PLAYWRIGHT_BASE_URL stays unset so Playwright starts the local dev server.
+      # Throwaway auth values exist only for this job. Do not print them.
       - name: End-to-end tests
-        run: pnpm test:e2e
+        run: |
+          set -euo pipefail
+          export E2E_USERNAME="ci-family"
+          export E2E_PASSWORD="$(openssl rand -base64 24 | tr -d '\n')"
+          export AUTH_USERNAME="$E2E_USERNAME"
+          export AUTH_PASSWORD_HASH="$(printf '%s' "$E2E_PASSWORD" | pnpm --silent auth:hash | tr -d '\n')"
+          export SESSION_SECRET="$(openssl rand -base64 48 | tr -d '\n')"
+          node --input-type=module -e '
+            const hash = process.env.AUTH_PASSWORD_HASH ?? "";
+            const secret = process.env.SESSION_SECRET ?? "";
+            if (secret.length < 32) {
+              console.error("Generated SESSION_SECRET is too short.");
+              process.exit(1);
+            }
+            if (!hash.startsWith("$2")) {
+              console.error("auth:hash did not print a bcrypt hash.");
+              process.exit(1);
+            }
+          '
+          echo "::add-mask::${E2E_PASSWORD}"
+          echo "::add-mask::${AUTH_PASSWORD_HASH}"
+          echo "::add-mask::${SESSION_SECRET}"
+          export PLAYWRIGHT_TRACE=off
+          pnpm test:e2e
 
       - name: Upload Playwright report
         if: failure()
