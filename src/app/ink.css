@@ -212,8 +212,10 @@ summary:focus-visible,
 
 .tried-tag {
   position: absolute;
-  bottom: 8px;
-  left: 8px;
+  top: 6px;
+  right: 6px;
+  bottom: auto;
+  left: auto;
   z-index: 3;
   padding: 1px 8px 2px;
   border: 1.5px solid var(--color-sumi);
@@ -666,8 +668,9 @@ iframe[src*="vercel.live"] {
   left: 0;
   z-index: 41;
   max-height: min(85vh, 640px);
-  overflow: auto;
-  padding: 16px 16px calc(16px + env(safe-area-inset-bottom));
+  overflow-x: hidden;
+  overflow-y: auto;
+  padding: 12px 8px calc(12px + env(safe-area-inset-bottom));
 }
 
 .add-day-dialog.is-popover {
@@ -679,19 +682,30 @@ iframe[src*="vercel.live"] {
 
 .add-day-grid {
   display: grid;
+  width: 100%;
   grid-template-columns: 28px repeat(7, minmax(44px, 1fr));
   gap: 4px;
   align-items: center;
 }
 
+.add-day-dialog.is-sheet .add-day-grid {
+  grid-template-columns: 1.25rem repeat(7, minmax(0, 1fr));
+  gap: 2px;
+}
+
 .add-day-cell {
   display: grid;
+  width: 100%;
   min-width: 44px;
   min-height: 44px;
   place-items: center;
   border: 1px solid var(--color-rule);
   background: var(--color-paper);
   color: var(--color-sumi);
+}
+
+.add-day-dialog.is-sheet .add-day-cell {
+  min-width: 0;
 }
 
 .add-day-dot {
@@ -706,6 +720,11 @@ iframe[src*="vercel.live"] {
 
 .add-day-heading {
   font-size: 18px;
+}
+
+.add-day-dialog.is-sheet .add-day-heading {
+  font-size: 14px;
+  line-height: 1;
 }
 
 .menu-toast {
@@ -888,9 +907,39 @@ iframe[src*="vercel.live"] {
     padding: 8px;
   }
 
+  .week-day {
+    grid-template-columns: 2.4em repeat(3, minmax(0, 1fr));
+  }
+
+  .week-day-label {
+    min-width: 0;
+    font-size: 15px;
+  }
+
+  .week-slot-item {
+    grid-template-columns: minmax(0, 1fr) 32px;
+    grid-template-rows: auto;
+    align-items: start;
+  }
+
+  .week-dish-name {
+    grid-column: 1;
+    grid-row: 1;
+  }
+
+  .week-thumb {
+    display: none;
+  }
+
   .week-remove {
-    min-width: 44px;
-    min-height: 44px;
+    grid-column: 2;
+    grid-row: 1;
+    width: 32px;
+    min-width: 32px;
+    height: 32px;
+    min-height: 32px;
+    border: 1px solid var(--color-sumi);
+    border-image: none;
   }
 }
 
