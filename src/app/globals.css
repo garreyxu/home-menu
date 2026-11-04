@@ -7,20 +7,23 @@
 @theme inline {
   --font-heading: var(--font-sans);
   --font-sans: var(--font-sans);
-  --font-pixel: var(--font-pixel);
-  --color-sea: #1f8a8a;
-  --color-sea-deep: #0e4f5c;
-  --color-sand: #f3e3c3;
-  --color-cream: #fff6e3;
-  --color-coral: #e2533b;
-  /* Darker coral for white button text and for small text on cream (>= 4.5:1). */
-  --color-coral-deep: #b43322;
-  --color-sand-deep: #e7d3ae;
-  --color-sun: #f6c445;
-  --color-ink: #2b1e16;
-  /* Spec token "muted". Shadcn already uses --color-muted for a surface. */
-  --color-driftwood: #7a6650;
-  --color-kelp: #4e9f3d;
+  --font-brush: var(--font-brush);
+  --color-washi: #f4ecdc;
+  --color-paper: #fbf6ea;
+  --color-paper-shade: #e8dcc4;
+  --color-rule: #d8c9ae;
+  --color-sumi: #1c1613;
+  --color-sumi-soft: #5e544a;
+  --color-shu: #c83028;
+  --color-shu-deep: #962818;
+  --color-ai: #3f5f7a;
+  --color-matcha: #4f6b43;
+  --color-shu-orange: #d05828;
+  --color-kaki: #d98a4e;
+  --color-sakura: #e8b4b0;
+  --color-on-primary: #ffffff;
+  --color-scrim: rgb(28 22 19 / 35%);
+  --shadow-ink: 3px 3px 0 rgb(28 22 19 / 6%);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -61,54 +64,39 @@
   --radius-4xl: calc(var(--radius) * 2.6);
 }
 
-@utility text-pixel-1 {
-  font-size: 12px;
-  line-height: 16px;
-}
-
-@utility text-pixel-2 {
-  font-size: 24px;
-  line-height: 32px;
-}
-
-@utility text-pixel-3 {
-  font-size: 36px;
-  line-height: 44px;
-}
-
 :root {
-  --background: #f3e3c3;
-  --foreground: #2b1e16;
-  --card: #fff6e3;
-  --card-foreground: #2b1e16;
-  --popover: #fff6e3;
-  --popover-foreground: #2b1e16;
-  --primary: #b43322;
+  --background: #f4ecdc;
+  --foreground: #1c1613;
+  --card: #fbf6ea;
+  --card-foreground: #1c1613;
+  --popover: #fbf6ea;
+  --popover-foreground: #1c1613;
+  --primary: #c83028;
   --primary-foreground: #ffffff;
-  --secondary: #fff6e3;
-  --secondary-foreground: #2b1e16;
-  --muted: var(--color-sand-deep);
-  --muted-foreground: #7a6650;
-  --accent: #1f8a8a;
+  --secondary: #fbf6ea;
+  --secondary-foreground: #1c1613;
+  --muted: #e8dcc4;
+  --muted-foreground: #5e544a;
+  --accent: #3f5f7a;
   --accent-foreground: #ffffff;
-  --destructive: var(--color-coral-deep);
-  --border: #2b1e16;
-  --input: #2b1e16;
-  --ring: #1f8a8a;
+  --destructive: #c83028;
+  --border: #1c1613;
+  --input: #1c1613;
+  --ring: #c83028;
   --chart-1: oklch(0.87 0 0);
   --chart-2: oklch(0.556 0 0);
   --chart-3: oklch(0.439 0 0);
   --chart-4: oklch(0.371 0 0);
   --chart-5: oklch(0.269 0 0);
-  --radius: 0px;
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
+  --radius: 2px;
+  --sidebar: #fbf6ea;
+  --sidebar-foreground: #1c1613;
+  --sidebar-primary: #c83028;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #e8dcc4;
+  --sidebar-accent-foreground: #1c1613;
+  --sidebar-border: #d8c9ae;
+  --sidebar-ring: #c83028;
 }
 
 @layer base {
@@ -120,14 +108,33 @@
     color-scheme: light;
   }
   body {
-    @apply bg-sand text-ink;
+    @apply bg-washi text-sumi;
     font-family:
       var(--font-sans), "PingFang SC", "Hiragino Sans GB", "Noto Sans SC",
       "Microsoft YaHei", sans-serif;
-    background-image: radial-gradient(
-      rgb(139 90 43 / 22%) 1px,
-      transparent 1px
-    );
-    background-size: 8px 8px;
+    font-size: 14px;
+    line-height: 1.6;
+    background-image:
+      url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='256' height='256'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='2' stitchTiles='stitch'/></filter><rect width='256' height='256' filter='url(%23n)' opacity='0.07'/></svg>"),
+      repeating-linear-gradient(
+        90deg,
+        rgb(28 22 19 / 3%) 0 1px,
+        transparent 1px 11px
+      );
+    background-size:
+      256px 256px,
+      auto;
+  }
+}
+
+@media (min-width: 640px) {
+  body {
+    font-size: 15px;
+  }
+}
+
+@media (min-width: 2560px) {
+  body {
+    font-size: 16px;
   }
 }

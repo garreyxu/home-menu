@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { startTransition, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { PixelButton } from "@/components/pixel-frame";
+import { StampButton } from "@/components/stamp-button";
 import {
   removalSkippedNotice,
   type ImportReport,
@@ -18,8 +18,17 @@ type SyncState = {
   settled?: boolean;
 };
 
-export function NotionSyncButton() {
+export function NotionSyncButton({
+  onSynced,
+}: {
+  /** Runs after a finished sync, before router.refresh(). */
+  onSynced?: () => void | Promise<void>;
+}) {
   const router = useRouter();
+  const onSyncedRef = useRef(onSynced);
+  useEffect(() => {
+    onSyncedRef.current = onSynced;
+  }, [onSynced]);
   const watching = useRef(false);
   const sawRunning = useRef(false);
   const [state, setState] = useState<SyncState | null>(null);
@@ -46,7 +55,16 @@ export function NotionSyncButton() {
         ) {
           watching.current = false;
           sawRunning.current = false;
-          router.refresh();
+          try {
+            await onSyncedRef.current?.();
+          } catch {
+            // The refresh below still asks the server for a new wall.
+          }
+          if (!cancel) {
+            startTransition(() => {
+              router.refresh();
+            });
+          }
         }
         if (body.running) timer = setTimeout(() => void poll(), 1000);
       } catch {
@@ -97,18 +115,18 @@ export function NotionSyncButton() {
 
   return (
     <div className="flex w-full min-w-0 max-w-full flex-col gap-2 sm:max-w-md sm:items-end">
-      <PixelButton
+      <StampButton
         type="button"
-        tone="sea"
-        size="sm"
+        tone="outline"
+        className="w-full sm:w-auto"
         disabled={running}
         aria-busy={running}
         onClick={() => void start()}
       >
         {running ? "正在同步" : "从 Notion 同步"}
-      </PixelButton>
+      </StampButton>
       {note ? (
-        <div className="flex max-w-full flex-col gap-1 text-sm text-driftwood">
+        <div className="flex max-w-full flex-col gap-1 text-sm text-sumi-soft">
           <p aria-live="polite" className="break-words">
             {note}
           </p>

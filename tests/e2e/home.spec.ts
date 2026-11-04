@@ -11,14 +11,14 @@ test.describe("dish wall", () => {
     const { username, password } = credentials!;
     await login(page, username, password);
 
-    await expect(page).toHaveTitle("我家海上食堂");
+    await expect(page).toHaveTitle("我家食堂");
     await expect(page.locator("html")).toHaveAttribute("lang", "zh-CN");
     await expect(
-      page.getByRole("heading", { name: "我家海上食堂", level: 1 }),
+      page.getByRole("heading", { name: "我家食堂", level: 1 }),
     ).toBeVisible();
     const dishes = await readWall(page);
     const wall = page.locator("ul.dish-grid");
-    await expect(wall.getByRole("button", { name: "+加到哪天" })).toHaveCount(
+    await expect(wall.getByRole("button", { name: "＋加到哪天" })).toHaveCount(
       dishes.length,
     );
 
@@ -39,7 +39,7 @@ test.describe("dish wall", () => {
         page.getByRole("heading", { name: outsider.name, exact: true }),
       ).toHaveCount(0);
     }
-    await expect(wall.getByRole("button", { name: "+加到哪天" })).toHaveCount(
+    await expect(wall.getByRole("button", { name: "＋加到哪天" })).toHaveCount(
       filtered.length,
     );
     await expect(categoryLink).toHaveAttribute("aria-current", "page");
@@ -48,7 +48,7 @@ test.describe("dish wall", () => {
     await expect(page).toHaveURL("/");
     const restored = await readWall(page);
     expect(restored).toHaveLength(dishes.length);
-    await expect(wall.getByRole("button", { name: "+加到哪天" })).toHaveCount(
+    await expect(wall.getByRole("button", { name: "＋加到哪天" })).toHaveCount(
       dishes.length,
     );
   });
@@ -153,10 +153,42 @@ test.describe("dish wall", () => {
           expect(boardBox!.x + boardBox!.width - nav!.x).toBeGreaterThanOrEqual(
             3200,
           );
-          expect(boardBox!.width).toBeGreaterThanOrEqual(476);
-          expect(boardBox!.width).toBeLessThanOrEqual(484);
+          expect(boardBox!.width).toBeGreaterThanOrEqual(560);
+          expect(boardBox!.width).toBeLessThanOrEqual(640);
         }
       }
     });
   }
+
+  test("long dish names clamp at 390px without horizontal overflow", async ({
+    page,
+  }) => {
+    const { username, password } = credentials!;
+    await page.setViewportSize({ width: 390, height: 844 });
+    await login(page, username, password);
+
+    const longName = "红烧糖醋排骨狮子头番茄炒蛋家常大菜";
+    const heading = page.locator("ul.dish-grid h3.dish-name").first();
+    await expect(heading).toBeVisible();
+    await heading.evaluate((node, name) => {
+      node.textContent = name;
+    }, longName);
+
+    const clamped = await heading.evaluate((node) => {
+      const style = getComputedStyle(node);
+      const doc = document.documentElement;
+      return {
+        lineClamp: style.getPropertyValue("-webkit-line-clamp"),
+        overflow: style.overflow,
+        lines: node.getClientRects().length,
+        headingOverflow: node.scrollWidth - node.clientWidth,
+        pageOverflow: doc.scrollWidth - doc.clientWidth,
+      };
+    });
+    expect(clamped.lineClamp).toBe("2");
+    expect(clamped.overflow).toBe("hidden");
+    expect(clamped.lines).toBeLessThanOrEqual(2);
+    expect(clamped.headingOverflow).toBeLessThanOrEqual(1);
+    expect(clamped.pageOverflow).toBeLessThanOrEqual(1);
+  });
 });

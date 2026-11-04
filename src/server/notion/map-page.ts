@@ -1,4 +1,4 @@
-import { blocksToBody, bodyExcerpt } from "@/server/notion/body";
+import { blocksToBody } from "@/server/notion/body";
 import { normalizeNotionId } from "@/server/notion/ids";
 import { pageHasSteps } from "@/server/notion/steps";
 import {
@@ -108,7 +108,8 @@ export function classifyNotionPage(page: NotionPageSnapshot): PageClass {
       mainIngredient: displayText(page.properties["主要食材种类"]),
       body,
       hasBody: true,
-      description: bodyExcerpt(body),
+      // Card notes come only from a structured property, never the page body.
+      description: null,
     },
   };
 }

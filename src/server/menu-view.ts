@@ -103,6 +103,7 @@ export type DishWallCategory = {
 
 export type DishWallDish = {
   id: string;
+  notionPageId: string | null;
   name: string;
   categoryName: string;
   description: string | null;
@@ -190,6 +191,7 @@ export function buildDishWall(
     (category: CategoryWithDishes) =>
     (dish: DishSummary): DishWallDish => ({
       id: dish.id,
+      notionPageId: dish.notionPageId,
       name: dish.name,
       categoryName: category.name,
       description: dish.description,

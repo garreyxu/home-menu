@@ -90,6 +90,38 @@ function page(overrides: Partial<NotionPageSnapshot> = {}): NotionPageSnapshot {
 }
 
 describe("classifyNotionPage", () => {
+  it("does not use the page body as the card description", () => {
+    const classified = classifyNotionPage(
+      page({
+        blocks: [
+          {
+            id: "intro",
+            type: "paragraph",
+            paragraph: {
+              rich_text: [{ plain_text: "【简介】⏱ 制作时间 40 分钟" }],
+            },
+          },
+          {
+            id: "h1",
+            type: "heading_2",
+            heading_2: { rich_text: [{ plain_text: "步骤" }] },
+          },
+          {
+            id: "b1",
+            type: "bulleted_list_item",
+            bulleted_list_item: { rich_text: [{ plain_text: "切肉" }] },
+          },
+        ],
+      }),
+    );
+    expect(classified.kind).toBe("dish");
+    if (classified.kind !== "dish") return;
+    expect(classified.dish.description).toBeNull();
+    expect(classified.dish.body.blocks[0]).toMatchObject({
+      text: "【简介】⏱ 制作时间 40 分钟",
+    });
+  });
+
   it("maps a tried page and ignores fields that are not imported", () => {
     const classified = classifyNotionPage(page());
     expect(classified.kind).toBe("dish");
@@ -107,6 +139,7 @@ describe("classifyNotionPage", () => {
       mainIngredient: "猪肉",
       hasBody: true,
     });
+    expect(classified.dish.description).toBeNull();
     expect(classified.dish).not.toHaveProperty("photo");
     expect(classified.dish.body.blocks).toEqual([
       { type: "heading", level: 2, text: "步骤", children: [] },

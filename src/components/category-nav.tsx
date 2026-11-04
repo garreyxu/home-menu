@@ -1,5 +1,4 @@
-import { CategoryGlyph } from "@/components/category-glyph";
-import { PixelLink } from "@/components/pixel-frame";
+import { frameLetter } from "@/lib/frames";
 import { categoryFilterHref } from "@/lib/category-filter";
 
 export type CategoryNavItem = {
@@ -20,31 +19,50 @@ export function CategoryNav({
   return (
     <nav aria-label="菜品分类" className="category-nav">
       <ul className="category-nav-list">
-        <li className="lg:w-full">
-          <PixelLink
+        <li>
+          <TagLink
             href={categoryFilterHref(null, week)}
             current={selected === null}
-            className="shrink-0 lg:w-full"
-          >
-            <CategoryGlyph name="全部" />
-            <span className="min-w-0 truncate">全部</span>
-          </PixelLink>
+            id="category-all"
+            name="全部"
+          />
         </li>
         {categories.map((category) => (
-          <li key={category.name} className="lg:w-full">
-            <PixelLink
+          <li key={category.name}>
+            <TagLink
               href={categoryFilterHref(category.name, week)}
               current={selected === category.name}
-              className="shrink-0 lg:w-full"
-            >
-              <CategoryGlyph name={category.name} />
-              <span className="min-w-0 truncate" title={category.name}>
-                {category.name}
-              </span>
-            </PixelLink>
+              id={category.name}
+              name={category.name}
+            />
           </li>
         ))}
       </ul>
     </nav>
+  );
+}
+
+function TagLink({
+  href,
+  current,
+  id,
+  name,
+}: {
+  href: string;
+  current: boolean;
+  id: string;
+  name: string;
+}) {
+  return (
+    <a
+      href={href}
+      aria-current={current ? "page" : undefined}
+      className={`wood-tag frame-tag frame-tag-${frameLetter(id)} focus-ring shrink-0 lg:w-full`}
+    >
+      <span className="wood-hole" aria-hidden="true" />
+      <span className="wood-label font-brush" title={name}>
+        {name}
+      </span>
+    </a>
   );
 }

@@ -61,6 +61,16 @@ export function clearLoginFailures(ip: string): void {
   buckets.delete(ip);
 }
 
+/** Remaining lock time, or null when this IP is not locked. */
+export function loginLockRemainingMs(
+  ip: string,
+  nowMs = Date.now(),
+): number | null {
+  const bucket = buckets.get(ip);
+  if (!bucket?.lockedUntil || nowMs >= bucket.lockedUntil) return null;
+  return bucket.lockedUntil - nowMs;
+}
+
 export function clientAddress(headerList: Headers): string {
   const forwarded = headerList.get("x-forwarded-for");
   const candidates = [forwarded?.split(",")[0], headerList.get("x-real-ip")];

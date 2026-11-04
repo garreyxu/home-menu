@@ -1,0 +1,1119 @@
+/* Izakaya menu chrome. Hand-drawn frames live in public/frames.
+   The focus ring is one rule for the whole site: 2px sumi, then a shu halo. */
+
+.font-brush {
+  /* Brush covers the Chinese. Latin, digits, and roman numerals fall through
+     to Noto Sans SC instead of Ma Shan Zheng's stand-in glyphs. */
+  font-family: var(--font-brush), var(--font-sans), "Noto Sans SC", sans-serif;
+  font-weight: 400;
+  line-height: 1.2;
+}
+
+.focus-ring:focus-visible,
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+summary:focus-visible,
+[tabindex]:focus-visible {
+  outline: 2px solid var(--color-sumi);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 5px rgb(200 48 40 / 45%);
+}
+
+.shadow-ink {
+  box-shadow: var(--shadow-ink);
+}
+
+.frame-card,
+.frame-panel,
+.frame-tag {
+  background-color: var(--color-paper);
+  background-clip: padding-box;
+  box-shadow: var(--shadow-ink);
+  border-style: solid;
+  border-color: transparent;
+}
+
+.frame-card {
+  border-width: 10px;
+  border-image-slice: 24;
+  border-image-width: 10px;
+  border-image-repeat: round;
+}
+
+.frame-card-a {
+  border-image-source: url(/frames/card-a.svg);
+}
+
+.frame-card-b {
+  border-image-source: url(/frames/card-b.svg);
+}
+
+.frame-card-c {
+  border-image-source: url(/frames/card-c.svg);
+}
+
+.frame-panel {
+  border-width: 8px;
+  border-image-slice: 28;
+  border-image-width: 8px;
+  border-image-repeat: round;
+}
+
+.frame-panel-a {
+  border-image-source: url(/frames/panel-a.svg);
+}
+
+.frame-panel-b {
+  border-image-source: url(/frames/panel-b.svg);
+}
+
+.frame-panel-c {
+  border-image-source: url(/frames/panel-c.svg);
+}
+
+.frame-tag {
+  background-color: var(--color-paper-shade);
+  border-width: 6px;
+  border-image-slice: 16;
+  border-image-width: 6px;
+  border-image-repeat: round;
+}
+
+.frame-tag-a {
+  border-image-source: url(/frames/tag-a.svg);
+}
+
+.frame-tag-b {
+  border-image-source: url(/frames/tag-b.svg);
+}
+
+.frame-tag-c {
+  border-image-source: url(/frames/tag-c.svg);
+}
+
+.page-title {
+  font-size: 32px;
+}
+
+.section-title {
+  font-size: 20px;
+}
+
+.dish-name {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-size: 20px;
+}
+
+.dish-note {
+  color: var(--color-sumi-soft);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.dish-category {
+  color: var(--color-sumi);
+  font-size: 18px;
+}
+
+.stamp-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 44px;
+  max-width: 100%;
+  padding: 8px 16px;
+  border: 0;
+  background: var(--color-shu);
+  color: var(--color-on-primary);
+  font-family: var(--font-sans), "PingFang SC", "Noto Sans SC", sans-serif;
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: 0.04em;
+  text-decoration: none;
+  cursor: pointer;
+  -webkit-mask-image: url(/frames/stamp.svg);
+  mask-image: url(/frames/stamp.svg);
+  mask-size: 100% 100%;
+  mask-repeat: no-repeat;
+  transition:
+    transform 160ms cubic-bezier(0.3, 1.4, 0.5, 1),
+    background-color 160ms ease,
+    opacity 120ms ease;
+}
+
+.stamp-button:hover:not(:disabled) {
+  background: var(--color-shu-deep);
+  transform: scale(1.02);
+}
+
+.stamp-button:active:not(:disabled) {
+  transform: scale(0.96);
+  opacity: 0.92;
+  -webkit-mask-image: url(/frames/stamp-pressed.svg);
+  mask-image: url(/frames/stamp-pressed.svg);
+}
+
+.stamp-button:disabled {
+  background: var(--color-rule);
+  color: var(--color-sumi-soft);
+  cursor: not-allowed;
+  opacity: 1;
+  pointer-events: auto;
+  transform: none;
+}
+
+.stamp-button.is-outline,
+.stamp-button.is-added {
+  background: var(--color-paper);
+  color: var(--color-shu);
+  box-shadow: inset 0 0 0 2px var(--color-shu);
+}
+
+.stamp-button.is-outline:hover:not(:disabled),
+.stamp-button.is-added:hover:not(:disabled) {
+  background: var(--color-shu);
+  color: var(--color-on-primary);
+}
+
+.seal-badge {
+  display: grid;
+  width: 40px;
+  height: 40px;
+  place-items: center;
+  background: var(--color-shu);
+  color: var(--color-paper);
+  -webkit-mask-image: url(/frames/seal.svg);
+  mask-image: url(/frames/seal.svg);
+  mask-size: 100% 100%;
+  transform: rotate(var(--seal-rotate, -4deg));
+}
+
+.seal-word {
+  font-size: 15px;
+  line-height: 1.05;
+}
+
+.seal-word.is-vertical {
+  writing-mode: vertical-rl;
+  letter-spacing: 0.08em;
+}
+
+.seal-on-art {
+  position: absolute;
+  top: 0;
+  right: 0;
+  z-index: 3;
+  transform: translate(25%, -25%) rotate(var(--seal-rotate, -4deg));
+}
+
+.tried-tag {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  bottom: auto;
+  left: auto;
+  z-index: 3;
+  padding: 1px 8px 2px;
+  border: 1.5px solid var(--color-sumi);
+  border-radius: 2px 7px 3px 8px;
+  background: var(--color-paper);
+  color: var(--color-sumi);
+  font-family: var(--font-sans), "Noto Sans SC", sans-serif;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.4;
+  transform: rotate(-2deg);
+}
+
+.planned-tag {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  z-index: 3;
+  padding: 2px 8px;
+  border-radius: 3px 8px 4px 6px;
+  background: color-mix(in srgb, var(--color-kaki) 35%, var(--color-paper));
+  color: var(--color-sumi);
+  font-family: var(--font-sans), "Noto Sans SC", sans-serif;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.3;
+}
+
+.dish-card {
+  transition: transform 200ms ease;
+}
+
+.dish-card:hover {
+  transform: translateY(-2px);
+}
+
+.dish-art-clip {
+  overflow: hidden;
+  background: var(--color-paper);
+}
+
+.dish-art {
+  transition: transform 200ms ease;
+}
+
+.dish-card:hover .dish-art {
+  transform: scale(1.02);
+}
+
+.dish-fallback {
+  container-type: inline-size;
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background-color: var(--color-paper);
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='256' height='256'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='2' stitchTiles='stitch'/></filter><rect width='256' height='256' filter='url(%23n)' opacity='0.035'/></svg>");
+  background-size: 256px 256px;
+  color: var(--color-sumi);
+}
+
+.dish-fallback-enso {
+  position: absolute;
+  width: 70%;
+  height: 70%;
+  color: rgb(28 22 19 / 15%);
+}
+
+.dish-fallback-name {
+  z-index: 1;
+  max-width: 86%;
+  margin: 0;
+  font-size: clamp(24px, 12cqw, 56px);
+  text-align: center;
+}
+
+.ink-skeleton {
+  background: var(--color-paper-shade);
+  animation: ink-pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes ink-pulse {
+  50% {
+    opacity: 0.55;
+  }
+}
+
+.scene-header {
+  position: relative;
+  display: flex;
+  min-height: 136px;
+  align-items: center;
+  justify-content: center;
+  padding: 12px 96px 56px 16px;
+  overflow: visible;
+}
+
+.scene-title-lockup {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+}
+
+.scene-season {
+  margin: 0;
+  color: var(--color-sumi-soft);
+  font-size: 12px;
+  line-height: 1;
+  letter-spacing: 0.12em;
+  writing-mode: vertical-rl;
+}
+
+.scene-deco {
+  position: absolute;
+  top: 12px;
+  display: none;
+  width: 64px;
+  height: 64px;
+  pointer-events: none;
+}
+
+.scene-deco-start {
+  left: 24px;
+}
+
+.scene-deco-end {
+  right: 24px;
+}
+
+.scene-actions {
+  position: absolute;
+  right: 16px;
+  bottom: 12px;
+  z-index: 3;
+}
+
+/* Vercel injects a round preview control on the viewport edge. It covers
+   the week board. The in-app control is the bottom 「本周已点」 bar. */
+vercel-live-feedback,
+#vercel-toolbar,
+[data-vercel-toolbar],
+iframe[src*="vercel.live"] {
+  display: none !important;
+}
+
+.category-nav {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  margin-inline: -1rem;
+  background: var(--color-washi);
+  padding: 12px 16px 8px;
+}
+
+@media (min-width: 640px) and (max-width: 1023px) {
+  .category-nav {
+    margin-inline: -1.5rem;
+  }
+}
+
+.category-nav-list {
+  display: flex;
+  gap: 12px;
+  overflow-x: auto;
+  margin: 0;
+  padding: 4px;
+  list-style: none;
+}
+
+.wood-tag {
+  display: flex;
+  min-width: 4.5rem;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 8px 12px 10px;
+  background: var(--color-paper-shade);
+  color: var(--color-sumi);
+  text-decoration: none;
+  transition: transform 200ms ease;
+}
+
+.wood-tag:hover {
+  transform: rotate(-1.5deg);
+}
+
+.category-nav-list li:nth-child(even) .wood-tag:hover {
+  transform: rotate(1.5deg);
+}
+
+.wood-hole {
+  width: 8px;
+  height: 8px;
+  flex: none;
+  border: 1.5px solid var(--color-sumi);
+  border-radius: 999px;
+  background: var(--color-washi);
+}
+
+.wood-label {
+  max-width: 8rem;
+  overflow: hidden;
+  font-size: 18px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.wood-tag[aria-current="page"] {
+  background: var(--color-paper);
+  box-shadow: inset 3px 0 0 var(--color-ai);
+}
+
+.wood-tag[aria-current="page"] .wood-label::after {
+  content: "";
+  display: block;
+  height: 6px;
+  margin-top: 1px;
+  background: url(/frames/underline.svg) center / 100% 100% no-repeat;
+}
+
+.week-panel {
+  display: none;
+}
+
+.week-board-head {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 4px 4px 8px;
+  border-bottom: 3px solid var(--color-sumi);
+}
+
+.week-board-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.week-nav-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  padding: 4px 10px;
+  background: var(--color-paper-shade);
+  color: var(--color-sumi);
+  font-size: 14px;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.week-nav-link[aria-current="date"] {
+  background: var(--color-paper);
+  color: var(--color-shu);
+  box-shadow: inset 0 -2px 0 var(--color-shu);
+}
+
+.week-board-body {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px 4px 4px;
+}
+
+.week-day {
+  display: grid;
+  grid-template-columns: minmax(3em, max-content) repeat(3, minmax(0, 1fr));
+  gap: 4px;
+  align-items: stretch;
+  background-image: url(/frames/rule.svg);
+  background-repeat: repeat-x;
+  background-position: left bottom;
+  background-size: 240px 8px;
+  padding-bottom: 6px;
+}
+
+.week-day[data-today="true"] {
+  box-shadow: inset 4px 0 0 var(--color-shu);
+}
+
+.week-day-head {
+  color: var(--color-sumi);
+  font-size: 20px;
+  text-align: center;
+}
+
+.week-day-label {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  min-width: 3em;
+  color: var(--color-sumi);
+  font-size: 18px;
+  white-space: nowrap;
+}
+
+.today-seal {
+  display: inline-grid;
+  width: 18px;
+  height: 18px;
+  flex: none;
+  place-items: center;
+  background: var(--color-shu);
+  color: var(--color-paper);
+  font-size: 11px;
+  line-height: 1;
+  -webkit-mask-image: url(/frames/seal.svg);
+  mask-image: url(/frames/seal.svg);
+  mask-size: 100% 100%;
+}
+
+.week-slot {
+  container-type: inline-size;
+  min-width: 0;
+  min-height: 44px;
+}
+
+.week-slot-empty {
+  display: grid;
+  place-items: center;
+  border: 1.5px dashed var(--color-sumi-soft);
+  color: var(--color-sumi-soft);
+  font-size: 12px;
+  line-height: 1.4;
+  text-align: center;
+}
+
+.week-slot-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.week-slot-item {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  grid-template-rows: auto auto;
+  column-gap: 2px;
+  row-gap: 2px;
+  align-items: center;
+  min-width: 0;
+}
+
+.week-thumb {
+  display: block;
+  grid-column: 1;
+  grid-row: 1;
+  width: 32px;
+  height: 32px;
+  justify-self: center;
+  border-radius: 999px;
+  object-fit: cover;
+  background: var(--color-paper);
+}
+
+.week-dish-name {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--color-sumi);
+  font-family: var(--font-sans), "Noto Sans SC", sans-serif;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.35;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  word-break: break-all;
+  overflow-wrap: anywhere;
+}
+
+.week-remove,
+.week-more {
+  flex: none;
+  border: 0;
+  background: var(--color-paper);
+  color: var(--color-sumi);
+  font-weight: 700;
+  min-width: 32px;
+  min-height: 32px;
+}
+
+.week-remove {
+  grid-column: 1;
+  grid-row: 2;
+  justify-self: center;
+  padding: 0;
+  line-height: 1;
+}
+
+.week-more {
+  width: 100%;
+  margin-top: 4px;
+}
+
+.week-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 8px 12px;
+  text-align: center;
+}
+
+.week-empty-enso {
+  width: 72px;
+  height: 72px;
+  color: rgb(28 22 19 / 15%);
+}
+
+.week-drawer-toggle {
+  display: none;
+}
+
+.week-drawer-layer {
+  display: none;
+}
+
+.week-tray {
+  display: none;
+}
+
+.add-day-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  background: var(--color-scrim);
+}
+
+.add-day-layer.is-popover {
+  background: transparent;
+}
+
+.add-day-dialog {
+  background: var(--color-paper);
+  color: var(--color-sumi);
+}
+
+.add-day-dialog.is-sheet {
+  position: fixed;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 41;
+  max-height: min(85vh, 640px);
+  overflow-x: hidden;
+  overflow-y: auto;
+  padding: 12px 8px calc(12px + env(safe-area-inset-bottom));
+}
+
+.add-day-dialog.is-popover {
+  position: fixed;
+  z-index: 41;
+  width: min(420px, calc(100vw - 16px));
+  padding: 16px;
+}
+
+.add-day-grid {
+  display: grid;
+  width: 100%;
+  grid-template-columns: 28px repeat(7, minmax(44px, 1fr));
+  gap: 4px;
+  align-items: center;
+}
+
+.add-day-dialog.is-sheet .add-day-grid {
+  grid-template-columns: 1.25rem repeat(7, minmax(0, 1fr));
+  gap: 2px;
+}
+
+.add-day-cell {
+  display: grid;
+  width: 100%;
+  min-width: 44px;
+  min-height: 44px;
+  place-items: center;
+  border: 1px solid var(--color-rule);
+  background: var(--color-paper);
+  color: var(--color-sumi);
+}
+
+.add-day-dialog.is-sheet .add-day-cell {
+  min-width: 0;
+}
+
+.add-day-dot {
+  width: 14px;
+  height: 14px;
+  background: var(--color-shu);
+  -webkit-mask-image: url(/frames/seal.svg);
+  mask-image: url(/frames/seal.svg);
+  mask-size: 100% 100%;
+  animation: stamp-pop 160ms cubic-bezier(0.3, 1.4, 0.5, 1);
+}
+
+.add-day-heading {
+  font-size: 18px;
+}
+
+.add-day-dialog.is-sheet .add-day-heading {
+  font-size: 14px;
+  line-height: 1;
+}
+
+.menu-toast {
+  position: fixed;
+  top: 12px;
+  left: 50%;
+  z-index: 60;
+  display: flex;
+  width: max-content;
+  max-width: min(24rem, calc(100vw - 24px));
+  align-items: center;
+  gap: 8px;
+  transform: translateX(-50%);
+  background: var(--color-paper);
+  color: var(--color-sumi);
+  padding: 10px 14px;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.menu-toast.is-error {
+  color: var(--color-shu);
+}
+
+.toast-seal {
+  width: 18px;
+  height: 18px;
+  flex: none;
+  background: var(--color-shu);
+  -webkit-mask-image: url(/frames/seal.svg);
+  mask-image: url(/frames/seal.svg);
+  mask-size: 100% 100%;
+}
+
+.enso-mark {
+  width: 96px;
+  height: 96px;
+  color: rgb(28 22 19 / 15%);
+}
+
+.login-field {
+  height: 44px;
+  border: 0;
+  border-bottom: 1.5px solid var(--color-sumi);
+  border-radius: 0;
+  background: transparent;
+  padding: 8px 2px;
+  color: var(--color-sumi);
+  font-size: 16px;
+  box-shadow: none;
+}
+
+@keyframes stamp-pop {
+  0% {
+    transform: scale(1.15);
+    opacity: 0.8;
+  }
+  55% {
+    transform: scale(0.96);
+    opacity: 0.92;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes ink-shake {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  25% {
+    transform: translateX(-4px);
+  }
+  75% {
+    transform: translateX(4px);
+  }
+}
+
+.ink-shake {
+  animation: ink-shake 0.36s ease 1;
+}
+
+@media (min-width: 640px) {
+  .page-title {
+    font-size: 40px;
+  }
+
+  .section-title {
+    font-size: 22px;
+  }
+
+  .dish-name {
+    font-size: 22px;
+  }
+
+  .dish-note,
+  .scene-season {
+    font-size: 13px;
+  }
+
+  .stamp-button {
+    min-height: 40px;
+    font-size: 15px;
+  }
+}
+
+@media (min-width: 1024px) {
+  .scene-header {
+    min-height: 160px;
+  }
+
+  .scene-deco {
+    display: block;
+  }
+
+  .seal-badge {
+    width: 48px;
+    height: 48px;
+  }
+
+  .category-nav {
+    position: sticky;
+    top: 16px;
+    z-index: 10;
+    width: 200px;
+    margin: 0;
+    background: transparent;
+    padding: 4px;
+  }
+
+  .category-nav-list {
+    flex-direction: column;
+    overflow: visible;
+    gap: 16px;
+  }
+
+  .wood-tag {
+    width: 100%;
+  }
+
+  .wood-label {
+    max-width: 100%;
+    font-size: 20px;
+  }
+}
+
+@media (max-width: 1023px) {
+  .week-tray {
+    position: fixed;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    z-index: 30;
+    display: flex;
+    flex-direction: column-reverse;
+    width: 100%;
+    max-width: 100vw;
+  }
+
+  .week-tray-toggle {
+    width: 100%;
+    min-height: 52px;
+    border: 0;
+    border-top: 3px solid var(--color-sumi);
+    background: var(--color-shu);
+    color: var(--color-on-primary);
+    font-family: var(--font-sans), "Noto Sans SC", sans-serif;
+    font-size: 14px;
+    font-weight: 700;
+    -webkit-mask-image: none;
+    mask-image: none;
+  }
+
+  .week-tray-panel {
+    max-height: min(70vh, 640px);
+    overflow: auto;
+    background: var(--color-washi);
+    padding: 8px;
+  }
+
+  .week-day {
+    grid-template-columns: 2.4em repeat(3, minmax(0, 1fr));
+  }
+
+  .week-day-label {
+    min-width: 0;
+    font-size: 15px;
+  }
+
+  .week-slot-item {
+    grid-template-columns: minmax(0, 1fr) 32px;
+    grid-template-rows: auto;
+    align-items: start;
+  }
+
+  .week-dish-name {
+    grid-column: 1;
+    grid-row: 1;
+  }
+
+  .week-thumb {
+    display: none;
+  }
+
+  .week-remove {
+    grid-column: 2;
+    grid-row: 1;
+    width: 32px;
+    min-width: 32px;
+    height: 32px;
+    min-height: 32px;
+    border: 1px solid var(--color-sumi);
+    border-image: none;
+  }
+}
+
+@container (max-width: 95px) {
+  .week-thumb {
+    display: none;
+  }
+}
+
+@media (min-width: 1024px) {
+  .week-tray,
+  .week-tray-toggle {
+    display: none;
+  }
+}
+
+@media (min-width: 1024px) and (max-width: 1439px) {
+  .week-drawer-toggle {
+    display: inline-flex;
+  }
+
+  .week-drawer-layer {
+    display: block;
+  }
+
+  .week-drawer-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 35;
+    border: 0;
+    background: var(--color-scrim);
+  }
+
+  .week-drawer-panel {
+    position: fixed;
+    top: 0;
+    right: 0;
+    z-index: 36;
+    width: min(380px, 100vw);
+    height: 100svh;
+    overflow: auto;
+    background: var(--color-washi);
+    padding: 16px;
+  }
+}
+
+@media (min-width: 1440px) {
+  .week-panel {
+    display: block;
+    position: sticky;
+    top: 16px;
+    width: 380px;
+    max-width: 380px;
+    flex: none;
+    max-height: calc(100svh - 32px);
+    overflow: auto;
+  }
+
+  .tried-tag {
+    font-size: 13px;
+  }
+}
+
+@media (min-width: 1920px) {
+  .page-title {
+    font-size: 44px;
+  }
+
+  .section-title {
+    font-size: 24px;
+  }
+
+  .week-dish-name {
+    font-size: 14px;
+  }
+
+  .week-panel {
+    width: 420px;
+    max-width: 420px;
+  }
+
+  .stamp-button {
+    font-size: 15px;
+  }
+}
+
+@media (min-width: 2560px) {
+  .scene-header {
+    min-height: 180px;
+  }
+
+  .page-title {
+    font-size: 52px;
+  }
+
+  .section-title {
+    font-size: 26px;
+  }
+
+  .dish-name {
+    font-size: 26px;
+  }
+
+  .dish-note,
+  .scene-season {
+    font-size: 14px;
+  }
+
+  .week-dish-name {
+    font-size: 15px;
+  }
+
+  .week-day-head {
+    font-size: 26px;
+  }
+
+  .week-day-label {
+    font-size: 22px;
+  }
+
+  .week-thumb {
+    width: 40px;
+    height: 40px;
+  }
+
+  .seal-badge {
+    width: 56px;
+    height: 56px;
+  }
+
+  .stamp-button {
+    font-size: 16px;
+  }
+
+  .category-nav {
+    width: 220px;
+  }
+
+  .week-panel {
+    width: clamp(560px, 18vw, 640px);
+    max-width: 640px;
+  }
+
+  .scene-deco {
+    width: 96px;
+    height: 96px;
+  }
+
+  .scene-deco-start {
+    left: 48px;
+  }
+
+  .scene-deco-end {
+    right: 48px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ink-shake,
+  .ink-skeleton,
+  .add-day-dot,
+  .dish-card,
+  .dish-art,
+  .wood-tag,
+  .stamp-button {
+    animation: none;
+    transition-duration: 80ms;
+  }
+
+  .dish-card:hover,
+  .dish-card:hover .dish-art,
+  .wood-tag:hover,
+  .stamp-button:hover:not(:disabled),
+  .stamp-button:active:not(:disabled) {
+    transform: none;
+  }
+}

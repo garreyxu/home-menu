@@ -1,3 +1,4 @@
+import { revalidatePath } from "next/cache";
 import { after } from "next/server";
 
 import { requireApiSession } from "@/lib/auth/require-session";
@@ -69,6 +70,12 @@ export async function POST(request: Request): Promise<Response> {
           await runSync(db, runId);
         } catch (error) {
           await failSyncRun(db, runId, safeSyncError(error));
+          return;
+        }
+        try {
+          revalidatePath("/", "layout");
+        } catch {
+          // The client still reloads the wall from the database.
         }
       });
     }

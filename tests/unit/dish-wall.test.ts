@@ -217,6 +217,7 @@ describe("buildDishWall", () => {
     expect(wall.dishes).toEqual([
       {
         id: "d-soup",
+        notionPageId: null,
         name: "紫菜蛋花汤",
         categoryName: "汤品",
         description: "清汤",
