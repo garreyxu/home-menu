@@ -38,11 +38,13 @@ describe("proxy matcher", () => {
     expect(proxyMatches("/")).toBe(true);
   });
 
-  it("skips Next static files, the favicon, and /assets", () => {
+  it("skips Next static files, the favicon, frames, and illustrations", () => {
     expect(proxyMatches("/_next/static/chunks/app.js")).toBe(false);
     expect(proxyMatches("/_next/image")).toBe(false);
     expect(proxyMatches("/favicon.ico")).toBe(false);
     expect(proxyMatches("/assets/pixel.png")).toBe(false);
+    expect(proxyMatches("/frames/card-a.svg")).toBe(false);
+    expect(proxyMatches("/illustrations/dish-480.webp")).toBe(false);
   });
 });
 

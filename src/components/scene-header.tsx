@@ -1,20 +1,25 @@
 import type { ReactNode } from "react";
-import { PixelFrame } from "@/components/pixel-frame";
-import { SeasideScene } from "@/components/seaside-scene";
+import { MapleLeaf, Persimmon } from "@/components/scene-decor";
+import { SealBadge } from "@/components/seal-badge";
+import { seasonRecommendation } from "@/lib/season";
 
 export function SceneHeader({ actions }: { actions?: ReactNode }) {
+  const season = seasonRecommendation(new Date());
+
   return (
-    <header className="relative">
-      <SeasideScene variant="banner">
-        <div className="scene-title">
-          <PixelFrame faceClassName="px-3 py-2 sm:px-4">
-            <h1 className="font-pixel pixel-type text-pixel-2 text-ink sm:text-pixel-3">
-              我家海上食堂
-            </h1>
-          </PixelFrame>
-        </div>
-        {actions ? <div className="scene-actions">{actions}</div> : null}
-      </SeasideScene>
+    <header className="scene-header">
+      <div className="scene-deco scene-deco-start">
+        <Persimmon />
+      </div>
+      <div className="scene-title-lockup">
+        <SealBadge id="header-seal" label="荐" decorative />
+        <h1 className="page-title font-brush text-sumi">我家食堂</h1>
+        <p className="scene-season">{season}</p>
+      </div>
+      <div className="scene-deco scene-deco-end">
+        <MapleLeaf />
+      </div>
+      {actions ? <div className="scene-actions">{actions}</div> : null}
     </header>
   );
 }

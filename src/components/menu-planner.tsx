@@ -2,12 +2,15 @@
 
 import { useEffect, useRef, useState } from "react";
 import { addDishToSlot, removeDishFromSlot } from "@/app/week-actions";
+import { reloadDishWall } from "@/app/wall-actions";
 import { AddToDay } from "@/components/add-to-day";
+import { CategoryNav } from "@/components/category-nav";
 import { DishCard } from "@/components/dish-card";
 import { NotionSyncButton } from "@/components/notion-sync-button";
 import { EmptyMenu } from "@/components/empty-menu";
-import { PixelButton } from "@/components/pixel-frame";
+import { StampButton } from "@/components/stamp-button";
 import { WeekBoard } from "@/components/week-board";
+import { reconcileWall, wallKey, type HomeWall } from "@/lib/home-wall";
 import {
   DAY_LABELS,
   MEAL_SHORT,
@@ -16,14 +19,6 @@ import {
 } from "@/lib/menu-slots";
 import { cn } from "@/lib/utils";
 import type { Meal } from "@/server/meals";
-
-export type PlannerDish = {
-  id: string;
-  name: string;
-  categoryName: string;
-  photoUrl?: string | null;
-  tried?: boolean;
-};
 
 type Toast = { tone: "ok" | "err"; text: string };
 
@@ -37,23 +32,19 @@ function sameSlot(
 }
 
 export function MenuPlanner({
-  dishes,
-  heading,
-  pixelHeading,
-  emptyMessage,
+  wall: serverWall,
   week,
   currentWeekStart,
   todayIso,
   categoryParam,
+  weekQuery,
 }: {
-  dishes: readonly PlannerDish[];
-  heading: string;
-  pixelHeading: boolean;
-  emptyMessage: string | null;
+  wall: HomeWall;
   week: WeekMenuView;
   currentWeekStart: string;
   todayIso: string;
   categoryParam: string | null;
+  weekQuery: string | null;
 }) {
   const signature = `${week.weekStart}:${week.items.map((item) => item.id).join("|")}`;
   const [trackedWeek, setTrackedWeek] = useState(week.weekStart);
@@ -64,9 +55,23 @@ export function MenuPlanner({
   const [openDishId, setOpenDishId] = useState<string | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [trayOpen, setTrayOpen] = useState(false);
+  const [trackedWallKey, setTrackedWallKey] = useState(() =>
+    wallKey(serverWall),
+  );
+  const [wallOverride, setWallOverride] = useState<HomeWall | null>(null);
   const latestRef = useRef(0);
   const queueRef = useRef<Promise<void>>(Promise.resolve());
   const weekStartRef = useRef(week.weekStart);
+
+  const reconciled = reconcileWall(trackedWallKey, serverWall, wallOverride);
+  if (
+    reconciled.trackedKey !== trackedWallKey ||
+    reconciled.override !== wallOverride
+  ) {
+    setTrackedWallKey(reconciled.trackedKey);
+    setWallOverride(reconciled.override);
+  }
+  const wall = reconciled.visible;
 
   useEffect(() => {
     weekStartRef.current = week.weekStart;
@@ -163,6 +168,11 @@ export function MenuPlanner({
     });
   }
 
+  const thumbs: Record<string, string | undefined> = {};
+  for (const dish of wall.dishes) {
+    if (dish.illustration) thumbs[dish.id] = dish.illustration.thumb;
+  }
+
   function renderBoard() {
     return (
       <WeekBoard
@@ -171,8 +181,9 @@ export function MenuPlanner({
         todayIso={todayIso}
         items={items}
         categoryParam={categoryParam}
+        thumbs={thumbs}
         onRemove={(item) => {
-          const dish = dishes.find((entry) => entry.id === item.dishId);
+          const dish = wall.dishes.find((entry) => entry.id === item.dishId);
           toggle(
             item.dayOfWeek,
             item.meal,
@@ -186,85 +197,98 @@ export function MenuPlanner({
 
   return (
     <>
-      <main className="min-w-0 flex-1">
-        <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
-          <div className="inline-flex max-w-full flex-col gap-1 bg-cream px-3 py-2">
-            <h2
-              id="dish-wall-heading"
-              className={cn(
-                "text-ink",
-                pixelHeading
-                  ? "font-pixel pixel-type text-pixel-2"
-                  : "font-sans text-lg font-semibold",
-              )}
-            >
-              {heading}
-            </h2>
-            <p className="text-sm text-driftwood">
-              <span className="font-pixel pixel-type text-pixel-1 text-ink">
-                {dishes.length}
-              </span>
-              道菜
-            </p>
+      <div className="flex w-full flex-col gap-4 px-4 pt-4 pb-24 sm:px-6 lg:flex-row lg:items-start lg:gap-6 lg:pb-4 min-[2560px]:gap-5 min-[2560px]:px-8">
+        <CategoryNav
+          categories={wall.categories}
+          selected={wall.selectedCategory}
+          week={weekQuery}
+        />
+        <main className="min-w-0 flex-1">
+          <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
+            <div className="inline-flex max-w-full flex-col gap-1 bg-paper px-3 py-2">
+              <h2
+                id="dish-wall-heading"
+                className={cn(
+                  "text-sumi",
+                  wall.brushHeading
+                    ? "section-title font-brush"
+                    : "font-sans text-lg font-semibold",
+                )}
+              >
+                {wall.heading}
+              </h2>
+              <p className="text-sm text-sumi-soft">
+                <span className="font-bold text-sumi">
+                  {wall.dishes.length}
+                </span>
+                道菜
+              </p>
+            </div>
+            <div className="flex w-full min-w-0 max-w-full flex-wrap items-end justify-end gap-3 sm:w-auto">
+              <NotionSyncButton
+                onSynced={async () => {
+                  const next = await reloadDishWall(categoryParam);
+                  setWallOverride(next);
+                }}
+              />
+              <StampButton
+                type="button"
+                tone="outline"
+                className="week-drawer-toggle"
+                aria-expanded={drawerOpen}
+                aria-controls="week-drawer"
+                onClick={() => setDrawerOpen((open) => !open)}
+              >
+                本周 {items.length}
+              </StampButton>
+            </div>
           </div>
-          <div className="flex w-full min-w-0 max-w-full flex-wrap items-end justify-end gap-3 sm:w-auto">
-            <NotionSyncButton />
-            <PixelButton
-              type="button"
-              tone="cream"
-              size="sm"
-              className="week-drawer-toggle"
-              aria-expanded={drawerOpen}
-              aria-controls="week-drawer"
-              onClick={() => setDrawerOpen((open) => !open)}
+          {wall.emptyMessage ? (
+            <EmptyMenu message={wall.emptyMessage} />
+          ) : (
+            <ul
+              aria-labelledby="dish-wall-heading"
+              className="dish-grid grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-[repeat(auto-fill,minmax(200px,1fr))] min-[1920px]:grid-cols-[repeat(auto-fill,minmax(220px,1fr))] min-[2560px]:grid-cols-[repeat(auto-fill,minmax(280px,1fr))] min-[2560px]:gap-5"
             >
-              本周 {items.length}
-            </PixelButton>
-          </div>
-        </div>
-        {emptyMessage ? (
-          <EmptyMenu message={emptyMessage} />
-        ) : (
-          <ul
-            aria-labelledby="dish-wall-heading"
-            className="dish-grid grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-[repeat(auto-fill,minmax(200px,1fr))] min-[1920px]:grid-cols-[repeat(auto-fill,minmax(220px,1fr))] min-[2560px]:grid-cols-[repeat(auto-fill,minmax(280px,1fr))] min-[2560px]:gap-5"
-          >
-            {dishes.map((dish) => {
-              const plannedCount = items.filter(
-                (item) => item.dishId === dish.id,
-              ).length;
-              return (
-                <li key={dish.id} className="min-w-0">
-                  <DishCard
-                    name={dish.name}
-                    categoryName={dish.categoryName}
-                    photoUrl={dish.photoUrl}
-                    tried={dish.tried}
-                    plannedCount={plannedCount}
-                    action={
-                      <AddToDay
-                        dishId={dish.id}
-                        dishName={dish.name}
-                        items={items}
-                        open={openDishId === dish.id}
-                        onOpenChange={(open) =>
-                          setOpenDishId(open ? dish.id : null)
-                        }
-                        onToggle={(day, meal) =>
-                          toggle(day, meal, dish.id, dish.name)
-                        }
-                      />
-                    }
-                  />
-                </li>
-              );
-            })}
-          </ul>
-        )}
-      </main>
-      <aside className="week-panel" role="region" aria-label="一周菜单">
-        {renderBoard()}
-      </aside>
+              {wall.dishes.map((dish) => {
+                const plannedCount = items.filter(
+                  (item) => item.dishId === dish.id,
+                ).length;
+                return (
+                  <li key={dish.id} className="min-w-0">
+                    <DishCard
+                      id={dish.id}
+                      name={dish.name}
+                      categoryName={dish.categoryName}
+                      description={dish.description}
+                      illustration={dish.illustration}
+                      tried={dish.tried}
+                      plannedCount={plannedCount}
+                      action={
+                        <AddToDay
+                          dishId={dish.id}
+                          dishName={dish.name}
+                          items={items}
+                          open={openDishId === dish.id}
+                          onOpenChange={(open) =>
+                            setOpenDishId(open ? dish.id : null)
+                          }
+                          onToggle={(day, meal) =>
+                            toggle(day, meal, dish.id, dish.name)
+                          }
+                        />
+                      }
+                    />
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </main>
+        <aside className="week-panel" role="region" aria-label="一周菜单">
+          {renderBoard()}
+        </aside>
+      </div>
       {drawerOpen ? (
         <div className="week-drawer-layer">
           <button
@@ -296,7 +320,7 @@ export function MenuPlanner({
         </div>
         <button
           type="button"
-          className="week-tray-toggle pixel-focus"
+          className="week-tray-toggle focus-ring"
           aria-expanded={trayOpen}
           aria-controls="week-tray-panel"
           onClick={() => setTrayOpen((open) => !open)}
@@ -307,8 +331,12 @@ export function MenuPlanner({
       {toast ? (
         <p
           role={toast.tone === "err" ? "alert" : "status"}
-          className={cn("menu-toast", toast.tone === "err" && "is-error")}
+          className={cn(
+            "menu-toast frame-tag frame-tag-a",
+            toast.tone === "err" && "is-error",
+          )}
         >
+          <span className="toast-seal" aria-hidden="true" />
           {toast.text}
         </p>
       ) : null}

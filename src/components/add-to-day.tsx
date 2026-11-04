@@ -2,7 +2,7 @@
 
 import { useEffect, useId, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { PixelButton } from "@/components/pixel-frame";
+import { StampButton } from "@/components/stamp-button";
 import {
   DAY_LABELS,
   MEAL_SHORT,
@@ -11,6 +11,9 @@ import {
 } from "@/lib/menu-slots";
 import { cn } from "@/lib/utils";
 import { MEALS, type Meal } from "@/server/meals";
+
+const FOCUSABLE =
+  'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])';
 
 export function AddToDay({
   dishId,
@@ -29,15 +32,27 @@ export function AddToDay({
 }) {
   const buttonRef = useRef<HTMLButtonElement>(null);
   const dialogRef = useRef<HTMLDivElement>(null);
+  const wasOpen = useRef(false);
   const titleId = useId();
   const [placement, setPlacement] = useState<{
     top: number;
     left: number;
   } | null>(null);
+  const planned = items.filter((item) => item.dishId === dishId).length;
 
   useEffect(() => {
     if (!open) return;
     dialogRef.current?.focus();
+  }, [open]);
+
+  useEffect(() => {
+    if (open) {
+      wasOpen.current = true;
+      return;
+    }
+    if (!wasOpen.current) return;
+    wasOpen.current = false;
+    buttonRef.current?.focus();
   }, [open]);
 
   function openPopover() {
@@ -65,7 +80,27 @@ export function AddToDay({
   useEffect(() => {
     if (!open) return;
     function onKey(event: KeyboardEvent) {
-      if (event.key === "Escape") onOpenChange(false);
+      if (event.key === "Escape") {
+        onOpenChange(false);
+        return;
+      }
+      if (event.key !== "Tab") return;
+      const dialog = dialogRef.current;
+      if (!dialog) return;
+      const focusable = [
+        ...dialog.querySelectorAll<HTMLElement>(FOCUSABLE),
+      ].filter((node) => !node.hasAttribute("disabled"));
+      if (focusable.length === 0) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (!first || !last) return;
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
     }
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
@@ -73,10 +108,10 @@ export function AddToDay({
 
   return (
     <>
-      <PixelButton
+      <StampButton
         ref={buttonRef}
         type="button"
-        size="sm"
+        addedCount={planned}
         className="w-full"
         aria-expanded={open}
         aria-haspopup="dialog"
@@ -84,9 +119,7 @@ export function AddToDay({
           if (open) onOpenChange(false);
           else openPopover();
         }}
-      >
-        +加到哪天
-      </PixelButton>
+      />
       {open
         ? createPortal(
             <div
@@ -102,7 +135,7 @@ export function AddToDay({
                 aria-labelledby={titleId}
                 tabIndex={-1}
                 className={cn(
-                  "add-day-dialog pixel-focus",
+                  "add-day-dialog frame-panel frame-panel-b focus-ring",
                   placement ? "is-popover" : "is-sheet",
                 )}
                 style={
@@ -116,17 +149,17 @@ export function AddToDay({
                   <div className="min-w-0">
                     <p
                       id={titleId}
-                      className="truncate text-base font-semibold text-ink"
+                      className="truncate text-base font-semibold text-sumi"
                     >
                       {dishName}
                     </p>
-                    <p className="text-sm text-driftwood">
+                    <p className="text-sm text-sumi-soft">
                       点一格排上，再点一次取消
                     </p>
                   </div>
                   <button
                     type="button"
-                    className="week-nav-link pixel-focus shrink-0"
+                    className="week-nav-link frame-tag frame-tag-a focus-ring shrink-0"
                     onClick={() => onOpenChange(false)}
                   >
                     关闭
@@ -137,14 +170,14 @@ export function AddToDay({
                   {DAY_LABELS.map((label) => (
                     <span
                       key={label}
-                      className="text-center font-pixel pixel-type text-pixel-1 text-ink"
+                      className="add-day-heading text-center font-brush text-sumi"
                     >
                       {label.slice(1)}
                     </span>
                   ))}
                   {MEALS.map((meal) => (
                     <div key={meal} className="contents">
-                      <span className="font-pixel pixel-type text-pixel-1 text-ink">
+                      <span className="add-day-heading font-brush text-sumi">
                         {MEAL_SHORT[meal]}
                       </span>
                       {DAY_LABELS.map((_, day) => {
@@ -158,12 +191,17 @@ export function AddToDay({
                           <button
                             key={`${day}-${meal}`}
                             type="button"
-                            className="add-day-cell pixel-focus"
+                            className="add-day-cell focus-ring"
                             aria-pressed={selected}
                             aria-label={slotLabel(day, meal)}
                             onClick={() => onToggle(day, meal)}
                           >
-                            {selected ? "已" : ""}
+                            {selected ? (
+                              <span
+                                className="add-day-dot"
+                                aria-hidden="true"
+                              />
+                            ) : null}
                           </button>
                         );
                       })}

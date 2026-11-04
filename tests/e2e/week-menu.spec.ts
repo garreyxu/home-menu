@@ -253,7 +253,7 @@ async function addDish(page: Page, dishName: string, slotName: string) {
     }),
   });
   await expect(card).toHaveCount(1);
-  await card.getByRole("button", { name: "+加到哪天" }).click();
+  await card.getByRole("button", { name: "＋加到哪天" }).click();
   await page.getByRole("button", { name: slotName, exact: true }).click();
 }
 

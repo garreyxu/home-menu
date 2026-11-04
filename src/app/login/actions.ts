@@ -13,6 +13,7 @@ import {
   clearLoginFailures,
   clientAddress,
   isLoginRateLimited,
+  loginLockRemainingMs,
   recordLoginFailure,
 } from "@/lib/auth/rate-limit";
 import {
@@ -33,7 +34,10 @@ export async function login(
   const ip = clientAddress(headerList);
 
   if (isLoginRateLimited(ip)) {
-    return { error: RATE_LIMITED_MESSAGE };
+    return {
+      error: RATE_LIMITED_MESSAGE,
+      retryAfterMs: loginLockRemainingMs(ip) ?? undefined,
+    };
   }
 
   const username = formText(formData.get("username"));

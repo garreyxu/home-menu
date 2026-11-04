@@ -42,17 +42,13 @@ pnpm test:e2e
 
 ## Design
 
-The UI source of truth is [docs/design/design-spec-pixel-seaside.md](docs/design/design-spec-pixel-seaside.md). Information architecture is [docs/design/ia-and-flows.md](docs/design/ia-and-flows.md). When a concept mockup disagrees with the design spec, follow the spec.
+The UI source of truth is [docs/design/design-spec-izakaya.md](docs/design/design-spec-izakaya.md). It replaces the visual part of [docs/design/design-spec-pixel-seaside.md](docs/design/design-spec-pixel-seaside.md). Information architecture is [docs/design/ia-and-flows.md](docs/design/ia-and-flows.md). When a concept mockup disagrees with the design spec, follow the spec.
 
-Pixel borders and buttons are CSS (2px ink border, 2px clipped corners, 4px solid offset shadow). Scene and category slots expose `data-asset` so image files can replace that CSS later without changing the component tree. There are no bitmap assets in this version.
-
-Colors from the spec are Tailwind theme tokens (`sea`, `sea-deep`, `sand`, `cream`, `coral`, `sun`, `ink`, `kelp`). The spec's `muted` text color is the `driftwood` token, because shadcn already uses `muted` for a surface. White on the spec coral (`#E2533B`) measures about 3.8:1, so buttons and small coral text use `coral-deep` (`#B43322`: about 6.1:1 with white, and above 4.5:1 on cream). `sand-deep` (`#E7D3AE`) is the darker sand used for the plate rim and skeletons.
+Frames, seals, and the paper texture are CSS and small SVG files in `public/frames`. Colors are Tailwind theme tokens (`washi`, `paper`, `paper-shade`, `rule`, `sumi`, `sumi-soft`, `shu`, `shu-deep`, `ai`, `matcha`, `shu-orange`, `kaki`, `sakura`). `shu-orange`, `kaki`, and `sakura` are decoration only.
 
 ## Fonts
 
-Body text and dish names use Noto Sans SC (400 and 600) through `next/font/google`, self-hosted at build time with Google's unicode-range slices. Headings, buttons, category labels, and numeric badges use Fusion Pixel 12px proportional simplified Chinese, only at 12px, 24px, and 36px.
-
-The pixel font is [SIL Open Font License 1.1](src/fonts/OFL.txt) (Copyright 2022 TakWolf). Upstream licenses that ship with the font are in `src/fonts/LICENSES/`. The file in the repo is a subset of release `2026.10.25`, `fusion-pixel-12px-proportional-zh_hans.otf.woff2` (701,520 bytes), reduced to the interface copy, ASCII, punctuation, and the sample category names. The committed WOFF2 is 4,388 bytes. Glyphs outside that subset fall back to Noto Sans SC. The app code stays MIT; the font stays OFL.
+Dish names, page titles, category names, and week headers use Ma Shan Zheng (OFL) through `next/font/google`, weight 400, `preload: false`. Google serves the Chinese slices by unicode-range. Body text, numbers, and buttons use Noto Sans SC at 400, 500, and 700. Buttons are weight 700. The brush face is not used below 18px.
 
 ## Family login
 
@@ -78,7 +74,7 @@ openssl rand -base64 48
 
 The session cookie is httpOnly, `SameSite=Lax`, `Secure` in production, and expires after 30 days. Signing uses an HS256 JWT (`jose`); the proxy checks that signature and does not run bcrypt. Logout is POST `/logout` only, so an image tag cannot clear the cookie.
 
-The proxy runs for every path except `/_next/static`, `/_next/image`, `/favicon.ico`, and `/assets/` (pixel art in `public/assets`). `/api/*` is always included, including paths that end in an image or script extension.
+The proxy runs for every path except `/_next/static`, `/_next/image`, `/favicon.ico`, `/assets/`, `/frames/`, and `/illustrations/`. Dish illustrations and ink frames are public files. `/api/*` is always included, including paths that end in an image or script extension.
 
 The proxy is the outer gate, not the only one. Every Server Action, route handler, and server component that reads data must call `requireSession()` from `src/lib/auth/require-session.ts`. Route handlers that respond with JSON use `requireApiSession()` and return that 401 response when it is not null. Do not rely on the proxy alone. The login action and POST `/logout` are the exceptions, because they run before a session exists. The home page calls `requireSession()`.
 
@@ -109,7 +105,7 @@ Two phones can add the same dish at once: the insert uses `ON CONFLICT DO NOTHIN
 The server client is `getDb()` in `src/server/db/index.ts`. It reads `DATABASE_URL` (the Neon pooled URL) and is marked `server-only`. Query helpers in `src/server/menu.ts`:
 
 - `listCategoriesWithDishes()` — categories by `sort_order`, each with its dishes (including inactive) by name.
-- `listDishesByCategory()` — categories by `sort_order`, each with active dishes. Cards render the pixel plate until a later change adds static illustrations. When `DATABASE_URL` is unset and `VERCEL_ENV` is unset, this returns the sample catalog from `src/server/db/seed-data.ts` so local dev and CI can render without Neon. On Vercel (`VERCEL_ENV` set to any value), a missing `DATABASE_URL` throws and is logged. A configured database is the source of truth.
+- `listDishesByCategory()` — categories by `sort_order`, each with active dishes. A card uses `public/illustrations/<dishId>-<240|480|960>.webp` when those files exist, and a brush-name fallback otherwise. When `DATABASE_URL` is unset and `VERCEL_ENV` is unset, this returns the sample catalog from `src/server/db/seed-data.ts` so local dev and CI can render without Neon. On Vercel (`VERCEL_ENV` set to any value), a missing `DATABASE_URL` throws and is logged. A configured database is the source of truth.
 - `getOrCreateWeek(weekStart)` — `weekStart` is a `YYYY-MM-DD` Sunday.
 - `addMenuItem({ weekStart, dayOfWeek, meal, dishId })` — creates the week if needed, then inserts. A conflicting row is left in place.
 - `removeMenuItem({ weekStart, dayOfWeek, meal, dishId })` — deletes that row.
@@ -132,7 +128,7 @@ On a later sync, a page that gains steps is added or updated. Unchecking 「已�
 
 A page whose blocks or properties could not be fetched is left unchanged and counted as a read failure. If Notion returns no pages, or the run would delete or inactivate more than `max(3, 20%)` of the active imported dishes, that run applies adds and updates but skips every removal. The report then says 「这次要移除的菜太多，先没动，请检查 Notion」 and includes the count that was held back. `pnpm notion:import --allow-mass-removal` is the only way to apply those removals. The sync button and the daily cron never pass that flag.
 
-`notion_page_id` is the stable key for each dish. The app does not download or store photos. Cards without an image keep the pixel plate. Illustrations will be added separately.
+`notion_page_id` is the stable key for each dish. The app does not download or store photos. Cards look for `public/illustrations/<dishId>-<240|480|960>.webp` and otherwise paint the dish name. Those files are not added by the app.
 
 The sync is one-way: Notion wins. The home page has a 「从 Notion 同步」 button. It stays disabled while a sync is running and then shows how many were imported, how many are marked tried, how many were skipped for having no steps, and the added, updated, deleted, inactivated, and on-wall counts. A daily Vercel Cron calls `GET /api/cron/notion-sync` at 12:00 UTC. That is about 4:00am Pacific Standard Time and 5:00am Pacific Daylight Time. On the Hobby plan the run can land any time during that hour, so it finishes in the early morning in Irvine. Hobby cron runs once a day and the function is limited to 300 seconds.
 

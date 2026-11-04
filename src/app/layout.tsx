@@ -1,25 +1,25 @@
 import type { Metadata } from "next";
-import { Noto_Sans_SC } from "next/font/google";
-import localFont from "next/font/local";
+import { Ma_Shan_Zheng, Noto_Sans_SC } from "next/font/google";
 import "./globals.css";
-import "./pixel.css";
+import "./ink.css";
 import { cn } from "@/lib/utils";
 
 const noto = Noto_Sans_SC({
-  weight: ["400", "600"],
+  weight: ["400", "500", "700"],
   subsets: ["latin"],
   display: "swap",
   variable: "--font-sans",
   adjustFontFallback: false,
 });
 
-const pixel = localFont({
-  src: "../fonts/fusion-pixel-12px-proportional-zh_hans.woff2",
+const brush = Ma_Shan_Zheng({
   weight: "400",
+  subsets: ["latin"],
   display: "swap",
-  variable: "--font-pixel",
+  preload: false,
+  variable: "--font-brush",
   adjustFontFallback: false,
-  fallback: ["sans-serif"],
+  fallback: ["Noto Serif SC", "serif"],
 });
 
 export const metadata: Metadata = {
@@ -31,7 +31,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html
       lang="zh-CN"
-      className={cn("font-sans", noto.variable, pixel.variable)}
+      className={cn("font-sans", noto.variable, brush.variable)}
     >
       <body>{children}</body>
     </html>
