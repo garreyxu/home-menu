@@ -24,6 +24,8 @@ export function sampleDishCatalog(): CategoryWithDishes[] {
         description: null,
         photoKey: null,
         isActive: null,
+        tried: null,
+        hasBody: null,
       });
       continue;
     }
@@ -39,6 +41,8 @@ export function sampleDishCatalog(): CategoryWithDishes[] {
         description: dish.description,
         photoKey: null,
         isActive: true,
+        tried: false,
+        hasBody: null,
       });
     }
   }

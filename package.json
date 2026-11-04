@@ -17,7 +17,8 @@
     "format": "prettier --write .",
     "test": "vitest run",
     "test:e2e": "playwright test",
-    "auth:hash": "node scripts/auth-hash.mjs"
+    "auth:hash": "node scripts/auth-hash.mjs",
+    "notion:import": "tsx scripts/notion-import.ts"
   },
   "dependencies": {
     "@base-ui/react": "^1.9.0",

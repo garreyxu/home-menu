@@ -20,6 +20,8 @@ function row(
     description: null,
     photoKey: null,
     isActive: null,
+    tried: null,
+    hasBody: null,
     ...partial,
   };
 }
@@ -104,8 +106,51 @@ describe("groupActiveDishesByCategory", () => {
         description: "蒜香",
         photoKey: null,
         isActive: true,
+        tried: false,
       },
     ]);
+  });
+
+  it("shows an active dish whether or not the body flag is set", () => {
+    const grouped = groupActiveDishesByCategory([
+      row({
+        categoryId: "c-home",
+        categoryName: "家常菜",
+        sortOrder: 0,
+        dishId: "d-empty",
+        notionPageId: "page-empty",
+        dishName: "只有菜名",
+        isActive: true,
+        tried: true,
+        hasBody: false,
+      }),
+      row({
+        categoryId: "c-home",
+        categoryName: "家常菜",
+        sortOrder: 0,
+        dishId: "d-sample",
+        dishName: "番茄炒蛋",
+        isActive: true,
+        hasBody: null,
+      }),
+      row({
+        categoryId: "c-home",
+        categoryName: "家常菜",
+        sortOrder: 0,
+        dishId: "d-written",
+        notionPageId: "page-written",
+        dishName: "红烧肉",
+        isActive: true,
+        tried: true,
+        hasBody: true,
+      }),
+    ]);
+
+    expect(grouped[0]?.dishes.map((dish) => dish.name)).toEqual(
+      ["只有菜名", "番茄炒蛋", "红烧肉"].sort((a, b) =>
+        a.localeCompare(b, "zh-CN"),
+      ),
+    );
   });
 
   it("keeps a category whose dishes are all inactive", () => {
@@ -176,6 +221,7 @@ describe("buildDishWall", () => {
         categoryName: "汤品",
         description: "清汤",
         photoKey: null,
+        tried: false,
       },
     ]);
   });

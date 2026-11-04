@@ -1,7 +1,8 @@
 import { neon } from "@neondatabase/serverless";
-import { inArray } from "drizzle-orm";
+import { inArray, isNotNull } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/neon-http";
 
+import { seedDecision } from "../src/server/db/seed-policy";
 import { categories, dishes } from "../src/server/db/schema";
 import { seedCategories, seedDishes } from "../src/server/db/seed-data";
 import { appDatabaseUrl, loadLocalEnv } from "./db-env";
@@ -10,7 +11,12 @@ import { redactSecrets } from "./redact";
 loadLocalEnv();
 
 async function seed(): Promise<void> {
-  if (process.env.VERCEL_ENV === "production") {
+  if (
+    seedDecision({
+      vercelEnv: process.env.VERCEL_ENV,
+      hasNotionDishes: false,
+    }) === "refuse-production"
+  ) {
     console.error("[db] Refusing to seed: VERCEL_ENV is production.");
     process.exit(1);
   }
@@ -24,6 +30,20 @@ async function seed(): Promise<void> {
   }
 
   const db = drizzle({ client: neon(url), schema: { categories, dishes } });
+  const [imported] = await db
+    .select({ id: dishes.id })
+    .from(dishes)
+    .where(isNotNull(dishes.notionPageId))
+    .limit(1);
+  if (
+    seedDecision({
+      vercelEnv: process.env.VERCEL_ENV,
+      hasNotionDishes: Boolean(imported),
+    }) === "skip-imported"
+  ) {
+    console.log("[db] Skipping seed: this database already has Notion dishes.");
+    return;
+  }
   console.log("[db] Seeding database.");
 
   const insertedCategories = await db

@@ -1,0 +1,261 @@
+import { and, eq, inArray, isNotNull, isNull, sql } from "drizzle-orm";
+
+import type { Database } from "@/server/db";
+import { categories, dishes, menuItems } from "@/server/db/schema";
+import type {
+  DishRepository,
+  StoredNotionDish,
+  UpsertDish,
+} from "@/server/notion/import-catalog";
+import { planSeedRetirement } from "@/server/notion/seed-rows";
+
+const CATEGORY_ORDER = [
+  "大荤",
+  "小荤",
+  "素菜",
+  "靓汤",
+  "主食",
+  "早餐",
+  "豆制品",
+  "酱汁",
+  "一锅煮",
+  "蛋料理",
+  "未分类",
+];
+
+export function createDishRepository(db: Database): DishRepository {
+  const categoryIds = new Map<string, string>();
+
+  async function ensureCategory(name: string): Promise<string> {
+    const cached = categoryIds.get(name);
+    if (cached) return cached;
+
+    const [found] = await db
+      .select({ id: categories.id })
+      .from(categories)
+      .where(eq(categories.name, name))
+      .limit(1);
+    if (found) {
+      categoryIds.set(name, found.id);
+      return found.id;
+    }
+
+    const preferred = CATEGORY_ORDER.indexOf(name);
+    let sortOrder = preferred;
+    if (preferred < 0) {
+      const [maxRow] = await db
+        .select({
+          value: sql<number>`coalesce(max(${categories.sortOrder}), -1)`,
+        })
+        .from(categories);
+      sortOrder = Number(maxRow?.value ?? -1) + 1;
+    }
+
+    const inserted = await db
+      .insert(categories)
+      .values({ name, sortOrder })
+      .onConflictDoNothing({ target: categories.name })
+      .returning({ id: categories.id });
+    const created = inserted[0];
+    if (created) {
+      categoryIds.set(name, created.id);
+      return created.id;
+    }
+
+    const [again] = await db
+      .select({ id: categories.id })
+      .from(categories)
+      .where(eq(categories.name, name))
+      .limit(1);
+    if (!again) throw new Error("分类没能写入。");
+    categoryIds.set(name, again.id);
+    return again.id;
+  }
+
+  async function removalSets(
+    database: Database,
+    notionPageIds: readonly string[],
+  ): Promise<{ deleteIds: string[]; inactivateIds: string[] }> {
+    if (notionPageIds.length === 0) {
+      return { deleteIds: [], inactivateIds: [] };
+    }
+    const rows = await database
+      .select({
+        id: dishes.id,
+        isActive: dishes.isActive,
+      })
+      .from(dishes)
+      .where(inArray(dishes.notionPageId, [...notionPageIds]));
+    if (rows.length === 0) return { deleteIds: [], inactivateIds: [] };
+
+    const links = await database
+      .select({ dishId: menuItems.dishId })
+      .from(menuItems)
+      .where(
+        inArray(
+          menuItems.dishId,
+          rows.map((row) => row.id),
+        ),
+      );
+    const referenced = new Set(links.map((link) => link.dishId));
+    return {
+      deleteIds: rows
+        .filter((row) => !referenced.has(row.id))
+        .map((row) => row.id),
+      inactivateIds: rows
+        .filter((row) => referenced.has(row.id) && row.isActive)
+        .map((row) => row.id),
+    };
+  }
+
+  return {
+    async listNotionDishes() {
+      const rows = await db
+        .select({
+          id: dishes.id,
+          notionPageId: dishes.notionPageId,
+          name: dishes.name,
+          isActive: dishes.isActive,
+        })
+        .from(dishes)
+        .where(isNotNull(dishes.notionPageId));
+
+      const stored: StoredNotionDish[] = [];
+      for (const row of rows) {
+        if (!row.notionPageId) continue;
+        stored.push({
+          id: row.id,
+          notionPageId: row.notionPageId,
+          name: row.name,
+          isActive: row.isActive,
+        });
+      }
+      return stored;
+    },
+
+    async upsert(dish: UpsertDish) {
+      const categoryId = await ensureCategory(dish.categoryName);
+      const values = {
+        name: dish.name,
+        categoryId,
+        description: dish.description,
+        cookTime: dish.cookTime,
+        ingredients: dish.ingredients,
+        rating: dish.rating,
+        tried: dish.tried,
+        cuisines: dish.cuisines,
+        mainIngredient: dish.mainIngredient,
+        body: dish.body,
+        hasBody: dish.hasBody,
+        photoKey: null,
+        isActive: true,
+        updatedAt: new Date(),
+      };
+      const inserted = await db
+        .insert(dishes)
+        .values({ notionPageId: dish.notionPageId, ...values })
+        .onConflictDoNothing({ target: dishes.notionPageId })
+        .returning({ id: dishes.id });
+      if (inserted[0]) return "added";
+
+      await db
+        .update(dishes)
+        .set(values)
+        .where(eq(dishes.notionPageId, dish.notionPageId));
+      return "updated";
+    },
+
+    async removalPlan(notionPageIds) {
+      const plan = await removalSets(db, notionPageIds);
+      return {
+        deleted: plan.deleteIds.length,
+        inactivated: plan.inactivateIds.length,
+      };
+    },
+
+    async retire(notionPageIds) {
+      const { deleteIds, inactivateIds } = await removalSets(db, notionPageIds);
+      if (deleteIds.length > 0) {
+        await db.delete(dishes).where(inArray(dishes.id, deleteIds));
+      }
+      if (inactivateIds.length > 0) {
+        await db
+          .update(dishes)
+          .set({ isActive: false, photoKey: null, updatedAt: new Date() })
+          .where(inArray(dishes.id, inactivateIds));
+      }
+      return { deleted: deleteIds.length, inactivated: inactivateIds.length };
+    },
+
+    async retireSeeds() {
+      return retireSeedDishes(db);
+    },
+
+    async countOnWall() {
+      const rows = await db
+        .select({ id: dishes.id })
+        .from(dishes)
+        .where(and(eq(dishes.isActive, true), isNotNull(dishes.notionPageId)));
+      return { onWall: rows.length };
+    },
+  };
+}
+
+/** Retire sample dishes inside one Neon HTTP transaction. */
+export async function retireSeedDishes(db: Database): Promise<number> {
+  const seedRows = await db
+    .select({
+      id: dishes.id,
+      name: dishes.name,
+      isActive: dishes.isActive,
+    })
+    .from(dishes)
+    .where(isNull(dishes.notionPageId));
+  if (seedRows.length === 0) return 0;
+
+  const imported = await db
+    .select({
+      id: dishes.id,
+      name: dishes.name,
+      isActive: dishes.isActive,
+    })
+    .from(dishes)
+    .where(isNotNull(dishes.notionPageId));
+
+  const seedIds = seedRows.map((row) => row.id);
+  const links =
+    seedIds.length === 0
+      ? []
+      : await db
+          .select({ dishId: menuItems.dishId })
+          .from(menuItems)
+          .where(inArray(menuItems.dishId, seedIds));
+  const ops = planSeedRetirement({
+    seeds: seedRows,
+    imported,
+    referencedSeedIds: new Set(links.map((link) => link.dishId)),
+  });
+  if (ops.length === 0) return 0;
+
+  const sqlClient = db.$client;
+  await sqlClient.transaction((txn) =>
+    ops.flatMap((op) => {
+      if (op.kind === "repoint") {
+        return [
+          txn`DELETE FROM menu_items AS old USING menu_items AS keep WHERE old.dish_id = ${op.seedId}::uuid AND keep.dish_id = ${op.importedId}::uuid AND keep.weekly_menu_id = old.weekly_menu_id AND keep.day_of_week = old.day_of_week AND keep.meal = old.meal`,
+          txn`UPDATE menu_items SET dish_id = ${op.importedId}::uuid WHERE dish_id = ${op.seedId}::uuid`,
+          txn`DELETE FROM dishes WHERE id = ${op.seedId}::uuid AND notion_page_id IS NULL`,
+        ];
+      }
+      if (op.kind === "delete") {
+        return [
+          txn`DELETE FROM dishes WHERE id = ${op.seedId}::uuid AND notion_page_id IS NULL`,
+        ];
+      }
+      return [
+        txn`UPDATE dishes SET is_active = false, updated_at = now() WHERE id = ${op.seedId}::uuid AND notion_page_id IS NULL AND is_active = true`,
+      ];
+    }),
+  );
+  return ops.length;
+}

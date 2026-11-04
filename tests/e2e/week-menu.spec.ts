@@ -1,5 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 import { e2eCredentials, login } from "./credentials";
+import { readWall, shortestDishes } from "./wall";
 
 const credentials = e2eCredentials();
 const week = "2026-12-27";
@@ -21,22 +22,32 @@ test.describe("weekly menu", () => {
     await expect(board).toBeVisible();
     await expect(board.getByText("12月27日–1月2日")).toBeVisible();
 
+    const [dish] = await readWall(page);
+    const remove = removeLabel("周二晚餐", dish!.name);
+
     try {
-      await addToSlot(page, "周二晚餐");
-      await expect(board.getByText("番茄炒蛋")).toBeVisible();
+      await removeIfPresent(page, remove);
+      await addDish(page, dish!.name, "周二晚餐");
+      await expect(
+        page.getByRole("button", { name: remove, exact: true }),
+      ).toBeVisible();
       await expect(page.getByRole("status")).toContainText("已加到 周二·晚");
 
       await page.reload();
-      await expect(board.getByText("番茄炒蛋")).toBeVisible();
+      await expect(
+        page.getByRole("button", { name: remove, exact: true }),
+      ).toBeVisible();
 
-      await page
-        .getByRole("button", { name: "从周二晚餐移除番茄炒蛋" })
-        .click();
-      await expect(board.getByText("番茄炒蛋")).toHaveCount(0);
+      await page.getByRole("button", { name: remove, exact: true }).click();
+      await expect(
+        page.getByRole("button", { name: remove, exact: true }),
+      ).toHaveCount(0);
       await page.reload();
-      await expect(board.getByText("番茄炒蛋")).toHaveCount(0);
+      await expect(
+        page.getByRole("button", { name: remove, exact: true }),
+      ).toHaveCount(0);
     } finally {
-      await removeIfVisible(page, "从周二晚餐移除番茄炒蛋");
+      await removeIfPresent(page, remove);
     }
   });
 
@@ -67,39 +78,44 @@ test.describe("weekly menu", () => {
     await login(page, username, password);
     await page.goto(`/?week=${week}`);
 
+    const [dish] = await readWall(page);
+    const remove = removeLabel("周三午餐", dish!.name);
     const tray = page.getByRole("button", { name: /本周已点 \d+ 道/ });
     await expect(tray).toBeVisible();
-    await expect(tray).toHaveText("本周已点 0 道");
+    await openTray(page);
+    await removeIfPresent(page, remove);
+    await closeTray(page);
+    const before = await plannedCount(page);
 
     try {
-      await addToSlot(page, "周三午餐");
-      const cell = page.getByRole("button", { name: "周三午餐" });
+      await addDish(page, dish!.name, "周三午餐");
+      const cell = page.getByRole("button", { name: "周三午餐", exact: true });
       const box = await cell.boundingBox();
       expect(box).not.toBeNull();
       expect(box!.width).toBeGreaterThanOrEqual(44);
       expect(box!.height).toBeGreaterThanOrEqual(44);
       await page.keyboard.press("Escape");
 
-      await expect(tray).toHaveText("本周已点 1 道");
-      await tray.click();
-      const board = page.getByRole("region", { name: "一周菜单" });
-      await expect(board.getByText("番茄炒蛋")).toBeVisible();
+      await expect(tray).toHaveText(`本周已点 ${before + 1} 道`);
+      await openTray(page);
+      await expect(
+        page.getByRole("button", { name: remove, exact: true }),
+      ).toBeVisible();
 
       await page.reload();
-      await expect(tray).toHaveText("本周已点 1 道");
-      await tray.click();
-      await expect(board.getByText("番茄炒蛋")).toBeVisible();
+      await expect(tray).toHaveText(`本周已点 ${before + 1} 道`);
+      await openTray(page);
+      await expect(
+        page.getByRole("button", { name: remove, exact: true }),
+      ).toBeVisible();
 
-      await page
-        .getByRole("button", { name: "从周三午餐移除番茄炒蛋" })
-        .click();
-      await expect(board.getByText("番茄炒蛋")).toHaveCount(0);
+      await page.getByRole("button", { name: remove, exact: true }).click();
+      await expect(
+        page.getByRole("button", { name: remove, exact: true }),
+      ).toHaveCount(0);
     } finally {
-      const tray = page.getByRole("button", { name: /本周已点 \d+ 道/ });
-      if ((await tray.getAttribute("aria-expanded")) !== "true") {
-        await tray.click();
-      }
-      await removeIfVisible(page, "从周三午餐移除番茄炒蛋");
+      await openTray(page);
+      await removeIfPresent(page, remove);
     }
   });
 
@@ -107,18 +123,19 @@ test.describe("weekly menu", () => {
     page,
   }) => {
     const { username, password } = credentials!;
-    const planned = [
-      { dish: "番茄炒蛋", slot: "周一早餐", remove: "从周一早餐移除番茄炒蛋" },
-      { dish: "红烧肉", slot: "周三午餐", remove: "从周三午餐移除红烧肉" },
-      { dish: "宫保鸡丁", slot: "周五晚餐", remove: "从周五晚餐移除宫保鸡丁" },
-    ] as const;
-
     await page.setViewportSize({ width: 1440, height: 900 });
     await login(page, username, password);
     await page.goto(`/?week=${week}`);
+    const picked = shortestDishes(await readWall(page), 3);
+    const slots = ["周一早餐", "周三午餐", "周五晚餐"] as const;
+    const planned = picked.map((dish, index) => {
+      const slot = slots[index]!;
+      return { dish: dish.name, slot, remove: removeLabel(slot, dish.name) };
+    });
 
     try {
       for (const item of planned) {
+        await removeIfPresent(page, item.remove);
         await addDish(page, item.dish, item.slot);
         await page.keyboard.press("Escape");
       }
@@ -130,13 +147,18 @@ test.describe("weekly menu", () => {
         await expect(board.getByRole("button", { name: "空着呢" })).toHaveCount(
           0,
         );
+        // Any empty slot: the check is that empty slots are not buttons.
         const empty = board.locator(".week-slot-empty").first();
         await expect(empty).toBeVisible();
         expect(await empty.getAttribute("role")).not.toBe("button");
         expect(await empty.evaluate((node) => node.tabIndex)).toBeLessThan(0);
 
         for (const item of planned) {
-          const name = board.locator(".week-dish-name", { hasText: item.dish });
+          const row = board.locator(".week-slot-item").filter({
+            has: page.getByRole("button", { name: item.remove, exact: true }),
+          });
+          await expect(row).toHaveCount(1);
+          const name = row.locator(".week-dish-name");
           await expect(name).toHaveCount(1);
           await expect(name).toHaveAttribute("title", item.dish);
           await expect(name).toHaveAccessibleName(item.dish);
@@ -162,7 +184,7 @@ test.describe("weekly menu", () => {
 
           const nameBox = await name.boundingBox();
           const removeBox = await board
-            .getByRole("button", { name: item.remove })
+            .getByRole("button", { name: item.remove, exact: true })
             .boundingBox();
           expect(nameBox).not.toBeNull();
           expect(removeBox).not.toBeNull();
@@ -180,7 +202,7 @@ test.describe("weekly menu", () => {
         await page.setViewportSize({ width: 1440, height: 900 });
       }
       for (const item of planned) {
-        await removeIfVisible(page, item.remove);
+        await removeIfPresent(page, item.remove);
       }
     }
   });
@@ -218,21 +240,44 @@ test.describe("weekly menu", () => {
   });
 });
 
+function removeLabel(slot: string, dish: string): string {
+  return `从${slot}移除${dish}`;
+}
+
 async function addDish(page: Page, dishName: string, slotName: string) {
   const card = page.getByRole("listitem").filter({
-    has: page.getByRole("heading", { name: dishName, level: 3 }),
+    has: page.getByRole("heading", {
+      name: dishName,
+      level: 3,
+      exact: true,
+    }),
   });
+  await expect(card).toHaveCount(1);
   await card.getByRole("button", { name: "+加到哪天" }).click();
-  await page.getByRole("button", { name: slotName }).click();
+  await page.getByRole("button", { name: slotName, exact: true }).click();
 }
 
-async function addToSlot(page: Page, slotName: string) {
-  await addDish(page, "番茄炒蛋", slotName);
-}
-
-async function removeIfVisible(page: Page, name: string) {
-  const button = page.getByRole("button", { name });
+async function removeIfPresent(page: Page, name: string) {
+  const button = page.getByRole("button", { name, exact: true });
   if ((await button.count()) === 0) return;
   await button.click();
   await expect(button).toHaveCount(0);
+}
+
+async function openTray(page: Page) {
+  const tray = page.getByRole("button", { name: /本周已点 \d+ 道/ });
+  if ((await tray.getAttribute("aria-expanded")) !== "true") await tray.click();
+}
+
+async function closeTray(page: Page) {
+  const tray = page.getByRole("button", { name: /本周已点 \d+ 道/ });
+  if ((await tray.getAttribute("aria-expanded")) === "true") await tray.click();
+}
+
+async function plannedCount(page: Page): Promise<number> {
+  const tray = page.getByRole("button", { name: /本周已点 \d+ 道/ });
+  await expect(tray).toBeVisible();
+  const match = /(\d+)/.exec(await tray.innerText());
+  expect(match, "看不懂「本周已点」的数量").not.toBeNull();
+  return Number(match![1]);
 }

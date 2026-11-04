@@ -5,12 +5,14 @@ import {
   date,
   index,
   integer,
+  jsonb,
   pgEnum,
   pgTable,
   smallint,
   text,
   timestamp,
   unique,
+  uniqueIndex,
   uuid,
 } from "drizzle-orm/pg-core";
 
@@ -41,8 +43,21 @@ export const dishes = pgTable(
       .notNull()
       .references(() => categories.id),
     description: text("description"),
-    // Key in private storage. Never store a public URL here.
+    // Nullable and unused. Cards do not show stored photos.
+    // notion_page_id is the stable key if a picture is fetched later.
     photoKey: text("photo_key"),
+    cookTime: text("cook_time"),
+    ingredients: text("ingredients"),
+    rating: text("rating"),
+    tried: boolean("tried").notNull().default(false),
+    cuisines: jsonb("cuisines")
+      .$type<string[]>()
+      .notNull()
+      .default(sql`'[]'::jsonb`),
+    mainIngredient: text("main_ingredient"),
+    body: jsonb("body"),
+    // True when the dish was imported with cooking steps.
+    hasBody: boolean("has_body").notNull().default(false),
     isActive: boolean("is_active").notNull().default(true),
     createdAt: timestamp("created_at", { withTimezone: true, mode: "date" })
       .notNull()
@@ -55,6 +70,64 @@ export const dishes = pgTable(
   (table) => [
     index("dishes_category_id_idx").on(table.categoryId),
     index("dishes_name_idx").on(table.name),
+  ],
+);
+
+export const notionSyncRuns = pgTable(
+  "notion_sync_runs",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    status: text("status").notNull(),
+    startedAt: timestamp("started_at", { withTimezone: true, mode: "date" })
+      .notNull()
+      .defaultNow(),
+    heartbeatAt: timestamp("heartbeat_at", {
+      withTimezone: true,
+      mode: "date",
+    })
+      .notNull()
+      .defaultNow(),
+    finishedAt: timestamp("finished_at", { withTimezone: true, mode: "date" }),
+    added: integer("added").notNull().default(0),
+    updated: integer("updated").notNull().default(0),
+    deleted: integer("deleted").notNull().default(0),
+    inactivated: integer("inactivated").notNull().default(0),
+    imported: integer("imported").notNull().default(0),
+    tried: integer("tried").notNull().default(0),
+    noSteps: integer("no_steps").notNull().default(0),
+    errored: integer("errored").notNull().default(0),
+    seedsRetired: integer("seeds_retired").notNull().default(0),
+    wouldRemove: integer("would_remove").notNull().default(0),
+    removalsSkipped: boolean("removals_skipped").notNull().default(false),
+    noStepPages: jsonb("no_step_pages")
+      .$type<{ pageId: string; name: string | null; url: string }[]>()
+      .notNull()
+      .default(sql`'[]'::jsonb`),
+    erroredPages: jsonb("errored_pages")
+      .$type<{ pageId: string; name: string | null; url: string }[]>()
+      .notNull()
+      .default(sql`'[]'::jsonb`),
+    onWall: integer("on_wall").notNull().default(0),
+    processed: integer("processed").notNull().default(0),
+    total: integer("total"),
+    skipped: jsonb("skipped")
+      .$type<{ pageId: string; name: string | null; reason: string }[]>()
+      .notNull()
+      .default(sql`'[]'::jsonb`),
+    warnings: jsonb("warnings")
+      .$type<string[]>()
+      .notNull()
+      .default(sql`'[]'::jsonb`),
+    error: text("error"),
+  },
+  (table) => [
+    uniqueIndex("notion_sync_runs_one_running_idx")
+      .on(table.status)
+      .where(sql`${table.status} = 'running'`),
+    check(
+      "notion_sync_runs_status",
+      sql`${table.status} in ('running', 'succeeded', 'failed')`,
+    ),
   ],
 );
 

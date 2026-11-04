@@ -45,3 +45,7 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Local dumps. Never commit exported recipes or photos.
+/notion-export/
+/exports/

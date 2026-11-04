@@ -21,6 +21,8 @@ export async function proxy(request: NextRequest) {
     sessionToken: request.cookies.get(SESSION_COOKIE_NAME)?.value,
     secret: process.env.SESSION_SECRET,
     origin: request.nextUrl.origin,
+    authorization: request.headers.get("authorization"),
+    cronSecret: process.env.CRON_SECRET,
   });
 
   switch (decision.kind) {

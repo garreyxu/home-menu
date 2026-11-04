@@ -14,7 +14,9 @@ if (!migrationDatabaseUrl()) {
     console.log("[db] Seeding preview database.");
     runCommand("pnpm", ["db:seed"], { redact: true });
   } else {
-    console.log('[db] Skipping seed: VERCEL_ENV is not "preview".');
+    console.log(
+      "[db] Skipping seed: production is never seeded. Sample rows are not in migrations.",
+    );
   }
 }
 

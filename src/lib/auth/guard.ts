@@ -1,5 +1,6 @@
 import { AuthConfigError } from "@/lib/auth/config-error";
 import { sanitizeNextPath } from "@/lib/auth/next-path";
+import { NOTION_CRON_PATH, bearerMatches } from "@/lib/notion-cron";
 import { assertSessionSecret, verifySession } from "@/lib/auth/session";
 
 export type AccessDecision =
@@ -15,6 +16,8 @@ export type AccessRequest = {
   sessionToken: string | undefined;
   secret: string | undefined;
   origin: string;
+  authorization?: string | null;
+  cronSecret?: string;
 };
 
 function isPublicPath(pathname: string): boolean {
@@ -58,6 +61,13 @@ export async function decideAccess(
   const session = request.sessionToken
     ? await verifySession(request.sessionToken, secret)
     : null;
+
+  if (request.pathname === NOTION_CRON_PATH) {
+    if (!bearerMatches(request.authorization, request.cronSecret)) {
+      return { kind: "unauthorized" };
+    }
+    return { kind: "allow", authenticated: false };
+  }
 
   if (isPublicPath(request.pathname)) {
     if (request.pathname === "/login" && session) {

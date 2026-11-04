@@ -6,15 +6,23 @@ import { SESSION_COOKIE_NAME, signSession } from "@/lib/auth/session";
 
 const SECRET = "unit-test-session-secret-not-for-production";
 const originalSecret = process.env.SESSION_SECRET;
+const originalCronSecret = process.env.CRON_SECRET;
 
 afterEach(() => {
   if (originalSecret === undefined) delete process.env.SESSION_SECRET;
   else process.env.SESSION_SECRET = originalSecret;
+  if (originalCronSecret === undefined) delete process.env.CRON_SECRET;
+  else process.env.CRON_SECRET = originalCronSecret;
 });
 
-async function callProxy(path: string, cookie?: string) {
+async function callProxy(
+  path: string,
+  cookie?: string,
+  authorization?: string,
+) {
   const headers = new Headers();
   if (cookie) headers.set("cookie", `${SESSION_COOKIE_NAME}=${cookie}`);
+  if (authorization) headers.set("authorization", authorization);
   return proxy(new NextRequest(`http://127.0.0.1:3000${path}`, { headers }));
 }
 
@@ -24,7 +32,7 @@ function proxyMatches(url: string): boolean {
 
 describe("proxy matcher", () => {
   it("always matches /api, including static-looking extensions", () => {
-    expect(proxyMatches("/api/photos/x.webp")).toBe(true);
+    expect(proxyMatches("/api/dishes/x.webp")).toBe(true);
     expect(proxyMatches("/api/anything.js")).toBe(true);
     expect(proxyMatches("/foo.png")).toBe(true);
     expect(proxyMatches("/")).toBe(true);
@@ -74,8 +82,20 @@ describe("proxy", () => {
     expect(api.status).toBe(401);
     await expect(api.json()).resolves.toEqual({ error: "Unauthorized" });
 
-    const photo = await callProxy("/api/photos/x.webp");
-    expect(photo.status).toBe(401);
+    const imageApi = await callProxy("/api/dishes/x.webp");
+    expect(imageApi.status).toBe(401);
+
+    const cron = await callProxy("/api/cron/notion-sync");
+    expect(cron.status).toBe(401);
+    process.env.CRON_SECRET = "cron-secret-value";
+    const allowedCron = await callProxy(
+      "/api/cron/notion-sync",
+      undefined,
+      "Bearer cron-secret-value",
+    );
+    expect(allowedCron.status).not.toBe(401);
+    expect(allowedCron.headers.get("location")).toBeNull();
+    delete process.env.CRON_SECRET;
 
     const image = await callProxy("/foo.png");
     expect(image.status).toBe(307);

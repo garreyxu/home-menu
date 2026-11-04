@@ -7,6 +7,7 @@ export type DishSummary = {
   description: string | null;
   photoKey: string | null;
   isActive: boolean;
+  tried: boolean;
 };
 
 export type CategoryWithDishes = {
@@ -26,6 +27,8 @@ export type CategoryDishJoinRow = {
   description: string | null;
   photoKey: string | null;
   isActive: boolean | null;
+  tried: boolean | null;
+  hasBody: boolean | null;
 };
 
 export type MenuItemRecord = {
@@ -84,6 +87,7 @@ export function groupCategoriesWithDishes(
       description: row.description,
       photoKey: row.photoKey,
       isActive: row.isActive,
+      tried: row.tried === true,
     });
   }
 
@@ -103,6 +107,7 @@ export type DishWallDish = {
   categoryName: string;
   description: string | null;
   photoKey: string | null;
+  tried: boolean;
 };
 
 export type DishWall = {
@@ -112,30 +117,40 @@ export type DishWall = {
   unknownCategory: boolean;
 };
 
+function showsOnWall(row: CategoryDishJoinRow): boolean {
+  return row.dishId !== null && row.dishName !== null && row.isActive === true;
+}
+
+function blankDish(row: CategoryDishJoinRow): CategoryDishJoinRow {
+  return {
+    ...row,
+    dishId: null,
+    notionPageId: null,
+    dishName: null,
+    description: null,
+    photoKey: null,
+    isActive: null,
+    tried: null,
+    hasBody: null,
+  };
+}
+
 function compareZh(a: string, b: string): number {
   return a.localeCompare(b, "zh-CN");
 }
 
 /**
- * Active dishes only. Categories stay even when every dish is inactive.
+ * Active dishes on the wall. Sample dishes have no Notion id and stay visible.
+ * A Notion dish that lost its steps, or was deleted in Notion, is inactive
+ * when a weekly menu still references it, and is omitted here.
+ * Categories stay even when every dish is hidden.
  * Categories are ordered by sort_order, then name. Dishes are ordered by name.
- * Row order from the database is not trusted.
  */
 export function groupActiveDishesByCategory(
   rows: readonly CategoryDishJoinRow[],
 ): CategoryWithDishes[] {
   const visible = rows.map((row) => {
-    if (row.dishId === null || row.dishName === null || row.isActive !== true) {
-      return {
-        ...row,
-        dishId: null,
-        notionPageId: null,
-        dishName: null,
-        description: null,
-        photoKey: null,
-        isActive: null,
-      };
-    }
+    if (!showsOnWall(row)) return blankDish(row);
     return row;
   });
 
@@ -179,6 +194,7 @@ export function buildDishWall(
       categoryName: category.name,
       description: dish.description,
       photoKey: dish.photoKey,
+      tried: dish.tried,
     });
 
   if (!selected) {

@@ -53,6 +53,7 @@ export default async function Home({ searchParams }: PageProps<"/">) {
             id: dish.id,
             name: dish.name,
             categoryName: dish.categoryName,
+            tried: dish.tried,
           }))}
           heading={heading}
           pixelHeading={!wall.unknownCategory}

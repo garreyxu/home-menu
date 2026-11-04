@@ -15,6 +15,8 @@ describe("groupCategoriesWithDishes", () => {
         description: null,
         photoKey: null,
         isActive: null,
+        tried: null,
+        hasBody: null,
       },
       {
         categoryId: "c2",
@@ -26,6 +28,8 @@ describe("groupCategoriesWithDishes", () => {
         description: "清汤",
         photoKey: null,
         isActive: true,
+        tried: false,
+        hasBody: null,
       },
       {
         categoryId: "c2",
@@ -37,6 +41,8 @@ describe("groupCategoriesWithDishes", () => {
         description: null,
         photoKey: "photos/tomato",
         isActive: false,
+        tried: false,
+        hasBody: true,
       },
     ]);
 
@@ -54,6 +60,7 @@ describe("groupCategoriesWithDishes", () => {
             description: "清汤",
             photoKey: null,
             isActive: true,
+            tried: false,
           },
           {
             id: "d2",
@@ -62,6 +69,7 @@ describe("groupCategoriesWithDishes", () => {
             description: null,
             photoKey: "photos/tomato",
             isActive: false,
+            tried: false,
           },
         ],
       },
