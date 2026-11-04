@@ -153,8 +153,8 @@ test.describe("dish wall", () => {
           expect(boardBox!.x + boardBox!.width - nav!.x).toBeGreaterThanOrEqual(
             3200,
           );
-          expect(boardBox!.width).toBeGreaterThanOrEqual(476);
-          expect(boardBox!.width).toBeLessThanOrEqual(484);
+          expect(boardBox!.width).toBeGreaterThanOrEqual(560);
+          expect(boardBox!.width).toBeLessThanOrEqual(640);
         }
       }
     });

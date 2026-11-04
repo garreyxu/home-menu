@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { BrushRuns } from "@/components/brush-runs";
 import { DishFallback } from "@/components/dish-fallback";
 import { Card } from "@/components/ui/card";
 import { frameLetter } from "@/lib/frames";
@@ -26,14 +27,12 @@ export function DishCard({
   id = "dish",
   name,
   categoryName,
-  description = null,
   illustration = null,
   tried = false,
   plannedCount = 0,
   action = null,
 }: DishCardProps) {
   const letter = frameLetter(id);
-  const note = dishNoteText(description);
 
   return (
     <Card
@@ -60,24 +59,13 @@ export function DishCard({
         ) : null}
         {tried ? <span className="tried-tag">做过</span> : null}
       </div>
-      <h3 className="dish-name font-brush line-clamp-2 text-sumi">{name}</h3>
-      {note ? <p className="dish-note line-clamp-1">{note}</p> : null}
+      <h3 className="dish-name font-brush line-clamp-2 text-sumi">
+        <BrushRuns text={name} />
+      </h3>
       <p className="dish-category font-brush">{categoryName}</p>
       {action}
     </Card>
   );
-}
-
-/**
- * Handwritten notes stay. English Notion timing such as
- * "Prep Time 5 min Cook Time 20 min" is hidden instead of shown raw.
- */
-export function dishNoteText(
-  description: string | null | undefined,
-): string | null {
-  const note = description?.replace(/\s+/g, " ").trim() ?? "";
-  if (!note || /[A-Za-z]/.test(note)) return null;
-  return note;
 }
 
 function DishArt({ illustration }: { illustration: DishIllustration }) {

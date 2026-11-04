@@ -1,3 +1,5 @@
+import { BrushRuns } from "@/components/brush-runs";
+
 /** ≤4 characters on one line, 5 or more split across two. */
 export function fallbackLines(name: string): string[] {
   const chars = Array.from(name.trim());
@@ -30,7 +32,7 @@ export function DishFallback({ name }: { name: string }) {
       <p className="dish-fallback-name font-brush">
         {lines.map((line, index) => (
           <span key={index} className="block">
-            {line}
+            <BrushRuns text={line} />
           </span>
         ))}
       </p>

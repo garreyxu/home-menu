@@ -481,7 +481,7 @@ iframe[src*="vercel.live"] {
 
 .week-day {
   display: grid;
-  grid-template-columns: 42px repeat(3, minmax(0, 1fr));
+  grid-template-columns: minmax(3em, max-content) repeat(3, minmax(0, 1fr));
   gap: 4px;
   align-items: stretch;
   background-image: url(/frames/rule.svg);
@@ -506,8 +506,10 @@ iframe[src*="vercel.live"] {
   align-items: center;
   justify-content: center;
   gap: 2px;
+  min-width: 3em;
   color: var(--color-sumi);
   font-size: 18px;
+  white-space: nowrap;
 }
 
 .today-seal {
@@ -1028,8 +1030,8 @@ iframe[src*="vercel.live"] {
   }
 
   .week-panel {
-    width: 480px;
-    max-width: 480px;
+    width: clamp(560px, 18vw, 640px);
+    max-width: 640px;
   }
 
   .scene-deco {
