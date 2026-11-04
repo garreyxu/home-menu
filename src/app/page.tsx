@@ -5,7 +5,7 @@ import { StampButton } from "@/components/stamp-button";
 import { requireSession } from "@/lib/auth/require-session";
 import { firstQueryValue } from "@/lib/category-filter";
 import { toHomeWall } from "@/lib/home-wall";
-import { illustrationForDish, publicFileExists } from "@/lib/illustrations";
+import { illustrationForPage } from "@/server/illustrations";
 import { buildDishWall } from "@/server/menu-view";
 import { listDishesByCategory } from "@/server/menu";
 import { isSundayWeekStart, pacificDateIso, toWeekStart } from "@/server/week";
@@ -28,9 +28,7 @@ export default async function Home({ searchParams }: PageProps<"/">) {
     weekParam && isSundayWeekStart(weekParam) ? weekParam : null;
   const catalog = await listDishesByCategory();
   const built = buildDishWall(catalog, categoryParam);
-  const wall = toHomeWall(built, (dishId) =>
-    illustrationForDish(dishId, publicFileExists),
-  );
+  const wall = toHomeWall(built, illustrationForPage);
   const week = await loadWeekMenu(weekQuery);
 
   return (

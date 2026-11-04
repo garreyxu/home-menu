@@ -3,6 +3,7 @@ import type { DishWall } from "@/server/menu-view";
 
 export type WallDish = {
   id: string;
+  notionPageId: string | null;
   name: string;
   categoryName: string;
   tried: boolean;
@@ -28,7 +29,7 @@ const EMPTY_MENU = "菜单还空着，等家里添几道菜。";
 
 export function toHomeWall(
   wall: DishWall,
-  illustrationFor: (dishId: string) => DishIllustration | null,
+  illustrationFor: (notionPageId: string | null) => DishIllustration | null,
 ): HomeWall {
   const unknown = wall.unknownCategory;
   return {
@@ -45,11 +46,12 @@ export function toHomeWall(
     selectedCategory: wall.selectedCategory,
     dishes: wall.dishes.map((dish) => ({
       id: dish.id,
+      notionPageId: dish.notionPageId,
       name: dish.name,
       categoryName: dish.categoryName,
       tried: dish.tried,
       description: dish.description,
-      illustration: illustrationFor(dish.id),
+      illustration: illustrationFor(dish.notionPageId),
     })),
   };
 }
@@ -67,6 +69,7 @@ export function wallKey(wall: HomeWall): string {
     categories: wall.categories.map((category) => category.name),
     dishes: wall.dishes.map((dish) => [
       dish.id,
+      dish.notionPageId,
       dish.name,
       dish.categoryName,
       dish.tried,

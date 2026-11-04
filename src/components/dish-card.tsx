@@ -12,8 +12,9 @@ export type DishCardProps = {
   categoryName: string;
   description?: string | null;
   /**
-   * Watercolor at public/illustrations/<id>-<240|480|960>.webp.
-   * Null paints the brush-name fallback. No photo is requested.
+   * Watercolor at public/illustrations/<notionPageId>-<240|480|960>.webp.
+   * Null paints the brush-name fallback. The server only passes a URL
+   * when the build-time manifest lists that Notion page.
    */
   illustration?: DishIllustration | null;
   /** Notion 「已尝试?」. Ink tag, never the red 推荐 seal. */
