@@ -800,13 +800,16 @@
 .week-board-body {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  padding: 12px;
+  gap: 6px;
+  padding: 8px 4px;
 }
 
 .week-day {
   display: grid;
-  grid-template-columns: 48px repeat(3, minmax(0, 1fr));
+  /* Fixed label column so the header and the seven days share one rhythm.
+     32px fits 「周日」 at the 12px pixel size and leaves the meal cells wide
+     enough for about four CJK characters on the 380px panel. */
+  grid-template-columns: 32px repeat(3, minmax(0, 1fr));
   gap: 4px;
   align-items: stretch;
 }
@@ -852,22 +855,44 @@
 }
 
 .week-slot-item {
-  display: flex;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  grid-template-rows: auto auto;
+  column-gap: 2px;
+  row-gap: 2px;
   align-items: center;
-  gap: 4px;
   min-width: 0;
 }
 
 .week-thumb {
   display: grid;
+  grid-column: 1;
+  grid-row: 1;
   width: 32px;
   height: 32px;
-  flex: none;
+  justify-self: center;
   place-items: center;
   border: 2px solid var(--color-ink);
   background: #d5efe8;
   font-size: 14px;
   font-weight: 600;
+}
+
+.week-dish-name {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--color-ink);
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 18px;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  word-break: break-all;
+  overflow-wrap: anywhere;
 }
 
 .week-remove,
@@ -880,11 +905,21 @@
   min-height: 32px;
 }
 
+.week-remove {
+  grid-column: 1;
+  grid-row: 2;
+  justify-self: center;
+  padding: 0;
+  line-height: 1;
+}
+
 .week-more {
   width: 100%;
   margin-top: 4px;
 }
 
+/* One board entry per breakpoint: tray below 1024, drawer toggle at
+   1024–1439, and no open button from 1440 (the panel stays visible). */
 .week-drawer-toggle {
   display: none;
 }
@@ -1013,6 +1048,13 @@
   .week-remove {
     min-width: 44px;
     min-height: 44px;
+  }
+}
+
+@media (min-width: 1024px) {
+  .week-tray,
+  .week-tray-toggle {
+    display: none;
   }
 }
 
