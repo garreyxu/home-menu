@@ -43,10 +43,9 @@ export const dishes = pgTable(
       .notNull()
       .references(() => categories.id),
     description: text("description"),
-    // Private blob pathname, such as dishes/<notion-id>. Never a URL.
+    // Nullable and unused. Cards do not show stored photos.
+    // notion_page_id is the stable key if a picture is fetched later.
     photoKey: text("photo_key"),
-    // Stable identity of the Notion file, without the expiring query string.
-    photoSourceKey: text("photo_source_key"),
     cookTime: text("cook_time"),
     ingredients: text("ingredients"),
     rating: text("rating"),
@@ -57,7 +56,7 @@ export const dishes = pgTable(
       .default(sql`'[]'::jsonb`),
     mainIngredient: text("main_ingredient"),
     body: jsonb("body"),
-    // True when the Notion page body has at least one block.
+    // True when the dish was imported with cooking steps.
     hasBody: boolean("has_body").notNull().default(false),
     isActive: boolean("is_active").notNull().default(true),
     createdAt: timestamp("created_at", { withTimezone: true, mode: "date" })
@@ -91,13 +90,12 @@ export const notionSyncRuns = pgTable(
     finishedAt: timestamp("finished_at", { withTimezone: true, mode: "date" }),
     added: integer("added").notNull().default(0),
     updated: integer("updated").notNull().default(0),
-    delisted: integer("delisted").notNull().default(0),
+    deleted: integer("deleted").notNull().default(0),
+    inactivated: integer("inactivated").notNull().default(0),
     imported: integer("imported").notNull().default(0),
-    withPhoto: integer("with_photo").notNull().default(0),
-    placeholder: integer("placeholder").notNull().default(0),
+    tried: integer("tried").notNull().default(0),
+    noSteps: integer("no_steps").notNull().default(0),
     onWall: integer("on_wall").notNull().default(0),
-    onWallWithPhoto: integer("on_wall_with_photo").notNull().default(0),
-    notTried: integer("not_tried").notNull().default(0),
     processed: integer("processed").notNull().default(0),
     total: integer("total"),
     skipped: jsonb("skipped")

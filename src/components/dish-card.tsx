@@ -7,9 +7,8 @@ export type DishCardProps = {
   name: string;
   categoryName: string;
   /**
-   * Public photo URL, later `/api/photos/[id]`.
-   * Null keeps the pixel plate. `photo_key` is a private storage key and
-   * must not be passed here.
+   * Optional image URL. Null keeps the pixel plate.
+   * Notion photos are not stored. A later change may pass a static illustration.
    */
   photoUrl?: string | null;
   tried?: boolean;
@@ -73,8 +72,12 @@ export function DishCard({
         </h3>
         <p className="font-pixel pixel-type text-pixel-1 text-driftwood">
           {categoryName}
-          {tried ? <span className="text-kelp"> 做过</span> : null}
         </p>
+        {tried ? (
+          <p className="font-sans text-xs font-medium leading-none text-kelp">
+            做过
+          </p>
+        ) : null}
         {action}
       </Card>
     </PixelFrame>

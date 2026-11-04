@@ -96,20 +96,20 @@ Preview must use a different username and password from production. Put that pre
 
 Postgres tables live in `src/server/db/schema.ts`. Ids are UUIDs (`gen_random_uuid()`).
 
-| Table          | Columns                                                                                                            | Rules                                                                                                                                                                       |
-| -------------- | ------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `categories`   | `id`, `name`, `sort_order`, `created_at`                                                                           | `name` is unique                                                                                                                                                            |
-| `dishes`       | `id`, `notion_page_id`, `name`, `category_id`, `description`, `photo_key`, `photo_source_key`, `cook_time`, `ingredients`, `rating`, `tried`, `cuisines`, `main_ingredient`, `body`, `has_body`, `is_active`, `created_at`, `updated_at` | `notion_page_id` is unique and nullable. `photo_key` is a private blob pathname, never a URL. `has_body` is true when the Notion page has at least one block. `is_active` is false after a dish is unchecked or deleted in Notion |
-| `notion_sync_runs` | progress and the last sync report | At most one row can be `running` |
-| `weekly_menus` | `id`, `week_start`, `created_at`                                                                                   | `week_start` is a unique `date` and must be a Sunday (`extract(dow from week_start) = 0`)                                                                                   |
-| `menu_items`   | `id`, `weekly_menu_id`, `day_of_week`, `meal`, `dish_id`, `created_at`                                             | `day_of_week` is 0–6 (0 = Sunday). `meal` is `breakfast`, `lunch`, or `dinner`. Unique on `(weekly_menu_id, day_of_week, meal, dish_id)`. Deleting a week deletes its items |
+| Table              | Columns                                                                                                                                                                                                              | Rules                                                                                                                                                                                                                                                                                                                                                          |
+| ------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `categories`       | `id`, `name`, `sort_order`, `created_at`                                                                                                                                                                             | `name` is unique                                                                                                                                                                                                                                                                                                                                               |
+| `dishes`           | `id`, `notion_page_id`, `name`, `category_id`, `description`, `photo_key`, `cook_time`, `ingredients`, `rating`, `tried`, `cuisines`, `main_ingredient`, `body`, `has_body`, `is_active`, `created_at`, `updated_at` | `notion_page_id` is unique and nullable, and is the stable key for a dish. `photo_key` is nullable and unused. `tried` mirrors Notion 「已尝试?」. `has_body` is true when the dish was imported with cooking steps. `is_active` is false when a previously imported dish no longer has steps, or was deleted in Notion, and a weekly menu still references it |
+| `notion_sync_runs` | progress and the last sync report                                                                                                                                                                                    | At most one row can be `running`                                                                                                                                                                                                                                                                                                                               |
+| `weekly_menus`     | `id`, `week_start`, `created_at`                                                                                                                                                                                     | `week_start` is a unique `date` and must be a Sunday (`extract(dow from week_start) = 0`)                                                                                                                                                                                                                                                                      |
+| `menu_items`       | `id`, `weekly_menu_id`, `day_of_week`, `meal`, `dish_id`, `created_at`                                                                                                                                               | `day_of_week` is 0–6 (0 = Sunday). `meal` is `breakfast`, `lunch`, or `dinner`. Unique on `(weekly_menu_id, day_of_week, meal, dish_id)`. Deleting a week deletes its items                                                                                                                                                                                    |
 
 Two phones can add the same dish at once: the insert uses `ON CONFLICT DO NOTHING`, so the row is kept once. Removing a dish from a slot deletes that row.
 
 The server client is `getDb()` in `src/server/db/index.ts`. It reads `DATABASE_URL` (the Neon pooled URL) and is marked `server-only`. Query helpers in `src/server/menu.ts`:
 
-- `listCategoriesWithDishes()` — categories by `sort_order`, each with its dishes (including inactive) by name. `photo_key` is returned as stored.
-- `listDishesByCategory()` — categories by `sort_order`, each with active dishes that belong on the wall. A Notion dish with an empty page body is stored but hidden. `photo_key` stays a storage key; the page turns it into `/api/photos/[id]`. When `DATABASE_URL` is unset and `VERCEL_ENV` is unset, this returns the sample catalog from `src/server/db/seed-data.ts` so local dev and CI can render without Neon. On Vercel (`VERCEL_ENV` set to any value), a missing `DATABASE_URL` throws and is logged. A configured database is the source of truth.
+- `listCategoriesWithDishes()` — categories by `sort_order`, each with its dishes (including inactive) by name.
+- `listDishesByCategory()` — categories by `sort_order`, each with active dishes. Cards render the pixel plate until a later change adds static illustrations. When `DATABASE_URL` is unset and `VERCEL_ENV` is unset, this returns the sample catalog from `src/server/db/seed-data.ts` so local dev and CI can render without Neon. On Vercel (`VERCEL_ENV` set to any value), a missing `DATABASE_URL` throws and is logged. A configured database is the source of truth.
 - `getOrCreateWeek(weekStart)` — `weekStart` is a `YYYY-MM-DD` Sunday.
 - `addMenuItem({ weekStart, dayOfWeek, meal, dishId })` — creates the week if needed, then inserts. A conflicting row is left in place.
 - `removeMenuItem({ weekStart, dayOfWeek, meal, dishId })` — deletes that row.
@@ -124,25 +124,25 @@ Scripts read `.env*` files the same way Next.js does and never print connection 
 
 ## Notion import
 
-The Recipe database is read-only. Only pages whose 「已尝试?」 checkbox is checked are imported. Pages that are not tried are not inserted. On a later sync, a page that is newly checked is added, and a page that is unchecked or deleted in Notion is marked inactive (`is_active = false`). The row stays, so a weekly menu that already used it still shows the dish.
+The Recipe database is read-only. The integration never writes to Notion. Every recipe page that has cooking steps is imported, whether or not 「已尝试?」 is checked. The checkbox is stored on the dish as `tried` and shown on the card as 「做过」 when it is true.
 
-Empty page bodies are still imported, and the wall hides them until the page has at least one block. Photos use the first image in the page body, then the page cover, then the pixel plate. Notion file links expire in about an hour, so the import downloads the bytes and stores them in a **private Vercel Blob** store. The browser only requests `/api/photos/[id]`, which checks the family session and streams the private blob. The blob URL is not written into the page.
+A page has steps when it uses a steps heading, toggle, or property whose name is or ends with 步骤 or 做法, and that section contains at least one real paragraph, list item, to-do, quote, or callout. If the page does not use that structure, any real paragraph, list item, or to-do in the body counts. Images, dividers, and headings do not count. Text that is only a placeholder (待补充, 待写, TODO, TBD, 暂无, 无, "-", "...") does not count. Ingredients do not count as steps. Pages without steps are not imported.
 
-The sync is one-way: Notion wins. The home page has a 「从 Notion 同步」 button. It stays disabled while a sync is running and then shows added, updated, delisted, and on-wall counts, plus how many were imported, how many have a photo, how many use the placeholder, and how many pages were left out because they are not tried. A daily Vercel Cron calls `GET /api/cron/notion-sync` at 12:00 UTC. That is about 4:00am Pacific Standard Time and 5:00am Pacific Daylight Time. On the Hobby plan the run can land any time during that hour, so it finishes in the early morning in Irvine. Hobby cron runs once a day and the function is limited to 300 seconds, which is enough for the tried pages (about 19 when this was written).
+On a later sync, a page that gains steps is added or updated. Unchecking 「已尝试?」 updates `tried` and leaves the dish in place. A page that loses its steps, or is deleted in Notion, is removed. If a weekly menu still references that dish, the row stays and `is_active` becomes false, so the old menu still renders. If nothing references it, the row is deleted.
+
+`notion_page_id` is the stable key for each dish. The app does not download or store photos. Cards without an image keep the pixel plate. Illustrations will be added separately.
+
+The sync is one-way: Notion wins. The home page has a 「从 Notion 同步」 button. It stays disabled while a sync is running and then shows how many were imported, how many are marked tried, how many were skipped for having no steps, and the added, updated, deleted, inactivated, and on-wall counts. A daily Vercel Cron calls `GET /api/cron/notion-sync` at 12:00 UTC. That is about 4:00am Pacific Standard Time and 5:00am Pacific Daylight Time. On the Hobby plan the run can land any time during that hour, so it finishes in the early morning in Irvine. Hobby cron runs once a day and the function is limited to 300 seconds.
 
 ### What to set
 
-| Variable | Where | Secret? |
-| --- | --- | --- |
-| `NOTION_TOKEN` | Vercel Production and Preview. Optional in `.env.local` for a local import | Yes |
-| `NOTION_DATABASE_ID` | Optional. Defaults to `ff95d9e83ae144ffaaa461286c9652ad` | No |
-| `NOTION_DATA_SOURCE_ID` | Optional. Defaults to `b8a7d4f9-5bfd-4ed3-bacd-5a5298796038` | No |
-| `BLOB_STORE_ID` | Set by Vercel when a private Blob store is connected to the project | No |
-| `BLOB_READ_WRITE_TOKEN` | Only for a local import. Vercel uses OIDC when `BLOB_STORE_ID` is set | Yes |
-| `CRON_SECRET` | Vercel Production. At least 16 characters. Vercel sends it as `Authorization: Bearer` | Yes |
-| `DATABASE_URL` | Already required for the app | Yes |
-
-Create the Blob store in the Vercel project: Storage → Create → Blob → access **Private**, and connect it to Production and Preview. That is included in the Hobby allowance (1 GB storage). It does not add a paid plan. Do not use a public store.
+| Variable                | Where                                                                                 | Secret? |
+| ----------------------- | ------------------------------------------------------------------------------------- | ------- |
+| `NOTION_TOKEN`          | Vercel Production and Preview. Optional in `.env.local` for a local import            | Yes     |
+| `NOTION_DATABASE_ID`    | Optional. Defaults to `ff95d9e83ae144ffaaa461286c9652ad`                              | No      |
+| `NOTION_DATA_SOURCE_ID` | Optional. Defaults to `b8a7d4f9-5bfd-4ed3-bacd-5a5298796038`                          | No      |
+| `CRON_SECRET`           | Vercel Production. At least 16 characters. Vercel sends it as `Authorization: Bearer` | Yes     |
+| `DATABASE_URL`          | Already required for the app                                                          | Yes     |
 
 CI does not call Notion. When `DATABASE_URL` and `NOTION_TOKEN` are unset, the app keeps using the committed sample catalog.
 
@@ -151,7 +151,7 @@ CI does not call Notion. When `DATABASE_URL` and `NOTION_TOKEN` are unset, the a
 1. Share the Recipe database with the read-only Notion integration.
 2. Set the variables above and deploy, so the migration runs.
 3. Sign in and click 「从 Notion 同步」, or from a machine that has the env vars run `pnpm notion:import`.
-4. The command and the button print the same report: imported, with photo, placeholder, skipped and why, not tried, and on-wall.
+4. The command and the button print the same report: imported, tried, no steps, added, updated, deleted, inactivated, skipped and why, and on-wall.
 
 The daily cron starts after that. Clicking the button again is safe: dishes are matched by Notion page id and are not duplicated.
 

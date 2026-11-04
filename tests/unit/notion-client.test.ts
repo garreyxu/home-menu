@@ -1,12 +1,6 @@
 import { describe, expect, it } from "vitest";
 
 import { fetchNotionSnapshots } from "@/server/notion/client";
-import {
-  assertDownloadUrl,
-  fileIdentity,
-  sniffImage,
-} from "@/server/notion/photo";
-import { dishPhotoUrl } from "@/lib/dish-photo";
 
 const DATABASE = "ff95d9e8-3ae1-44ff-aaa4-61286c9652ad";
 const DATA_SOURCE = "b8a7d4f9-5bfd-4ed3-bacd-5a5298796038";
@@ -22,7 +16,7 @@ function json(body: unknown, status = 200): Response {
 }
 
 describe("fetchNotionSnapshots", () => {
-  it("queries the data source, follows the cursor, and reads blocks only for tried pages", async () => {
+  it("queries the data source, follows the cursor, and reads every page body", async () => {
     const calls: { url: string; body?: string; version?: string | null }[] = [];
     const fetchImpl: typeof fetch = async (input, init) => {
       const url = String(input);
@@ -93,8 +87,19 @@ describe("fetchNotionSnapshots", () => {
           next_cursor: null,
         });
       }
-      if (url.includes(`/blocks/${UNTRIED}/`)) {
-        throw new Error("untried page body was requested");
+      if (url.includes(`/blocks/${UNTRIED}/children`)) {
+        return json({
+          results: [
+            {
+              id: "greens",
+              type: "paragraph",
+              paragraph: { rich_text: [{ plain_text: "焯水" }] },
+              has_children: false,
+            },
+          ],
+          has_more: false,
+          next_cursor: null,
+        });
       }
       return json({ message: "unexpected" }, 500);
     };
@@ -113,6 +118,7 @@ describe("fetchNotionSnapshots", () => {
       "2026-03-11",
       "2026-03-11",
       "2026-03-11",
+      "2026-03-11",
     ]);
     expect(calls[2]?.body).not.toContain("start_cursor");
     expect(calls[3]?.body).toContain("cursor-2");
@@ -123,10 +129,12 @@ describe("fetchNotionSnapshots", () => {
       ),
     ).toBe(false);
     expect(pages.map((page) => page.id)).toEqual([UNTRIED, TRIED]);
+    expect(pages[0]?.blocks).toEqual([
+      expect.objectContaining({ id: "greens", type: "paragraph" }),
+    ]);
     expect(pages[1]?.blocks).toEqual([
       expect.objectContaining({ id: "step", type: "paragraph" }),
     ]);
-    expect(pages[0]?.blocks).toEqual([]);
   });
 
   it("stops before changing anything when 已尝试? is not a checkbox", async () => {
@@ -173,30 +181,5 @@ describe("fetchNotionSnapshots", () => {
     } catch (error) {
       expect(error instanceof Error ? error.message : "").not.toContain(TOKEN);
     }
-  });
-});
-
-describe("photo safety", () => {
-  it("rejects unsafe urls and ignores the expiring query string", () => {
-    expect(() => assertDownloadUrl("http://cdn.example/a.jpg")).toThrow(
-      "不是 https",
-    );
-    expect(() => assertDownloadUrl("https://127.0.0.1/a.jpg")).toThrow(
-      "不安全",
-    );
-    expect(() => assertDownloadUrl("https://169.254.169.254/latest")).toThrow(
-      "不安全",
-    );
-    expect(fileIdentity("https://cdn.example/a.jpg?X-Amz-Signature=abc")).toBe(
-      "cdn.example/a.jpg",
-    );
-    expect(sniffImage(Uint8Array.of(0xff, 0xd8, 0xff))).toBe("image/jpeg");
-    expect(sniffImage(new TextEncoder().encode("<svg></svg>"))).toBeNull();
-  });
-
-  it("does not turn a public url into a photo address", () => {
-    expect(dishPhotoUrl("abc", "dishes/abc")).toBe("/api/photos/abc");
-    expect(dishPhotoUrl("abc", "https://cdn.example/a.jpg")).toBeNull();
-    expect(dishPhotoUrl("abc", null)).toBeNull();
   });
 });

@@ -108,9 +108,8 @@ function describeSync(state: SyncState | null): string | null {
   if (!state.report) return null;
   const report = state.report;
   const parts = [
-    `新增 ${report.added}，更新 ${report.updated}，下架 ${report.delisted}，上墙 ${report.onWall}`,
-    `导入 ${report.imported} 道，有图 ${report.withPhoto}，占位 ${report.placeholder}`,
-    `未尝试、未导入 ${report.notTried}`,
+    `新增 ${report.added}，更新 ${report.updated}，删除 ${report.deleted}，下架 ${report.inactivated}，上墙 ${report.onWall}`,
+    `导入 ${report.imported} 道，做过 ${report.tried}，没有步骤 ${report.noSteps}`,
   ];
   if (report.skipped.length > 0) {
     parts.push(

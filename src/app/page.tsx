@@ -5,7 +5,6 @@ import { PixelButton } from "@/components/pixel-frame";
 import { SceneHeader } from "@/components/scene-header";
 import { requireSession } from "@/lib/auth/require-session";
 import { firstQueryValue } from "@/lib/category-filter";
-import { dishPhotoUrl } from "@/lib/dish-photo";
 import { buildDishWall } from "@/server/menu-view";
 import { listDishesByCategory } from "@/server/menu";
 import { isSundayWeekStart, pacificDateIso, toWeekStart } from "@/server/week";
@@ -54,7 +53,6 @@ export default async function Home({ searchParams }: PageProps<"/">) {
             id: dish.id,
             name: dish.name,
             categoryName: dish.categoryName,
-            photoUrl: dishPhotoUrl(dish.id, dish.photoKey),
             tried: dish.tried,
           }))}
           heading={heading}

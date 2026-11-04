@@ -118,11 +118,7 @@ export type DishWall = {
 };
 
 function showsOnWall(row: CategoryDishJoinRow): boolean {
-  if (row.dishId === null || row.dishName === null || row.isActive !== true) {
-    return false;
-  }
-  if (row.notionPageId !== null && row.hasBody !== true) return false;
-  return true;
+  return row.dishId !== null && row.dishName !== null && row.isActive === true;
 }
 
 function blankDish(row: CategoryDishJoinRow): CategoryDishJoinRow {
@@ -144,9 +140,9 @@ function compareZh(a: string, b: string): number {
 }
 
 /**
- * Active dishes that can appear on the wall.
- * A Notion dish whose page body has no blocks stays in the database but is
- * hidden. Sample dishes have no Notion id and stay visible.
+ * Active dishes on the wall. Sample dishes have no Notion id and stay visible.
+ * A Notion dish that lost its steps, or was deleted in Notion, is inactive
+ * when a weekly menu still references it, and is omitted here.
  * Categories stay even when every dish is hidden.
  * Categories are ordered by sort_order, then name. Dishes are ordered by name.
  */

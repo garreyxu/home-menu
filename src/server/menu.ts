@@ -1,6 +1,6 @@
 import "server-only";
 
-import { and, asc, eq, isNull, or } from "drizzle-orm";
+import { and, asc, eq } from "drizzle-orm";
 
 import { getDb } from "@/server/db";
 import { categories, dishes, menuItems, weeklyMenus } from "@/server/db/schema";
@@ -58,8 +58,7 @@ export async function listCategoriesWithDishes(): Promise<
 }
 
 /**
- * Categories by sort_order, each with active dishes that belong on the wall.
- * Notion dishes with an empty page body are stored but hidden.
+ * Categories by sort_order, each with active dishes.
  * Off Vercel, a missing DATABASE_URL uses the committed sample catalog so
  * local dev and CI can render without Neon. On Vercel it fails closed.
  */
@@ -89,11 +88,7 @@ export async function listDishesByCategory(): Promise<CategoryWithDishes[]> {
     .from(categories)
     .leftJoin(
       dishes,
-      and(
-        eq(dishes.categoryId, categories.id),
-        eq(dishes.isActive, true),
-        or(isNull(dishes.notionPageId), eq(dishes.hasBody, true)),
-      ),
+      and(eq(dishes.categoryId, categories.id), eq(dishes.isActive, true)),
     )
     .orderBy(asc(categories.sortOrder), asc(categories.name), asc(dishes.name));
 

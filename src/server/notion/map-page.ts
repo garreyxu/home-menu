@@ -1,6 +1,6 @@
 import { blocksToBody, bodyExcerpt } from "@/server/notion/body";
 import { normalizeNotionId } from "@/server/notion/ids";
-import { selectPhoto } from "@/server/notion/photo";
+import { pageHasSteps } from "@/server/notion/steps";
 import {
   cleanDishName,
   displayText,
@@ -13,7 +13,6 @@ import {
   type DishBody,
   type NotionPageSnapshot,
   type NotionProperty,
-  type PhotoChoice,
 } from "@/server/notion/types";
 
 export type MappedDish = {
@@ -23,18 +22,17 @@ export type MappedDish = {
   cookTime: string | null;
   ingredients: string | null;
   rating: string | null;
-  tried: true;
+  tried: boolean;
   cuisines: string[];
   mainIngredient: string | null;
   body: DishBody;
   hasBody: boolean;
   description: string | null;
-  photo: PhotoChoice;
 };
 
 export type PageClass =
-  | { kind: "not_tried" }
   | { kind: "skip"; name: string | null; reason: string }
+  | { kind: "no_steps"; name: string }
   | { kind: "dish"; dish: MappedDish };
 
 export function isTriedPage(
@@ -70,29 +68,27 @@ function rawName(properties: Record<string, NotionProperty>): string {
 }
 
 /**
- * Only a checked 「已尝试?」 becomes a dish. Anything else is left out.
- * A tried page whose body failed to load is skipped, not delisted.
+ * Every page with real cooking steps is a dish. 「已尝试?」 is stored, not a filter.
+ * A page whose body failed to load is skipped and kept, so a bad read does not
+ * delete it. A page with no steps is not imported.
  */
 export function classifyNotionPage(page: NotionPageSnapshot): PageClass {
   const notionPageId = normalizeNotionId(page.id);
-  const prop = page.properties[TRIED_PROPERTY_NAME];
-  if (!prop || prop.type !== "checkbox" || prop.checkbox !== true) {
-    if (prop && prop.type !== "checkbox") {
-      return {
-        kind: "skip",
-        name: cleanDishName(rawName(page.properties)) || null,
-        reason: "「已尝试?」不是勾选框",
-      };
-    }
-    return { kind: "not_tried" };
-  }
-
   const name = cleanDishName(rawName(page.properties));
   if (!name) {
     return { kind: "skip", name: null, reason: "菜名为空" };
   }
+
+  const prop = page.properties[TRIED_PROPERTY_NAME];
+  if (prop && prop.type !== "checkbox") {
+    return { kind: "skip", name, reason: "「已尝试?」不是勾选框" };
+  }
+
   if (page.blocksError || page.blocks === null) {
     return { kind: "skip", name, reason: page.blocksError ?? "正文读取失败" };
+  }
+  if (!pageHasSteps(page)) {
+    return { kind: "no_steps", name };
   }
 
   const category = displayText(page.properties["类型"]) ?? UNCATEGORIZED;
@@ -106,13 +102,12 @@ export function classifyNotionPage(page: NotionPageSnapshot): PageClass {
       cookTime: displayText(page.properties["料理时间"]),
       ingredients: displayText(page.properties["需要食材"]),
       rating: displayText(page.properties["评分"]),
-      tried: true,
+      tried: isTriedPage(page.properties),
       cuisines: multiNames(page.properties["菜系"]),
       mainIngredient: displayText(page.properties["主要食材种类"]),
       body,
-      hasBody: page.blocks.length > 0,
+      hasBody: true,
       description: bodyExcerpt(body),
-      photo: selectPhoto(page.blocks, page.cover),
     },
   };
 }

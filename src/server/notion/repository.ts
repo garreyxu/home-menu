@@ -1,7 +1,7 @@
 import { and, eq, inArray, isNotNull, sql } from "drizzle-orm";
 
 import type { Database } from "@/server/db";
-import { categories, dishes } from "@/server/db/schema";
+import { categories, dishes, menuItems } from "@/server/db/schema";
 import type {
   DishRepository,
   StoredNotionDish,
@@ -78,8 +78,6 @@ export function createDishRepository(db: Database): DishRepository {
           id: dishes.id,
           notionPageId: dishes.notionPageId,
           name: dishes.name,
-          photoKey: dishes.photoKey,
-          photoSourceKey: dishes.photoSourceKey,
           isActive: dishes.isActive,
         })
         .from(dishes)
@@ -92,8 +90,6 @@ export function createDishRepository(db: Database): DishRepository {
           id: row.id,
           notionPageId: row.notionPageId,
           name: row.name,
-          photoKey: row.photoKey,
-          photoSourceKey: row.photoSourceKey,
           isActive: row.isActive,
         });
       }
@@ -109,13 +105,12 @@ export function createDishRepository(db: Database): DishRepository {
         cookTime: dish.cookTime,
         ingredients: dish.ingredients,
         rating: dish.rating,
-        tried: true,
+        tried: dish.tried,
         cuisines: dish.cuisines,
         mainIngredient: dish.mainIngredient,
         body: dish.body,
         hasBody: dish.hasBody,
-        photoKey: dish.photoKey,
-        photoSourceKey: dish.photoSourceKey,
+        photoKey: null,
         isActive: true,
         updatedAt: new Date(),
       };
@@ -133,36 +128,52 @@ export function createDishRepository(db: Database): DishRepository {
       return "updated";
     },
 
-    async delist(notionPageIds) {
-      if (notionPageIds.length === 0) return 0;
-      const updated = await db
-        .update(dishes)
-        .set({ isActive: false, updatedAt: new Date() })
+    async retire(notionPageIds) {
+      if (notionPageIds.length === 0) return { deleted: 0, inactivated: 0 };
+      const rows = await db
+        .select({
+          id: dishes.id,
+          isActive: dishes.isActive,
+        })
+        .from(dishes)
+        .where(inArray(dishes.notionPageId, [...notionPageIds]));
+      if (rows.length === 0) return { deleted: 0, inactivated: 0 };
+
+      const links = await db
+        .select({ dishId: menuItems.dishId })
+        .from(menuItems)
         .where(
-          and(
-            inArray(dishes.notionPageId, [...notionPageIds]),
-            eq(dishes.isActive, true),
+          inArray(
+            menuItems.dishId,
+            rows.map((row) => row.id),
           ),
-        )
-        .returning({ id: dishes.id });
-      return updated.length;
+        );
+      const referenced = new Set(links.map((link) => link.dishId));
+      const deleteIds = rows
+        .filter((row) => !referenced.has(row.id))
+        .map((row) => row.id);
+      const inactivateIds = rows
+        .filter((row) => referenced.has(row.id) && row.isActive)
+        .map((row) => row.id);
+
+      if (deleteIds.length > 0) {
+        await db.delete(dishes).where(inArray(dishes.id, deleteIds));
+      }
+      if (inactivateIds.length > 0) {
+        await db
+          .update(dishes)
+          .set({ isActive: false, photoKey: null, updatedAt: new Date() })
+          .where(inArray(dishes.id, inactivateIds));
+      }
+      return { deleted: deleteIds.length, inactivated: inactivateIds.length };
     },
 
     async countOnWall() {
       const rows = await db
-        .select({ photoKey: dishes.photoKey })
+        .select({ id: dishes.id })
         .from(dishes)
-        .where(
-          and(
-            eq(dishes.isActive, true),
-            isNotNull(dishes.notionPageId),
-            eq(dishes.hasBody, true),
-          ),
-        );
-      return {
-        onWall: rows.length,
-        onWallWithPhoto: rows.filter((row) => row.photoKey).length,
-      };
+        .where(and(eq(dishes.isActive, true), isNotNull(dishes.notionPageId)));
+      return { onWall: rows.length };
     },
   };
 }

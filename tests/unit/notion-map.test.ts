@@ -107,6 +107,7 @@ describe("classifyNotionPage", () => {
       mainIngredient: "猪肉",
       hasBody: true,
     });
+    expect(classified.dish).not.toHaveProperty("photo");
     expect(classified.dish.body.blocks).toEqual([
       { type: "heading", level: 2, text: "步骤", children: [] },
       { type: "bulleted_list_item", text: "切肉", children: [] },
@@ -124,16 +125,11 @@ describe("classifyNotionPage", () => {
         children: [{ type: "paragraph", text: "少盐", children: [] }],
       },
     ]);
-    expect(classified.dish.photo).toEqual({
-      kind: "image",
-      url: BODY_IMAGE,
-      sourceKey: "body:img-1:cdn.example/dish.jpg",
-    });
     expect(JSON.stringify(classified.dish)).not.toContain("不应该出现");
     expect(JSON.stringify(classified.dish)).not.toContain("也不该出现");
   });
 
-  it("does not import a page whose 已尝试? checkbox is off", () => {
+  it("imports an unchecked page that has steps and stores tried false", () => {
     const classified = classifyNotionPage(
       page({
         properties: {
@@ -142,7 +138,11 @@ describe("classifyNotionPage", () => {
         },
       }),
     );
-    expect(classified).toEqual({ kind: "not_tried" });
+    expect(classified.kind).toBe("dish");
+    if (classified.kind === "dish") {
+      expect(classified.dish.tried).toBe(false);
+      expect(classified.dish.name).toBe("青菜");
+    }
   });
 
   it("uses 未分类 when 类型 is empty and skips a blank name", () => {
@@ -166,7 +166,7 @@ describe("classifyNotionPage", () => {
     expect(uncategorized.kind).toBe("dish");
     if (uncategorized.kind === "dish") {
       expect(uncategorized.dish.categoryName).toBe("未分类");
-      expect(uncategorized.dish.photo.kind).toBe("placeholder");
+      expect(uncategorized.dish.tried).toBe(true);
     }
 
     const blank = classifyNotionPage(
@@ -180,12 +180,67 @@ describe("classifyNotionPage", () => {
     expect(blank).toEqual({ kind: "skip", name: null, reason: "菜名为空" });
   });
 
-  it("keeps a tried page with an empty body importable but off the wall", () => {
-    const classified = classifyNotionPage(page({ blocks: [], cover: null }));
-    expect(classified.kind).toBe("dish");
-    if (classified.kind === "dish") {
-      expect(classified.dish.hasBody).toBe(false);
-      expect(classified.dish.photo).toEqual({ kind: "placeholder" });
-    }
+  it("does not import images only, an empty heading, or placeholder steps", () => {
+    const images = classifyNotionPage(
+      page({
+        blocks: [
+          {
+            id: "img",
+            type: "image",
+            image: { type: "file", file: { url: BODY_IMAGE } },
+          },
+        ],
+        cover: null,
+      }),
+    );
+    expect(images).toEqual({ kind: "no_steps", name: "红烧肉" });
+
+    const emptyHeading = classifyNotionPage(
+      page({
+        blocks: [
+          {
+            id: "h",
+            type: "heading_2",
+            heading_2: { rich_text: [{ plain_text: "" }] },
+          },
+        ],
+        cover: null,
+      }),
+    );
+    expect(emptyHeading).toEqual({ kind: "no_steps", name: "红烧肉" });
+
+    const placeholder = classifyNotionPage(
+      page({
+        blocks: [
+          {
+            id: "h",
+            type: "heading_2",
+            heading_2: { rich_text: [{ plain_text: "步骤" }] },
+          },
+          {
+            id: "p",
+            type: "paragraph",
+            paragraph: { rich_text: [{ plain_text: "待补充" }] },
+          },
+        ],
+        cover: null,
+      }),
+    );
+    expect(placeholder).toEqual({ kind: "no_steps", name: "红烧肉" });
+  });
+
+  it("does not treat ingredients as steps", () => {
+    const classified = classifyNotionPage(
+      page({
+        properties: {
+          菜名: { type: "title", title: [{ plain_text: "排骨汤" }] },
+          "已尝试?": { type: "checkbox", checkbox: true },
+          需要食材: { type: "rich_text", rich_text: [{ plain_text: "排骨" }] },
+        },
+        blocks: [],
+        cover: null,
+      }),
+    );
+    expect(classified).toEqual({ kind: "no_steps", name: "排骨汤" });
   });
 });

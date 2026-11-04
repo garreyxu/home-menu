@@ -32,7 +32,7 @@ function proxyMatches(url: string): boolean {
 
 describe("proxy matcher", () => {
   it("always matches /api, including static-looking extensions", () => {
-    expect(proxyMatches("/api/photos/x.webp")).toBe(true);
+    expect(proxyMatches("/api/dishes/x.webp")).toBe(true);
     expect(proxyMatches("/api/anything.js")).toBe(true);
     expect(proxyMatches("/foo.png")).toBe(true);
     expect(proxyMatches("/")).toBe(true);
@@ -82,8 +82,8 @@ describe("proxy", () => {
     expect(api.status).toBe(401);
     await expect(api.json()).resolves.toEqual({ error: "Unauthorized" });
 
-    const photo = await callProxy("/api/photos/x.webp");
-    expect(photo.status).toBe(401);
+    const imageApi = await callProxy("/api/dishes/x.webp");
+    expect(imageApi.status).toBe(401);
 
     const cron = await callProxy("/api/cron/notion-sync");
     expect(cron.status).toBe(401);

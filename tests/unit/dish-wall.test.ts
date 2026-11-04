@@ -111,7 +111,7 @@ describe("groupActiveDishesByCategory", () => {
     ]);
   });
 
-  it("hides a Notion dish with an empty body and keeps a sample dish", () => {
+  it("shows an active dish whether or not the body flag is set", () => {
     const grouped = groupActiveDishesByCategory([
       row({
         categoryId: "c-home",
@@ -147,7 +147,9 @@ describe("groupActiveDishesByCategory", () => {
     ]);
 
     expect(grouped[0]?.dishes.map((dish) => dish.name)).toEqual(
-      ["番茄炒蛋", "红烧肉"].sort((a, b) => a.localeCompare(b, "zh-CN")),
+      ["只有菜名", "番茄炒蛋", "红烧肉"].sort((a, b) =>
+        a.localeCompare(b, "zh-CN"),
+      ),
     );
   });
 

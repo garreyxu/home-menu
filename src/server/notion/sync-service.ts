@@ -11,11 +11,6 @@ import {
   type ImportReport,
   type NotionSkip,
 } from "@/server/notion/report";
-import { downloadImage } from "@/server/notion/photo";
-import {
-  createBlobPhotoStore,
-  privateBlobConfigured,
-} from "@/server/photos/blob-store";
 
 const STALE_MS = 6 * 60 * 1000;
 
@@ -106,10 +101,7 @@ export async function runSync(
               );
           },
         }),
-      download: downloadImage,
-      photos: createBlobPhotoStore(),
       dishes: createDishRepository(db),
-      storageConfigured: privateBlobConfigured(),
     });
     await db
       .update(notionSyncRuns)
@@ -119,13 +111,12 @@ export async function runSync(
         heartbeatAt: new Date(),
         added: report.added,
         updated: report.updated,
-        delisted: report.delisted,
+        deleted: report.deleted,
+        inactivated: report.inactivated,
         imported: report.imported,
-        withPhoto: report.withPhoto,
-        placeholder: report.placeholder,
+        tried: report.tried,
+        noSteps: report.noSteps,
         onWall: report.onWall,
-        onWallWithPhoto: report.onWallWithPhoto,
-        notTried: report.notTried,
         processed: report.imported,
         total: report.imported,
         skipped: report.skipped,
@@ -181,26 +172,24 @@ async function expireStaleRuns(db: Database): Promise<void> {
 function reportFromRow(row: {
   added: number;
   updated: number;
-  delisted: number;
+  deleted: number;
+  inactivated: number;
   imported: number;
-  withPhoto: number;
-  placeholder: number;
+  tried: number;
+  noSteps: number;
   onWall: number;
-  onWallWithPhoto: number;
-  notTried: number;
   skipped: unknown;
   warnings: unknown;
 }): ImportReport {
   return {
     imported: row.imported,
-    withPhoto: row.withPhoto,
-    placeholder: row.placeholder,
+    tried: row.tried,
+    noSteps: row.noSteps,
     added: row.added,
     updated: row.updated,
-    delisted: row.delisted,
+    deleted: row.deleted,
+    inactivated: row.inactivated,
     onWall: row.onWall,
-    onWallWithPhoto: row.onWallWithPhoto,
-    notTried: row.notTried,
     skipped: asSkips(row.skipped),
     warnings: asStrings(row.warnings),
   };

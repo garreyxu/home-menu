@@ -7,42 +7,28 @@ import {
   type UpsertDish,
 } from "@/server/notion/import-catalog";
 import { formatImportReport, safeSyncError } from "@/server/notion/report";
-import type { NotionPageSnapshot } from "@/server/notion/types";
-import type { PhotoStore } from "@/server/photos/store";
+import type { NotionBlock, NotionPageSnapshot } from "@/server/notion/types";
 
-const JPEG = Uint8Array.of(0xff, 0xd8, 0xff, 0x00);
 const TRIED = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa";
 const OTHER = "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb";
+const PLAIN = "cccccccc-cccc-cccc-cccc-cccccccccccc";
+
+function stepBlocks(text = "炖"): NotionBlock[] {
+  return [
+    {
+      id: "step",
+      type: "paragraph",
+      paragraph: { rich_text: [{ plain_text: text }] },
+    },
+  ];
+}
 
 function snapshot(
   id: string,
   name: string,
   tried: boolean,
-  options?: {
-    blocks?: NotionPageSnapshot["blocks"];
-    cover?: NotionPageSnapshot["cover"];
-    imageUrl?: string;
-  },
+  blocks: NotionPageSnapshot["blocks"] = stepBlocks(),
 ): NotionPageSnapshot {
-  const blocks = options?.blocks ?? [
-    {
-      id: `${id}-img`,
-      type: "image",
-      image: {
-        type: "file",
-        file: {
-          url:
-            options?.imageUrl ??
-            "https://cdn.example/dish.jpg?X-Amz-Signature=one",
-        },
-      },
-    },
-    {
-      id: `${id}-step`,
-      type: "paragraph",
-      paragraph: { rich_text: [{ plain_text: "做法" }] },
-    },
-  ];
   return {
     id,
     properties: {
@@ -50,13 +36,7 @@ function snapshot(
       "已尝试?": { type: "checkbox", checkbox: tried },
       类型: { type: "select", select: { name: "大荤" } },
     },
-    cover:
-      options?.cover === undefined
-        ? {
-            type: "external",
-            external: { url: "https://images.example/cover.jpg?sig=1" },
-          }
-        : options.cover,
+    cover: null,
     blocks,
   };
 }
@@ -64,16 +44,20 @@ function snapshot(
 class MemoryDishes implements DishRepository {
   rows = new Map<
     string,
-    StoredNotionDish & { hasBody: boolean; categoryName: string }
+    StoredNotionDish & {
+      tried: boolean;
+      hasBody: boolean;
+      categoryName: string;
+    }
   >();
+  /** Notion page ids that a weekly menu still references. */
+  referenced = new Set<string>();
 
   async listNotionDishes(): Promise<StoredNotionDish[]> {
     return [...this.rows.values()].map((row) => ({
       id: row.id,
       notionPageId: row.notionPageId,
       name: row.name,
-      photoKey: row.photoKey,
-      photoSourceKey: row.photoSourceKey,
       isActive: row.isActive,
     }));
   }
@@ -97,247 +81,185 @@ class MemoryDishes implements DishRepository {
     return "updated" as const;
   }
 
-  async delist(notionPageIds: readonly string[]) {
-    let count = 0;
+  async retire(notionPageIds: readonly string[]) {
+    let deleted = 0;
+    let inactivated = 0;
     for (const id of notionPageIds) {
       const row = this.rows.get(id);
-      if (!row?.isActive) continue;
-      row.isActive = false;
-      count += 1;
+      if (!row) continue;
+      if (this.referenced.has(id)) {
+        if (row.isActive) {
+          row.isActive = false;
+          inactivated += 1;
+        }
+      } else {
+        this.rows.delete(id);
+        deleted += 1;
+      }
     }
-    return count;
+    return { deleted, inactivated };
   }
 
   async countOnWall() {
-    const visible = [...this.rows.values()].filter(
-      (row) => row.isActive && row.hasBody,
-    );
     return {
-      onWall: visible.length,
-      onWallWithPhoto: visible.filter((row) => row.photoKey).length,
+      onWall: [...this.rows.values()].filter((row) => row.isActive).length,
     };
   }
 }
 
-class MemoryPhotos implements PhotoStore {
-  objects = new Map<string, { bytes: Uint8Array; contentType: string }>();
-  puts = 0;
-
-  async put(key: string, bytes: Uint8Array, contentType: string) {
-    this.puts += 1;
-    this.objects.set(key, { bytes, contentType });
-  }
-
-  async delete(key: string) {
-    this.objects.delete(key);
-  }
-}
-
-function harness(pages: NotionPageSnapshot[], storageConfigured = true) {
+function harness(pages: NotionPageSnapshot[]) {
   const dishes = new MemoryDishes();
-  const photos = new MemoryPhotos();
-  const downloads: string[] = [];
   return {
     dishes,
-    photos,
-    downloads,
     run: () =>
       importNotionCatalog({
         loadPages: async () => pages,
-        download: async (url) => {
-          downloads.push(url);
-          return { bytes: JPEG, contentType: "image/jpeg" };
-        },
-        photos,
         dishes,
-        storageConfigured,
       }),
   };
 }
 
 describe("importNotionCatalog", () => {
-  it("imports only tried dishes, dedupes by page id, and reports counts", async () => {
-    const stableBlocks = [
-      {
-        id: "img-stable",
-        type: "image" as const,
-        image: {
-          type: "file" as const,
-          file: { url: "https://cdn.example/dish.jpg?X-Amz-Signature=one" },
-        },
-      },
-      {
-        id: "step",
-        type: "paragraph" as const,
-        paragraph: { rich_text: [{ plain_text: "做法" }] },
-      },
-    ];
+  it("imports recipes with steps whether or not they were tried", async () => {
     const first = harness([
-      snapshot(TRIED, "  红烧肉<br /> ", true, { blocks: stableBlocks }),
+      snapshot(TRIED, "  红烧肉<br /> ", true),
       snapshot(OTHER, "青菜", false),
+      snapshot(PLAIN, "只有图", true, [
+        {
+          id: "img",
+          type: "image",
+          image: { type: "file", file: { url: "https://cdn.example/a.jpg" } },
+        },
+      ]),
     ]);
     const report = await first.run();
 
     expect(report).toMatchObject({
-      imported: 1,
-      withPhoto: 1,
-      placeholder: 0,
-      added: 1,
+      imported: 2,
+      tried: 1,
+      noSteps: 1,
+      added: 2,
       updated: 0,
-      delisted: 0,
-      onWall: 1,
-      onWallWithPhoto: 1,
-      notTried: 1,
+      deleted: 0,
+      inactivated: 0,
+      onWall: 2,
       skipped: [],
     });
-    expect(first.dishes.rows.size).toBe(1);
-    expect(first.downloads).toEqual([
-      "https://cdn.example/dish.jpg?X-Amz-Signature=one",
-    ]);
-    expect(first.photos.puts).toBe(1);
-    expect(formatImportReport(report)).toContain("未尝试、未导入 1");
-    expect(formatImportReport(report)).toContain("上墙 1");
+    expect(first.dishes.rows.size).toBe(2);
+    expect(first.dishes.rows.get(TRIED)?.tried).toBe(true);
+    expect(first.dishes.rows.get(OTHER)?.tried).toBe(false);
+    expect(first.dishes.rows.has(PLAIN)).toBe(false);
+    expect(formatImportReport(report)).toContain("做过 1");
+    expect(formatImportReport(report)).toContain("没有步骤 1");
+    expect(formatImportReport(report)).not.toContain("未尝试");
 
     const again = harness([
-      snapshot(TRIED.replaceAll("-", ""), "红烧肉", true, {
-        blocks: [
-          {
-            ...stableBlocks[0],
-            image: {
-              type: "file",
-              file: {
-                url: "https://cdn.example/dish.jpg?X-Amz-Signature=two",
-              },
-            },
-          },
-          stableBlocks[1],
-        ],
-      }),
+      snapshot(TRIED.replaceAll("-", ""), "红烧肉", true),
       snapshot(OTHER, "青菜", false),
     ]);
     again.dishes.rows = first.dishes.rows;
-    again.photos.objects = first.photos.objects;
     const second = await again.run();
     expect(second.added).toBe(0);
-    expect(second.updated).toBe(1);
-    expect(again.dishes.rows.size).toBe(1);
-    expect(again.photos.puts).toBe(0);
+    expect(second.updated).toBe(2);
+    expect(again.dishes.rows.size).toBe(2);
     expect(again.dishes.rows.get(TRIED)?.id).toBe("dish-1");
   });
 
-  it("delists an unchecked or deleted dish without removing the row", async () => {
+  it("keeps an unchecked dish and syncs tried to false", async () => {
     const seeded = harness([snapshot(TRIED, "红烧肉", true)]);
     await seeded.run();
     const keptId = seeded.dishes.rows.get(TRIED)?.id;
 
     const unchecked = harness([snapshot(TRIED, "红烧肉", false)]);
     unchecked.dishes.rows = seeded.dishes.rows;
-    const uncheckedReport = await unchecked.run();
-    expect(uncheckedReport.delisted).toBe(1);
-    expect(uncheckedReport.imported).toBe(0);
-    expect(unchecked.dishes.rows.get(TRIED)?.isActive).toBe(false);
-    expect(unchecked.dishes.rows.get(TRIED)?.id).toBe(keptId);
-    expect(unchecked.downloads).toEqual([]);
-
-    const revived = harness([snapshot(TRIED, "红烧肉改名", true)]);
-    revived.dishes.rows = unchecked.dishes.rows;
-    const revivedReport = await revived.run();
-    expect(revivedReport.added).toBe(0);
-    expect(revivedReport.updated).toBe(1);
-    expect(revived.dishes.rows.get(TRIED)).toMatchObject({
-      id: keptId,
-      name: "红烧肉改名",
-      isActive: true,
-    });
-
-    const removed = harness([]);
-    removed.dishes.rows = revived.dishes.rows;
-    const removedReport = await removed.run();
-    expect(removedReport.delisted).toBe(1);
-    expect(removed.dishes.rows.get(TRIED)?.isActive).toBe(false);
-    expect(removed.dishes.rows.get(TRIED)?.id).toBe(keptId);
-  });
-
-  it("uses the body image, then the cover, then a placeholder", async () => {
-    const body = harness([
-      snapshot(TRIED, "红烧肉", true, {
-        imageUrl: "https://cdn.example/body.jpg",
-        cover: {
-          type: "external",
-          external: { url: "https://images.example/cover.jpg" },
-        },
-      }),
-    ]);
-    await body.run();
-    expect(body.downloads).toEqual(["https://cdn.example/body.jpg"]);
-
-    const cover = harness([
-      snapshot(OTHER, "清蒸鱼", true, {
-        blocks: [
-          {
-            id: "step",
-            type: "paragraph",
-            paragraph: { rich_text: [{ plain_text: "蒸" }] },
-          },
-        ],
-        cover: {
-          type: "file",
-          file: { url: "https://cdn.example/cover-only.jpg?sig=9" },
-        },
-      }),
-    ]);
-    await cover.run();
-    expect(cover.downloads).toEqual([
-      "https://cdn.example/cover-only.jpg?sig=9",
-    ]);
-
-    const plain = harness([
-      snapshot("cccccccc-cccc-cccc-cccc-cccccccccccc", "白粥", true, {
-        blocks: [
-          {
-            id: "step",
-            type: "paragraph",
-            paragraph: { rich_text: [{ plain_text: "煮" }] },
-          },
-        ],
-        cover: null,
-      }),
-    ]);
-    const plainReport = await plain.run();
-    expect(plain.downloads).toEqual([]);
-    expect(plainReport).toMatchObject({
-      imported: 1,
-      withPhoto: 0,
-      placeholder: 1,
-      onWall: 1,
-      onWallWithPhoto: 0,
-    });
-  });
-
-  it("imports an empty body but keeps it off the wall", async () => {
-    const run = harness([
-      snapshot(TRIED, "还没写", true, { blocks: [], cover: null }),
-    ]);
-    const report = await run.run();
+    unchecked.dishes.referenced = seeded.dishes.referenced;
+    const report = await unchecked.run();
     expect(report).toMatchObject({
       imported: 1,
-      placeholder: 1,
-      onWall: 0,
-      added: 1,
+      tried: 0,
+      deleted: 0,
+      inactivated: 0,
+      updated: 1,
     });
-    expect(run.dishes.rows.get(TRIED)?.hasBody).toBe(false);
-    expect(run.dishes.rows.get(TRIED)?.isActive).toBe(true);
+    expect(unchecked.dishes.rows.get(TRIED)).toMatchObject({
+      id: keptId,
+      tried: false,
+      isActive: true,
+    });
   });
 
-  it("does not delist when the Notion read fails", async () => {
+  it("deletes a dish that lost its steps when no menu references it", async () => {
+    const seeded = harness([snapshot(TRIED, "红烧肉", true)]);
+    await seeded.run();
+
+    const empty = harness([
+      snapshot(TRIED, "红烧肉", true, [
+        {
+          id: "h",
+          type: "heading_2",
+          heading_2: { rich_text: [{ plain_text: "步骤" }] },
+        },
+      ]),
+    ]);
+    empty.dishes.rows = seeded.dishes.rows;
+    const report = await empty.run();
+    expect(report).toMatchObject({
+      imported: 0,
+      noSteps: 1,
+      deleted: 1,
+      inactivated: 0,
+    });
+    expect(empty.dishes.rows.has(TRIED)).toBe(false);
+  });
+
+  it("inactivates a dish that lost its steps when a menu still references it", async () => {
+    const seeded = harness([snapshot(TRIED, "红烧肉", true)]);
+    await seeded.run();
+    const keptId = seeded.dishes.rows.get(TRIED)?.id;
+
+    const empty = harness([snapshot(TRIED, "红烧肉", true, [])]);
+    empty.dishes.rows = seeded.dishes.rows;
+    empty.dishes.referenced.add(TRIED);
+    const report = await empty.run();
+    expect(report).toMatchObject({
+      noSteps: 1,
+      deleted: 0,
+      inactivated: 1,
+    });
+    expect(empty.dishes.rows.get(TRIED)).toMatchObject({
+      id: keptId,
+      isActive: false,
+    });
+  });
+
+  it("deletes a Notion-deleted dish with no menu row and inactivates one that is planned", async () => {
+    const seeded = harness([
+      snapshot(TRIED, "红烧肉", true),
+      snapshot(OTHER, "青菜", true),
+    ]);
+    await seeded.run();
+    const keptId = seeded.dishes.rows.get(OTHER)?.id;
+
+    const removed = harness([]);
+    removed.dishes.rows = seeded.dishes.rows;
+    removed.dishes.referenced.add(OTHER);
+    const report = await removed.run();
+    expect(report).toMatchObject({ deleted: 1, inactivated: 1 });
+    expect(removed.dishes.rows.has(TRIED)).toBe(false);
+    expect(removed.dishes.rows.get(OTHER)).toMatchObject({
+      id: keptId,
+      isActive: false,
+    });
+  });
+
+  it("does not delete when the Notion read fails", async () => {
     const dishes = new MemoryDishes();
     dishes.rows.set(TRIED, {
       id: "dish-1",
       notionPageId: TRIED,
       name: "红烧肉",
-      photoKey: "dishes/old",
-      photoSourceKey: "body:old",
       isActive: true,
+      tried: true,
       hasBody: true,
       categoryName: "大荤",
     });
@@ -346,12 +268,7 @@ describe("importNotionCatalog", () => {
         loadPages: async () => {
           throw new Error("Notion 请求失败（500）。");
         },
-        download: async () => {
-          throw new Error("should not download");
-        },
-        photos: new MemoryPhotos(),
         dishes,
-        storageConfigured: true,
       }),
     ).rejects.toThrow("Notion 请求失败（500）。");
     expect(dishes.rows.get(TRIED)?.isActive).toBe(true);

@@ -12,7 +12,7 @@ test("unauthenticated API request returns 401", async ({ request }) => {
 test("unauthenticated API path with an image extension returns 401", async ({
   request,
 }) => {
-  const response = await request.get("/api/photos/x.webp");
+  const response = await request.get("/api/dishes/x.webp");
   expect(response.status()).toBe(401);
   expect(await response.json()).toEqual({ error: "Unauthorized" });
 });

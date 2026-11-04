@@ -1,5 +1,5 @@
 import { normalizeNotionId } from "@/server/notion/ids";
-import { assertTriedProperty, isTriedPage } from "@/server/notion/map-page";
+import { assertTriedProperty } from "@/server/notion/map-page";
 import type {
   NotionBlock,
   NotionFile,
@@ -33,12 +33,11 @@ export async function fetchNotionSnapshots(options: {
   assertTriedProperty(readSchemaProperties(dataSource));
 
   const pages = await queryAllPages(dataSourceId, notion);
-  const tried = pages.filter((page) => isTriedPage(page.properties));
   const blocksById = new Map<string, NotionBlock[] | null>();
   const errors = new Map<string, string>();
 
-  for (let index = 0; index < tried.length; index += 1) {
-    const page = tried[index];
+  for (let index = 0; index < pages.length; index += 1) {
+    const page = pages[index];
     if (!page) continue;
     try {
       blocksById.set(page.id, await loadTree(page.id, notion, 0, { count: 0 }));
@@ -48,7 +47,7 @@ export async function fetchNotionSnapshots(options: {
     }
     if (options.onProgress) {
       try {
-        await options.onProgress(index + 1, tried.length);
+        await options.onProgress(index + 1, pages.length);
       } catch {
         // Progress is optional. A failed heartbeat must not abort the import.
       }
@@ -59,9 +58,7 @@ export async function fetchNotionSnapshots(options: {
     id: page.id,
     properties: page.properties,
     cover: page.cover,
-    blocks: isTriedPage(page.properties)
-      ? (blocksById.get(page.id) ?? null)
-      : [],
+    blocks: blocksById.get(page.id) ?? null,
     blocksError: errors.get(page.id),
   }));
 }

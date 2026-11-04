@@ -6,24 +6,21 @@ export type NotionSkip = {
 
 export type ImportReport = {
   imported: number;
-  withPhoto: number;
-  placeholder: number;
+  tried: number;
+  noSteps: number;
   added: number;
   updated: number;
-  delisted: number;
+  deleted: number;
+  inactivated: number;
   onWall: number;
-  onWallWithPhoto: number;
-  notTried: number;
   skipped: NotionSkip[];
   warnings: string[];
 };
 
 export function formatImportReport(report: ImportReport): string {
-  const onWallPlaceholder = Math.max(0, report.onWall - report.onWallWithPhoto);
   const lines = [
-    `导入 ${report.imported} 道，有图 ${report.withPhoto}，占位 ${report.placeholder}，跳过 ${report.skipped.length}。`,
-    `未尝试、未导入 ${report.notTried}。`,
-    `新增 ${report.added}，更新 ${report.updated}，下架 ${report.delisted}，上墙 ${report.onWall}（有图 ${report.onWallWithPhoto}，占位 ${onWallPlaceholder}）。`,
+    `导入 ${report.imported} 道，做过 ${report.tried}，没有步骤 ${report.noSteps}。`,
+    `新增 ${report.added}，更新 ${report.updated}，删除 ${report.deleted}，下架 ${report.inactivated}，上墙 ${report.onWall}。`,
   ];
   for (const skip of report.skipped) {
     lines.push(`跳过 ${skip.name?.trim() || skip.pageId}：${skip.reason}`);

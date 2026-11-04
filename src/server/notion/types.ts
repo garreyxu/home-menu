@@ -81,8 +81,5 @@ export type DishBodyBlock =
 
 export type DishBody = { blocks: DishBodyBlock[] };
 
-export type PhotoChoice =
-  { kind: "placeholder" } | { kind: "image"; url: string; sourceKey: string };
-
 export const TRIED_PROPERTY_NAME = "已尝试?";
 export const UNCATEGORIZED = "未分类";
