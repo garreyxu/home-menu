@@ -32,6 +32,7 @@ export type MappedDish = {
 
 export type PageClass =
   | { kind: "skip"; name: string | null; reason: string }
+  | { kind: "errored"; name: string | null }
   | { kind: "no_steps"; name: string }
   | { kind: "dish"; dish: MappedDish };
 
@@ -69,12 +70,16 @@ function rawName(properties: Record<string, NotionProperty>): string {
 
 /**
  * Every page with real cooking steps is a dish. 「已尝试?」 is stored, not a filter.
- * A page whose body failed to load is skipped and kept, so a bad read does not
- * delete it. A page with no steps is not imported.
+ * A page whose body or properties could not be read is unknown: it is not
+ * updated, inactivated, or deleted. A page with no steps is not imported.
  */
 export function classifyNotionPage(page: NotionPageSnapshot): PageClass {
   const notionPageId = normalizeNotionId(page.id);
-  const name = cleanDishName(rawName(page.properties));
+  const name = cleanDishName(rawName(page.properties)) || null;
+
+  if (page.fetchError || page.blocksError || page.blocks === null) {
+    return { kind: "errored", name };
+  }
   if (!name) {
     return { kind: "skip", name: null, reason: "菜名为空" };
   }
@@ -82,10 +87,6 @@ export function classifyNotionPage(page: NotionPageSnapshot): PageClass {
   const prop = page.properties[TRIED_PROPERTY_NAME];
   if (prop && prop.type !== "checkbox") {
     return { kind: "skip", name, reason: "「已尝试?」不是勾选框" };
-  }
-
-  if (page.blocksError || page.blocks === null) {
-    return { kind: "skip", name, reason: page.blocksError ?? "正文读取失败" };
   }
   if (!pageHasSteps(page)) {
     return { kind: "no_steps", name };

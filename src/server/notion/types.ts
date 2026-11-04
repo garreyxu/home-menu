@@ -48,6 +48,8 @@ export type NotionPageSnapshot = {
   /** Null when the body could not be read. Empty array means a blank page. */
   blocks: NotionBlock[] | null;
   blocksError?: string;
+  /** Set when this page's properties or blocks could not be fetched. */
+  fetchError?: string;
 };
 
 export type DishBodyBlock =

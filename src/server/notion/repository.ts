@@ -71,6 +71,42 @@ export function createDishRepository(db: Database): DishRepository {
     return again.id;
   }
 
+  async function removalSets(
+    database: Database,
+    notionPageIds: readonly string[],
+  ): Promise<{ deleteIds: string[]; inactivateIds: string[] }> {
+    if (notionPageIds.length === 0) {
+      return { deleteIds: [], inactivateIds: [] };
+    }
+    const rows = await database
+      .select({
+        id: dishes.id,
+        isActive: dishes.isActive,
+      })
+      .from(dishes)
+      .where(inArray(dishes.notionPageId, [...notionPageIds]));
+    if (rows.length === 0) return { deleteIds: [], inactivateIds: [] };
+
+    const links = await database
+      .select({ dishId: menuItems.dishId })
+      .from(menuItems)
+      .where(
+        inArray(
+          menuItems.dishId,
+          rows.map((row) => row.id),
+        ),
+      );
+    const referenced = new Set(links.map((link) => link.dishId));
+    return {
+      deleteIds: rows
+        .filter((row) => !referenced.has(row.id))
+        .map((row) => row.id),
+      inactivateIds: rows
+        .filter((row) => referenced.has(row.id) && row.isActive)
+        .map((row) => row.id),
+    };
+  }
+
   return {
     async listNotionDishes() {
       const rows = await db
@@ -128,34 +164,16 @@ export function createDishRepository(db: Database): DishRepository {
       return "updated";
     },
 
+    async removalPlan(notionPageIds) {
+      const plan = await removalSets(db, notionPageIds);
+      return {
+        deleted: plan.deleteIds.length,
+        inactivated: plan.inactivateIds.length,
+      };
+    },
+
     async retire(notionPageIds) {
-      if (notionPageIds.length === 0) return { deleted: 0, inactivated: 0 };
-      const rows = await db
-        .select({
-          id: dishes.id,
-          isActive: dishes.isActive,
-        })
-        .from(dishes)
-        .where(inArray(dishes.notionPageId, [...notionPageIds]));
-      if (rows.length === 0) return { deleted: 0, inactivated: 0 };
-
-      const links = await db
-        .select({ dishId: menuItems.dishId })
-        .from(menuItems)
-        .where(
-          inArray(
-            menuItems.dishId,
-            rows.map((row) => row.id),
-          ),
-        );
-      const referenced = new Set(links.map((link) => link.dishId));
-      const deleteIds = rows
-        .filter((row) => !referenced.has(row.id))
-        .map((row) => row.id);
-      const inactivateIds = rows
-        .filter((row) => referenced.has(row.id) && row.isActive)
-        .map((row) => row.id);
-
+      const { deleteIds, inactivateIds } = await removalSets(db, notionPageIds);
       if (deleteIds.length > 0) {
         await db.delete(dishes).where(inArray(dishes.id, deleteIds));
       }

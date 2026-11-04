@@ -8,20 +8,33 @@ export type ImportReport = {
   imported: number;
   tried: number;
   noSteps: number;
+  errored: number;
   added: number;
   updated: number;
   deleted: number;
   inactivated: number;
+  /** Dishes this run would have deleted or inactivated. */
+  wouldRemove: number;
+  /** True when every removal was held back for this run. */
+  removalsSkipped: boolean;
   onWall: number;
   skipped: NotionSkip[];
   warnings: string[];
 };
 
+/** Shown in the sync result, the CLI report, and the cron log. */
+export function removalSkippedNotice(wouldRemove: number): string {
+  return `这次要移除的菜太多（${wouldRemove} 道），先没动，请检查 Notion。`;
+}
+
 export function formatImportReport(report: ImportReport): string {
   const lines = [
-    `导入 ${report.imported} 道，做过 ${report.tried}，没有步骤 ${report.noSteps}。`,
+    `导入 ${report.imported} 道，做过 ${report.tried}，没有步骤 ${report.noSteps}，读取失败 ${report.errored}。`,
     `新增 ${report.added}，更新 ${report.updated}，删除 ${report.deleted}，下架 ${report.inactivated}，上墙 ${report.onWall}。`,
   ];
+  if (report.removalsSkipped) {
+    lines.push(removalSkippedNotice(report.wouldRemove));
+  }
   for (const skip of report.skipped) {
     lines.push(`跳过 ${skip.name?.trim() || skip.pageId}：${skip.reason}`);
   }

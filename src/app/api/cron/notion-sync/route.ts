@@ -1,6 +1,6 @@
 import { bearerMatches } from "@/lib/notion-cron";
 import { getDb } from "@/server/db";
-import { safeSyncError } from "@/server/notion/report";
+import { removalSkippedNotice, safeSyncError } from "@/server/notion/report";
 import {
   beginSyncRun,
   readSyncState,
@@ -39,6 +39,9 @@ export async function GET(request: Request): Promise<Response> {
       );
     }
     const report = await runSync(db, begun.id);
+    if (report.removalsSkipped) {
+      console.log(`[notion] ${removalSkippedNotice(report.wouldRemove)}`);
+    }
     return Response.json(
       { ok: true, report },
       { headers: { "cache-control": "no-store" } },

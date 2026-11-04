@@ -2,7 +2,10 @@
 
 import { useEffect, useState } from "react";
 import { PixelButton } from "@/components/pixel-frame";
-import type { ImportReport } from "@/server/notion/report";
+import {
+  removalSkippedNotice,
+  type ImportReport,
+} from "@/server/notion/report";
 
 type SyncState = {
   running?: boolean;
@@ -109,8 +112,11 @@ function describeSync(state: SyncState | null): string | null {
   const report = state.report;
   const parts = [
     `新增 ${report.added}，更新 ${report.updated}，删除 ${report.deleted}，下架 ${report.inactivated}，上墙 ${report.onWall}`,
-    `导入 ${report.imported} 道，做过 ${report.tried}，没有步骤 ${report.noSteps}`,
+    `导入 ${report.imported} 道，做过 ${report.tried}，没有步骤 ${report.noSteps}，读取失败 ${report.errored}`,
   ];
+  if (report.removalsSkipped) {
+    parts.unshift(removalSkippedNotice(report.wouldRemove));
+  }
   if (report.skipped.length > 0) {
     parts.push(
       report.skipped

@@ -130,6 +130,8 @@ A page has steps when it uses a steps heading, toggle, or property whose name is
 
 On a later sync, a page that gains steps is added or updated. Unchecking 「已尝试?」 updates `tried` and leaves the dish in place. A page that loses its steps, or is deleted in Notion, is removed. If a weekly menu still references that dish, the row stays and `is_active` becomes false, so the old menu still renders. If nothing references it, the row is deleted.
 
+A page whose blocks or properties could not be fetched is left unchanged and counted as a read failure. If Notion returns no pages, or the run would delete or inactivate more than `max(3, 20%)` of the active imported dishes, that run applies adds and updates but skips every removal. The report then says 「这次要移除的菜太多，先没动，请检查 Notion」 and includes the count that was held back. `pnpm notion:import --allow-mass-removal` is the only way to apply those removals. The sync button and the daily cron never pass that flag.
+
 `notion_page_id` is the stable key for each dish. The app does not download or store photos. Cards without an image keep the pixel plate. Illustrations will be added separately.
 
 The sync is one-way: Notion wins. The home page has a 「从 Notion 同步」 button. It stays disabled while a sync is running and then shows how many were imported, how many are marked tried, how many were skipped for having no steps, and the added, updated, deleted, inactivated, and on-wall counts. A daily Vercel Cron calls `GET /api/cron/notion-sync` at 12:00 UTC. That is about 4:00am Pacific Standard Time and 5:00am Pacific Daylight Time. On the Hobby plan the run can land any time during that hour, so it finishes in the early morning in Irvine. Hobby cron runs once a day and the function is limited to 300 seconds.

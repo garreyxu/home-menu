@@ -41,12 +41,21 @@ export interface DishRepository {
    * Ids that were never imported are ignored.
    */
   retire(notionPageIds: readonly string[]): Promise<RetireResult>;
+  /** Same counts as retire, without writing. */
+  removalPlan(notionPageIds: readonly string[]): Promise<RetireResult>;
   countOnWall(): Promise<{ onWall: number }>;
+}
+
+/** More removals than this, or an empty Notion result, are held back. */
+export function removalCeiling(activeImported: number): number {
+  return Math.max(3, activeImported * 0.2);
 }
 
 export async function importNotionCatalog(input: {
   loadPages: () => Promise<NotionPageSnapshot[]>;
   dishes: DishRepository;
+  /** CLI-only. The cron and the sync button leave this false. */
+  allowMassRemoval?: boolean;
 }): Promise<ImportReport> {
   const pages = await input.loadPages();
   const existingRows = await input.dishes.listNotionDishes();
@@ -55,6 +64,7 @@ export async function importNotionCatalog(input: {
   const skipped: NotionSkip[] = [];
   const warnings: string[] = [];
   let noSteps = 0;
+  let errored = 0;
   let tried = 0;
   let added = 0;
   let updated = 0;
@@ -62,6 +72,11 @@ export async function importNotionCatalog(input: {
   for (const page of pages) {
     const pageId = normalizeNotionId(page.id);
     const classified = classifyNotionPage(page);
+    if (classified.kind === "errored") {
+      keep.add(pageId);
+      errored += 1;
+      continue;
+    }
     if (classified.kind === "skip") {
       keep.add(pageId);
       skipped.push({
@@ -104,17 +119,28 @@ export async function importNotionCatalog(input: {
         .filter((id) => !keep.has(id)),
     ),
   ];
-  const retired = await input.dishes.retire(retireIds);
+  const activeImported = existingRows.filter((row) => row.isActive).length;
+  const planned = await input.dishes.removalPlan(retireIds);
+  const wouldRemove = planned.deleted + planned.inactivated;
+  const removalsSkipped =
+    !input.allowMassRemoval &&
+    (pages.length === 0 || wouldRemove > removalCeiling(activeImported));
+  const retired = removalsSkipped
+    ? { deleted: 0, inactivated: 0 }
+    : await input.dishes.retire(retireIds);
   const wall = await input.dishes.countOnWall();
 
   return {
     imported: added + updated,
     tried,
     noSteps,
+    errored,
     added,
     updated,
     deleted: retired.deleted,
     inactivated: retired.inactivated,
+    wouldRemove,
+    removalsSkipped,
     onWall: wall.onWall,
     skipped: capSkips(skipped),
     warnings: capWarnings(warnings),

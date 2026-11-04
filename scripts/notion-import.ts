@@ -23,7 +23,8 @@ async function main(): Promise<void> {
     process.exit(1);
   }
 
-  const report = await runSync(db, begun.id);
+  const allowMassRemoval = process.argv.includes("--allow-mass-removal");
+  const report = await runSync(db, begun.id, { allowMassRemoval });
   console.log(formatImportReport(report));
 }
 

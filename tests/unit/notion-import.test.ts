@@ -6,12 +6,35 @@ import {
   type StoredNotionDish,
   type UpsertDish,
 } from "@/server/notion/import-catalog";
-import { formatImportReport, safeSyncError } from "@/server/notion/report";
+import {
+  formatImportReport,
+  removalSkippedNotice,
+  safeSyncError,
+} from "@/server/notion/report";
 import type { NotionBlock, NotionPageSnapshot } from "@/server/notion/types";
 
 const TRIED = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa";
 const OTHER = "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb";
 const PLAIN = "cccccccc-cccc-cccc-cccc-cccccccccccc";
+
+function dishId(index: number): string {
+  return `00000000-0000-4000-8000-${index.toString(16).padStart(12, "0")}`;
+}
+
+function seedActive(dishes: MemoryDishes, count: number) {
+  for (let index = 0; index < count; index += 1) {
+    const id = dishId(index);
+    dishes.rows.set(id, {
+      id: `dish-${index}`,
+      notionPageId: id,
+      name: `菜${index}`,
+      isActive: true,
+      tried: true,
+      hasBody: true,
+      categoryName: "大荤",
+    });
+  }
+}
 
 function stepBlocks(text = "炖"): NotionBlock[] {
   return [
@@ -81,23 +104,40 @@ class MemoryDishes implements DishRepository {
     return "updated" as const;
   }
 
-  async retire(notionPageIds: readonly string[]) {
+  private plan(notionPageIds: readonly string[]) {
     let deleted = 0;
     let inactivated = 0;
+    const deleteIds: string[] = [];
+    const inactivateIds: string[] = [];
     for (const id of notionPageIds) {
       const row = this.rows.get(id);
       if (!row) continue;
       if (this.referenced.has(id)) {
         if (row.isActive) {
-          row.isActive = false;
+          inactivateIds.push(id);
           inactivated += 1;
         }
       } else {
-        this.rows.delete(id);
+        deleteIds.push(id);
         deleted += 1;
       }
     }
-    return { deleted, inactivated };
+    return { deleted, inactivated, deleteIds, inactivateIds };
+  }
+
+  async removalPlan(notionPageIds: readonly string[]) {
+    const planned = this.plan(notionPageIds);
+    return { deleted: planned.deleted, inactivated: planned.inactivated };
+  }
+
+  async retire(notionPageIds: readonly string[]) {
+    const planned = this.plan(notionPageIds);
+    for (const id of planned.deleteIds) this.rows.delete(id);
+    for (const id of planned.inactivateIds) {
+      const row = this.rows.get(id);
+      if (row) row.isActive = false;
+    }
+    return { deleted: planned.deleted, inactivated: planned.inactivated };
   }
 
   async countOnWall() {
@@ -240,7 +280,7 @@ describe("importNotionCatalog", () => {
     await seeded.run();
     const keptId = seeded.dishes.rows.get(OTHER)?.id;
 
-    const removed = harness([]);
+    const removed = harness([snapshot(PLAIN, "还在", true)]);
     removed.dishes.rows = seeded.dishes.rows;
     removed.dishes.referenced.add(OTHER);
     const report = await removed.run();
@@ -272,6 +312,119 @@ describe("importNotionCatalog", () => {
       }),
     ).rejects.toThrow("Notion 请求失败（500）。");
     expect(dishes.rows.get(TRIED)?.isActive).toBe(true);
+  });
+
+  it("does not remove anything when Notion returns zero pages", async () => {
+    const run = harness([]);
+    seedActive(run.dishes, 2);
+    const report = await run.run();
+    expect(report).toMatchObject({
+      deleted: 0,
+      inactivated: 0,
+      wouldRemove: 2,
+      removalsSkipped: true,
+    });
+    expect(run.dishes.rows.size).toBe(2);
+    expect([...run.dishes.rows.values()].every((row) => row.isActive)).toBe(
+      true,
+    );
+    expect(formatImportReport(report)).toContain(removalSkippedNotice(2));
+  });
+
+  it("applies a single removal when 1 of 20 active dishes is gone", async () => {
+    const missing = dishId(0);
+    const run = harness(
+      Array.from({ length: 19 }, (_, index) =>
+        snapshot(dishId(index + 1), `菜${index + 1}`, true),
+      ),
+    );
+    seedActive(run.dishes, 20);
+    const report = await run.run();
+    expect(report).toMatchObject({
+      deleted: 1,
+      inactivated: 0,
+      wouldRemove: 1,
+      removalsSkipped: false,
+    });
+    expect(run.dishes.rows.has(missing)).toBe(false);
+    expect(run.dishes.rows.size).toBe(19);
+  });
+
+  it("skips every removal when 10 of 20 active dishes would be removed", async () => {
+    const kept = dishId(0);
+    const missing = dishId(10);
+    const fresh = "dddddddd-dddd-4ddd-8ddd-dddddddddddd";
+    const run = harness([
+      snapshot(kept, "改名了", true),
+      ...Array.from({ length: 9 }, (_, index) =>
+        snapshot(dishId(index + 1), `菜${index + 1}`, true),
+      ),
+      snapshot(fresh, "新菜", true),
+    ]);
+    seedActive(run.dishes, 20);
+    const report = await run.run();
+    expect(report).toMatchObject({
+      added: 1,
+      updated: 10,
+      deleted: 0,
+      inactivated: 0,
+      wouldRemove: 10,
+      removalsSkipped: true,
+    });
+    expect(run.dishes.rows.get(kept)?.name).toBe("改名了");
+    expect(run.dishes.rows.get(missing)?.isActive).toBe(true);
+    expect(run.dishes.rows.size).toBe(21);
+    expect(formatImportReport(report)).toContain("先没动，请检查 Notion");
+  });
+
+  it("removes the large set only when mass removal is allowed", async () => {
+    const pages = Array.from({ length: 10 }, (_, index) =>
+      snapshot(dishId(index), `菜${index}`, true),
+    );
+    const dishes = new MemoryDishes();
+    seedActive(dishes, 20);
+    const report = await importNotionCatalog({
+      loadPages: async () => pages,
+      dishes,
+      allowMassRemoval: true,
+    });
+    expect(report).toMatchObject({
+      deleted: 10,
+      removalsSkipped: false,
+      wouldRemove: 10,
+    });
+    expect(dishes.rows.size).toBe(10);
+  });
+
+  it("leaves a dish untouched when its block fetch failed", async () => {
+    const run = harness([
+      {
+        ...snapshot(TRIED, "改名了", false),
+        blocks: null,
+        blocksError: "正文读取失败",
+        fetchError: "正文读取失败",
+      },
+      snapshot(OTHER, "青菜", true),
+    ]);
+    run.dishes.rows.set(TRIED, {
+      id: "dish-1",
+      notionPageId: TRIED,
+      name: "红烧肉",
+      isActive: true,
+      tried: true,
+      hasBody: true,
+      categoryName: "大荤",
+    });
+    const report = await run.run();
+    expect(report.errored).toBe(1);
+    expect(report.deleted).toBe(0);
+    expect(report.inactivated).toBe(0);
+    expect(run.dishes.rows.get(TRIED)).toMatchObject({
+      name: "红烧肉",
+      tried: true,
+      isActive: true,
+    });
+    expect(run.dishes.rows.get(OTHER)?.name).toBe("青菜");
   });
 
   it("strips tokens and signed urls from sync errors", () => {

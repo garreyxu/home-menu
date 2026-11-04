@@ -159,6 +159,66 @@ describe("fetchNotionSnapshots", () => {
     ).rejects.toThrow("没有改菜单");
   });
 
+  it("keeps a page when its block request fails after the query succeeds", async () => {
+    const fetchImpl: typeof fetch = async (input) => {
+      const url = String(input);
+      if (url.endsWith(`/databases/${DATABASE}`)) {
+        return json({ data_sources: [{ id: DATA_SOURCE }] });
+      }
+      if (url.endsWith(`/data_sources/${DATA_SOURCE}`)) {
+        return json({
+          properties: {
+            菜名: { type: "title" },
+            "已尝试?": { type: "checkbox" },
+          },
+        });
+      }
+      if (url.endsWith(`/data_sources/${DATA_SOURCE}/query`)) {
+        return json({
+          results: [
+            {
+              id: TRIED,
+              properties: {
+                菜名: { type: "title", title: [{ plain_text: "红烧肉" }] },
+                "已尝试?": { type: "checkbox", checkbox: true },
+              },
+            },
+            {
+              id: UNTRIED,
+              properties: null,
+            },
+          ],
+          has_more: false,
+          next_cursor: null,
+        });
+      }
+      if (url.includes(`/blocks/${TRIED}/children`)) {
+        return json({ message: "unavailable" }, 500);
+      }
+      if (url.includes(`/blocks/${UNTRIED}/`)) {
+        return json({
+          results: [],
+          has_more: false,
+          next_cursor: null,
+        });
+      }
+      return json({ message: "unexpected" }, 500);
+    };
+
+    const pages = await fetchNotionSnapshots({
+      token: TOKEN,
+      databaseId: DATABASE,
+      dataSourceId: DATA_SOURCE,
+      fetchImpl,
+      minIntervalMs: 0,
+    });
+
+    expect(pages.map((page) => page.id)).toEqual([TRIED, UNTRIED]);
+    expect(pages[0]?.blocks).toBeNull();
+    expect(pages[0]?.fetchError).toBe("正文读取失败");
+    expect(pages[1]?.fetchError).toBe("属性读取失败");
+  });
+
   it("does not include the token when Notion rejects the request", async () => {
     const fetchImpl: typeof fetch = async () => json({ message: TOKEN }, 401);
     await expect(

@@ -60,6 +60,7 @@ export async function fetchNotionSnapshots(options: {
     cover: page.cover,
     blocks: blocksById.get(page.id) ?? null,
     blocksError: errors.get(page.id),
+    fetchError: page.fetchError ?? errors.get(page.id),
   }));
 }
 
@@ -210,18 +211,25 @@ type RawPage = {
   inTrash: boolean;
   properties: Record<string, NotionProperty>;
   cover: NotionFile | null;
+  fetchError?: string;
 };
 
 function readPage(value: unknown): RawPage | null {
   const record = asRecord(value);
   if (!record || typeof record.id !== "string") return null;
-  const properties = asRecord(record.properties) ?? {};
-  return {
+  const properties = asRecord(record.properties);
+  const base = {
     id: record.id,
     archived: record.archived === true,
     inTrash: record.in_trash === true,
-    properties: properties as Record<string, NotionProperty>,
     cover: readFile(record.cover),
+  };
+  if (!properties) {
+    return { ...base, properties: {}, fetchError: "属性读取失败" };
+  }
+  return {
+    ...base,
+    properties: properties as Record<string, NotionProperty>,
   };
 }
 

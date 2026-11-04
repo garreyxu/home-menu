@@ -76,6 +76,7 @@ export async function readSyncState(db: Database): Promise<SyncState> {
 export async function runSync(
   db: Database,
   runId: string,
+  options?: { allowMassRemoval?: boolean },
 ): Promise<ImportReport> {
   try {
     const config = readNotionConfig();
@@ -102,6 +103,7 @@ export async function runSync(
           },
         }),
       dishes: createDishRepository(db),
+      allowMassRemoval: options?.allowMassRemoval === true,
     });
     await db
       .update(notionSyncRuns)
@@ -116,6 +118,9 @@ export async function runSync(
         imported: report.imported,
         tried: report.tried,
         noSteps: report.noSteps,
+        errored: report.errored,
+        wouldRemove: report.wouldRemove,
+        removalsSkipped: report.removalsSkipped,
         onWall: report.onWall,
         processed: report.imported,
         total: report.imported,
@@ -177,6 +182,9 @@ function reportFromRow(row: {
   imported: number;
   tried: number;
   noSteps: number;
+  errored: number;
+  wouldRemove: number;
+  removalsSkipped: boolean;
   onWall: number;
   skipped: unknown;
   warnings: unknown;
@@ -185,10 +193,13 @@ function reportFromRow(row: {
     imported: row.imported,
     tried: row.tried,
     noSteps: row.noSteps,
+    errored: row.errored,
     added: row.added,
     updated: row.updated,
     deleted: row.deleted,
     inactivated: row.inactivated,
+    wouldRemove: row.wouldRemove,
+    removalsSkipped: row.removalsSkipped,
     onWall: row.onWall,
     skipped: asSkips(row.skipped),
     warnings: asStrings(row.warnings),
