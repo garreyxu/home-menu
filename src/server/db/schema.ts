@@ -96,8 +96,17 @@ export const notionSyncRuns = pgTable(
     tried: integer("tried").notNull().default(0),
     noSteps: integer("no_steps").notNull().default(0),
     errored: integer("errored").notNull().default(0),
+    seedsRetired: integer("seeds_retired").notNull().default(0),
     wouldRemove: integer("would_remove").notNull().default(0),
     removalsSkipped: boolean("removals_skipped").notNull().default(false),
+    noStepPages: jsonb("no_step_pages")
+      .$type<{ pageId: string; name: string | null; url: string }[]>()
+      .notNull()
+      .default(sql`'[]'::jsonb`),
+    erroredPages: jsonb("errored_pages")
+      .$type<{ pageId: string; name: string | null; url: string }[]>()
+      .notNull()
+      .default(sql`'[]'::jsonb`),
     onWall: integer("on_wall").notNull().default(0),
     processed: integer("processed").notNull().default(0),
     total: integer("total"),

@@ -6,6 +6,7 @@ import {
   type StoredNotionDish,
   type UpsertDish,
 } from "@/server/notion/import-catalog";
+import { planSeedRetirement } from "@/server/notion/seed-rows";
 import {
   formatImportReport,
   removalSkippedNotice,
@@ -75,6 +76,9 @@ class MemoryDishes implements DishRepository {
   >();
   /** Notion page ids that a weekly menu still references. */
   referenced = new Set<string>();
+  seedRows: { id: string; name: string; isActive: boolean }[] = [];
+  /** Menu rows that point at a dish id, seed or imported. */
+  menuLinks: { dishId: string }[] = [];
 
   async listNotionDishes(): Promise<StoredNotionDish[]> {
     return [...this.rows.values()].map((row) => ({
@@ -144,6 +148,43 @@ class MemoryDishes implements DishRepository {
     return {
       onWall: [...this.rows.values()].filter((row) => row.isActive).length,
     };
+  }
+
+  async retireSeeds() {
+    const imported = [...this.rows.values()].map((row) => ({
+      id: row.id,
+      name: row.name,
+      isActive: row.isActive,
+    }));
+    const ops = planSeedRetirement({
+      seeds: this.seedRows,
+      imported,
+      referencedSeedIds: new Set(
+        this.menuLinks
+          .filter((link) =>
+            this.seedRows.some((seed) => seed.id === link.dishId),
+          )
+          .map((link) => link.dishId),
+      ),
+    });
+    const remaining = [];
+    for (const seed of this.seedRows) {
+      const op = ops.find((item) => item.seedId === seed.id);
+      if (!op) {
+        remaining.push(seed);
+        continue;
+      }
+      if (op.kind === "repoint") {
+        for (const link of this.menuLinks) {
+          if (link.dishId === seed.id) link.dishId = op.importedId;
+        }
+        continue;
+      }
+      if (op.kind === "delete") continue;
+      remaining.push({ ...seed, isActive: false });
+    }
+    this.seedRows = remaining;
+    return ops.length;
   }
 }
 
@@ -425,6 +466,81 @@ describe("importNotionCatalog", () => {
       isActive: true,
     });
     expect(run.dishes.rows.get(OTHER)?.name).toBe("青菜");
+  });
+
+  it("retires seed rows after a clean sync", async () => {
+    const run = harness([
+      snapshot(TRIED, "红烧肉", true),
+      snapshot(OTHER, "只有图", true, [
+        {
+          id: "img",
+          type: "image",
+          image: {
+            type: "file",
+            file: { url: "https://cdn.example/secret-body.jpg" },
+          },
+        },
+      ]),
+    ]);
+    run.dishes.seedRows = [
+      { id: "seed-pork", name: "红烧肉", isActive: true },
+      { id: "seed-cucumber", name: "拍黄瓜", isActive: true },
+      { id: "seed-rice", name: "米饭", isActive: true },
+    ];
+    run.dishes.menuLinks = [{ dishId: "seed-pork" }, { dishId: "seed-rice" }];
+    const report = await run.run();
+    const importedId = run.dishes.rows.get(TRIED)?.id;
+    expect(report.seedsRetired).toBe(3);
+    expect(report.errored).toBe(0);
+    expect(run.dishes.seedRows.map((row) => row.id)).toEqual(["seed-rice"]);
+    expect(run.dishes.seedRows[0]?.isActive).toBe(false);
+    expect(run.dishes.menuLinks.map((link) => link.dishId)).toEqual([
+      importedId,
+      "seed-rice",
+    ]);
+    const printed = formatImportReport(report);
+    expect(printed).toContain("样本菜退下 3");
+    expect(printed).toContain("只有图");
+    expect(printed).toContain("https://www.notion.so/");
+    expect(printed).not.toContain("secret-body");
+    expect(report.noStepPages[0]?.url).toMatch(
+      /^https:\/\/www\.notion\.so\/[0-9a-f]{32}$/,
+    );
+  });
+
+  it("keeps seed rows when the sync has an error or skips removals", async () => {
+    const errored = harness([
+      {
+        ...snapshot(TRIED, "红烧肉", true),
+        blocks: null,
+        blocksError: "正文读取失败",
+      },
+    ]);
+    errored.dishes.seedRows = [
+      { id: "seed-pork", name: "红烧肉", isActive: true },
+    ];
+    const erroredReport = await errored.run();
+    expect(erroredReport.seedsRetired).toBe(0);
+    expect(erroredReport.erroredPages[0]?.name).toBe("红烧肉");
+    expect(errored.dishes.seedRows).toHaveLength(1);
+
+    const empty = harness([]);
+    empty.dishes.rows.set(TRIED, {
+      id: "dish-1",
+      notionPageId: TRIED,
+      name: "红烧肉",
+      isActive: true,
+      tried: true,
+      hasBody: true,
+      categoryName: "大荤",
+    });
+    empty.dishes.seedRows = [
+      { id: "seed-pork", name: "拍黄瓜", isActive: true },
+    ];
+    const emptyReport = await empty.run();
+    expect(emptyReport.removalsSkipped).toBe(true);
+    expect(emptyReport.seedsRetired).toBe(0);
+    expect(empty.dishes.seedRows).toHaveLength(1);
   });
 
   it("strips tokens and signed urls from sync errors", () => {

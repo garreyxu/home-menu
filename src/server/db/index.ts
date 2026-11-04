@@ -1,11 +1,13 @@
 import "server-only";
 
-import { neon } from "@neondatabase/serverless";
+import { neon, type NeonQueryFunction } from "@neondatabase/serverless";
 import { drizzle, type NeonHttpDatabase } from "drizzle-orm/neon-http";
 
 import * as schema from "@/server/db/schema";
 
-export type Database = NeonHttpDatabase<typeof schema>;
+export type Database = NeonHttpDatabase<typeof schema> & {
+  $client: NeonQueryFunction<false, false>;
+};
 
 let database: Database | undefined;
 

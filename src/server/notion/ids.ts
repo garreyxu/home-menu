@@ -1,3 +1,8 @@
+/** Public Notion page link. The id is not a secret; the page body is not included. */
+export function notionPageUrl(id: string): string {
+  return `https://www.notion.so/${normalizeNotionId(id).replace(/-/g, "")}`;
+}
+
 /** Canonical dashed id so `abc…` and `abc-…` dedupe as one page. */
 export function normalizeNotionId(id: string): string {
   const trimmed = id.trim().toLowerCase();

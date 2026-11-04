@@ -13,6 +13,11 @@ export function cleanDishName(raw: string): string {
     .trim();
 }
 
+/** Same cleanup as an imported title, with inner whitespace folded, for matching seed rows. */
+export function normalizeDishName(raw: string): string {
+  return cleanDishName(raw).replace(/\s+/g, "");
+}
+
 export function displayText(prop: NotionProperty | undefined): string | null {
   if (!prop?.type) return null;
   let text = "";

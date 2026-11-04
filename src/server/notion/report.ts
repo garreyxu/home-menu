@@ -4,11 +4,19 @@ export type NotionSkip = {
   reason: string;
 };
 
+/** A page named in the sync report. The body is never included. */
+export type ListedPage = {
+  pageId: string;
+  name: string | null;
+  url: string;
+};
+
 export type ImportReport = {
   imported: number;
   tried: number;
   noSteps: number;
   errored: number;
+  seedsRetired: number;
   added: number;
   updated: number;
   deleted: number;
@@ -19,6 +27,8 @@ export type ImportReport = {
   removalsSkipped: boolean;
   onWall: number;
   skipped: NotionSkip[];
+  noStepPages: ListedPage[];
+  erroredPages: ListedPage[];
   warnings: string[];
 };
 
@@ -29,17 +39,27 @@ export function removalSkippedNotice(wouldRemove: number): string {
 
 export function formatImportReport(report: ImportReport): string {
   const lines = [
-    `导入 ${report.imported} 道，做过 ${report.tried}，没有步骤 ${report.noSteps}，读取失败 ${report.errored}。`,
+    `导入 ${report.imported} 道，做过 ${report.tried}，没有步骤 ${report.noSteps}，读取失败 ${report.errored}，样本菜退下 ${report.seedsRetired}。`,
     `新增 ${report.added}，更新 ${report.updated}，删除 ${report.deleted}，下架 ${report.inactivated}，上墙 ${report.onWall}。`,
   ];
   if (report.removalsSkipped) {
     lines.push(removalSkippedNotice(report.wouldRemove));
   }
+  lines.push(...listPages("没有步骤", report.noStepPages));
+  lines.push(...listPages("读取失败", report.erroredPages));
   for (const skip of report.skipped) {
     lines.push(`跳过 ${skip.name?.trim() || skip.pageId}：${skip.reason}`);
   }
   for (const warning of report.warnings) lines.push(warning);
   return lines.join("\n");
+}
+
+function listPages(label: string, pages: readonly ListedPage[]): string[] {
+  if (pages.length === 0) return [];
+  return [
+    `${label}：`,
+    ...pages.map((page) => `- ${page.name?.trim() || "未命名"} ${page.url}`),
+  ];
 }
 
 /** Drop tokens, connection strings, and signed URLs before anything is shown or logged. */

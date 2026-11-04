@@ -119,8 +119,11 @@ export async function runSync(
         tried: report.tried,
         noSteps: report.noSteps,
         errored: report.errored,
+        seedsRetired: report.seedsRetired,
         wouldRemove: report.wouldRemove,
         removalsSkipped: report.removalsSkipped,
+        noStepPages: report.noStepPages,
+        erroredPages: report.erroredPages,
         onWall: report.onWall,
         processed: report.imported,
         total: report.imported,
@@ -183,8 +186,11 @@ function reportFromRow(row: {
   tried: number;
   noSteps: number;
   errored: number;
+  seedsRetired: number;
   wouldRemove: number;
   removalsSkipped: boolean;
+  noStepPages: unknown;
+  erroredPages: unknown;
   onWall: number;
   skipped: unknown;
   warnings: unknown;
@@ -194,6 +200,7 @@ function reportFromRow(row: {
     tried: row.tried,
     noSteps: row.noSteps,
     errored: row.errored,
+    seedsRetired: row.seedsRetired,
     added: row.added,
     updated: row.updated,
     deleted: row.deleted,
@@ -202,8 +209,28 @@ function reportFromRow(row: {
     removalsSkipped: row.removalsSkipped,
     onWall: row.onWall,
     skipped: asSkips(row.skipped),
+    noStepPages: asListed(row.noStepPages),
+    erroredPages: asListed(row.erroredPages),
     warnings: asStrings(row.warnings),
   };
+}
+
+function asListed(value: unknown): ImportReport["noStepPages"] {
+  if (!Array.isArray(value)) return [];
+  return value.flatMap((item) => {
+    if (!item || typeof item !== "object") return [];
+    const record = item as Record<string, unknown>;
+    if (typeof record.pageId !== "string" || typeof record.url !== "string") {
+      return [];
+    }
+    return [
+      {
+        pageId: record.pageId,
+        name: typeof record.name === "string" ? record.name : null,
+        url: record.url,
+      },
+    ];
+  });
 }
 
 function asSkips(value: unknown): NotionSkip[] {

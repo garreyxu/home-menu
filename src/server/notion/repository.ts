@@ -1,4 +1,4 @@
-import { and, eq, inArray, isNotNull, sql } from "drizzle-orm";
+import { and, eq, inArray, isNotNull, isNull, sql } from "drizzle-orm";
 
 import type { Database } from "@/server/db";
 import { categories, dishes, menuItems } from "@/server/db/schema";
@@ -7,6 +7,7 @@ import type {
   StoredNotionDish,
   UpsertDish,
 } from "@/server/notion/import-catalog";
+import { planSeedRetirement } from "@/server/notion/seed-rows";
 
 const CATEGORY_ORDER = [
   "大荤",
@@ -186,6 +187,10 @@ export function createDishRepository(db: Database): DishRepository {
       return { deleted: deleteIds.length, inactivated: inactivateIds.length };
     },
 
+    async retireSeeds() {
+      return retireSeedDishes(db);
+    },
+
     async countOnWall() {
       const rows = await db
         .select({ id: dishes.id })
@@ -194,4 +199,63 @@ export function createDishRepository(db: Database): DishRepository {
       return { onWall: rows.length };
     },
   };
+}
+
+/** Retire sample dishes inside one Neon HTTP transaction. */
+export async function retireSeedDishes(db: Database): Promise<number> {
+  const seedRows = await db
+    .select({
+      id: dishes.id,
+      name: dishes.name,
+      isActive: dishes.isActive,
+    })
+    .from(dishes)
+    .where(isNull(dishes.notionPageId));
+  if (seedRows.length === 0) return 0;
+
+  const imported = await db
+    .select({
+      id: dishes.id,
+      name: dishes.name,
+      isActive: dishes.isActive,
+    })
+    .from(dishes)
+    .where(isNotNull(dishes.notionPageId));
+
+  const seedIds = seedRows.map((row) => row.id);
+  const links =
+    seedIds.length === 0
+      ? []
+      : await db
+          .select({ dishId: menuItems.dishId })
+          .from(menuItems)
+          .where(inArray(menuItems.dishId, seedIds));
+  const ops = planSeedRetirement({
+    seeds: seedRows,
+    imported,
+    referencedSeedIds: new Set(links.map((link) => link.dishId)),
+  });
+  if (ops.length === 0) return 0;
+
+  const sqlClient = db.$client;
+  await sqlClient.transaction((txn) =>
+    ops.flatMap((op) => {
+      if (op.kind === "repoint") {
+        return [
+          txn`DELETE FROM menu_items AS old USING menu_items AS keep WHERE old.dish_id = ${op.seedId}::uuid AND keep.dish_id = ${op.importedId}::uuid AND keep.weekly_menu_id = old.weekly_menu_id AND keep.day_of_week = old.day_of_week AND keep.meal = old.meal`,
+          txn`UPDATE menu_items SET dish_id = ${op.importedId}::uuid WHERE dish_id = ${op.seedId}::uuid`,
+          txn`DELETE FROM dishes WHERE id = ${op.seedId}::uuid AND notion_page_id IS NULL`,
+        ];
+      }
+      if (op.kind === "delete") {
+        return [
+          txn`DELETE FROM dishes WHERE id = ${op.seedId}::uuid AND notion_page_id IS NULL`,
+        ];
+      }
+      return [
+        txn`UPDATE dishes SET is_active = false, updated_at = now() WHERE id = ${op.seedId}::uuid AND notion_page_id IS NULL AND is_active = true`,
+      ];
+    }),
+  );
+  return ops.length;
 }

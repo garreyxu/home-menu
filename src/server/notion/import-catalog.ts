@@ -1,6 +1,10 @@
 import { classifyNotionPage } from "@/server/notion/map-page";
-import { normalizeNotionId } from "@/server/notion/ids";
-import type { ImportReport, NotionSkip } from "@/server/notion/report";
+import { normalizeNotionId, notionPageUrl } from "@/server/notion/ids";
+import type {
+  ImportReport,
+  ListedPage,
+  NotionSkip,
+} from "@/server/notion/report";
 import type { NotionPageSnapshot } from "@/server/notion/types";
 
 export type StoredNotionDish = {
@@ -44,6 +48,11 @@ export interface DishRepository {
   /** Same counts as retire, without writing. */
   removalPlan(notionPageIds: readonly string[]): Promise<RetireResult>;
   countOnWall(): Promise<{ onWall: number }>;
+  /**
+   * Remove sample rows that have no Notion page id.
+   * Runs in one database transaction. Returns how many seeds were retired.
+   */
+  retireSeeds(): Promise<number>;
 }
 
 /** More removals than this, or an empty Notion result, are held back. */
@@ -62,6 +71,8 @@ export async function importNotionCatalog(input: {
 
   const keep = new Set<string>();
   const skipped: NotionSkip[] = [];
+  const noStepPages: ListedPage[] = [];
+  const erroredPages: ListedPage[] = [];
   const warnings: string[] = [];
   let noSteps = 0;
   let errored = 0;
@@ -75,6 +86,7 @@ export async function importNotionCatalog(input: {
     if (classified.kind === "errored") {
       keep.add(pageId);
       errored += 1;
+      erroredPages.push(listedPage(pageId, classified.name));
       continue;
     }
     if (classified.kind === "skip") {
@@ -88,6 +100,7 @@ export async function importNotionCatalog(input: {
     }
     if (classified.kind === "no_steps") {
       noSteps += 1;
+      noStepPages.push(listedPage(pageId, classified.name));
       continue;
     }
 
@@ -128,6 +141,8 @@ export async function importNotionCatalog(input: {
   const retired = removalsSkipped
     ? { deleted: 0, inactivated: 0 }
     : await input.dishes.retire(retireIds);
+  const seedsRetired =
+    errored === 0 && !removalsSkipped ? await input.dishes.retireSeeds() : 0;
   const wall = await input.dishes.countOnWall();
 
   return {
@@ -135,6 +150,7 @@ export async function importNotionCatalog(input: {
     tried,
     noSteps,
     errored,
+    seedsRetired,
     added,
     updated,
     deleted: retired.deleted,
@@ -143,8 +159,14 @@ export async function importNotionCatalog(input: {
     removalsSkipped,
     onWall: wall.onWall,
     skipped: capSkips(skipped),
+    noStepPages,
+    erroredPages,
     warnings: capWarnings(warnings),
   };
+}
+
+function listedPage(pageId: string, name: string | null): ListedPage {
+  return { pageId, name, url: notionPageUrl(pageId) };
 }
 
 function capSkips(skipped: NotionSkip[]): NotionSkip[] {

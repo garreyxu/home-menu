@@ -118,7 +118,7 @@ The server client is `getDb()` in `src/server/db/index.ts`. It reads `DATABASE_U
 
 Migrations are generated with `pnpm exec drizzle-kit generate` and committed under `drizzle/`. `pnpm db:migrate` runs `drizzle-kit migrate`.
 
-`pnpm build` is the command Vercel should run. `vercel.json` sets `buildCommand` to `pnpm build` because the Next.js preset would otherwise run `next build` and skip migrations. When neither `DATABASE_URL_UNPOOLED` nor `DATABASE_URL` is set, the build logs `[db] Skipping migrations: ...` and continues, so CI can build without a database. When a URL is set, the build applies migrations. It then seeds only if `VERCEL_ENV` is `preview`. Production builds migrate and do not seed.
+`pnpm build` is the command Vercel should run. `vercel.json` sets `buildCommand` to `pnpm build` because the Next.js preset would otherwise run `next build` and skip migrations. When neither `DATABASE_URL_UNPOOLED` nor `DATABASE_URL` is set, the build logs `[db] Skipping migrations: ...` and continues, so CI can build without a database. When a URL is set, the build applies migrations. It then seeds only if `VERCEL_ENV` is `preview`. Production builds migrate and do not seed. Migrations themselves never insert dishes. `pnpm db:seed` also refuses `VERCEL_ENV=production`, and it skips a database that already has Notion dishes so a later preview build cannot put the samples back.
 
 Scripts read `.env*` files the same way Next.js does and never print connection strings. On Vercel, the Neon integration's environment variables are already set and take precedence.
 
@@ -153,7 +153,7 @@ CI does not call Notion. When `DATABASE_URL` and `NOTION_TOKEN` are unset, the a
 1. Share the Recipe database with the read-only Notion integration.
 2. Set the variables above and deploy, so the migration runs.
 3. Sign in and click 「从 Notion 同步」, or from a machine that has the env vars run `pnpm notion:import`.
-4. The command and the button print the same report: imported, tried, no steps, added, updated, deleted, inactivated, skipped and why, and on-wall.
+4. The command and the button print the same report: imported, tried, no steps, read failures, seeds retired, added, updated, deleted, inactivated, skipped and why, and on-wall. Pages without steps and pages that failed to read are listed by title and Notion link. The page body is not printed.
 
 The daily cron starts after that. Clicking the button again is safe: dishes are matched by Notion page id and are not duplicated.
 
