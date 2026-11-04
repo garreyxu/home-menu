@@ -1,6 +1,5 @@
 import type { ReactNode } from "react";
 import { DishFallback } from "@/components/dish-fallback";
-import { SealBadge } from "@/components/seal-badge";
 import { Card } from "@/components/ui/card";
 import { frameLetter } from "@/lib/frames";
 import type { DishIllustration } from "@/lib/illustrations";
@@ -17,10 +16,8 @@ export type DishCardProps = {
    * when the build-time manifest lists that Notion page.
    */
   illustration?: DishIllustration | null;
-  /** Notion 「已尝试?」. Ink tag, never the red 推荐 seal. */
+  /** Notion 「已尝试?」. Ink tag on the picture. */
   tried?: boolean;
-  /** No dish column stores this yet. The seal renders only when true. */
-  recommended?: boolean;
   plannedCount?: number;
   action?: ReactNode;
 };
@@ -32,12 +29,11 @@ export function DishCard({
   description = null,
   illustration = null,
   tried = false,
-  recommended = false,
   plannedCount = 0,
   action = null,
 }: DishCardProps) {
   const letter = frameLetter(id);
-  const note = description?.trim() ?? "";
+  const note = dishNoteText(description);
 
   return (
     <Card
@@ -59,7 +55,6 @@ export function DishCard({
             </div>
           )}
         </div>
-        {recommended ? <SealBadge id={id} className="seal-on-art" /> : null}
         {plannedCount > 0 ? (
           <span className="planned-tag">已点×{plannedCount}</span>
         ) : null}
@@ -71,6 +66,18 @@ export function DishCard({
       {action}
     </Card>
   );
+}
+
+/**
+ * Handwritten notes stay. English Notion timing such as
+ * "Prep Time 5 min Cook Time 20 min" is hidden instead of shown raw.
+ */
+export function dishNoteText(
+  description: string | null | undefined,
+): string | null {
+  const note = description?.replace(/\s+/g, " ").trim() ?? "";
+  if (!note || /[A-Za-z]/.test(note)) return null;
+  return note;
 }
 
 function DishArt({ illustration }: { illustration: DishIllustration }) {

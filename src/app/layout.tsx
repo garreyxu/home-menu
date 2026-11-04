@@ -19,7 +19,7 @@ const brush = Ma_Shan_Zheng({
   preload: false,
   variable: "--font-brush",
   adjustFontFallback: false,
-  fallback: ["Noto Serif SC", "serif"],
+  fallback: ["Noto Sans SC", "sans-serif"],
 });
 
 export const metadata: Metadata = {

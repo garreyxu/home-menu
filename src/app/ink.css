@@ -2,7 +2,9 @@
    The focus ring is one rule for the whole site: 2px sumi, then a shu halo. */
 
 .font-brush {
-  font-family: var(--font-brush), "Noto Serif SC", serif;
+  /* Brush covers the Chinese. Latin, digits, and roman numerals fall through
+     to Noto Sans SC instead of Ma Shan Zheng's stand-in glyphs. */
+  font-family: var(--font-brush), var(--font-sans), "Noto Sans SC", sans-serif;
   font-weight: 400;
   line-height: 1.2;
 }
@@ -302,11 +304,11 @@ summary:focus-visible,
 .scene-header {
   position: relative;
   display: flex;
-  min-height: 120px;
-  align-items: flex-end;
+  min-height: 136px;
+  align-items: center;
   justify-content: center;
-  padding: 52px 72px 12px 16px;
-  overflow: hidden;
+  padding: 12px 96px 56px 16px;
+  overflow: visible;
 }
 
 .scene-title-lockup {
@@ -327,11 +329,10 @@ summary:focus-visible,
 
 .scene-deco {
   position: absolute;
-  top: 50%;
+  top: 12px;
   display: none;
-  width: 72px;
-  height: 72px;
-  transform: translateY(-50%);
+  width: 64px;
+  height: 64px;
   pointer-events: none;
 }
 
@@ -345,9 +346,18 @@ summary:focus-visible,
 
 .scene-actions {
   position: absolute;
-  top: 12px;
-  right: 12px;
+  right: 16px;
+  bottom: 12px;
   z-index: 3;
+}
+
+/* Vercel injects a round preview control on the viewport edge. It covers
+   the week board. The in-app control is the bottom 「本周已点」 bar. */
+vercel-live-feedback,
+#vercel-toolbar,
+[data-vercel-toolbar],
+iframe[src*="vercel.live"] {
+  display: none !important;
 }
 
 .category-nav {

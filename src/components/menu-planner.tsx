@@ -205,7 +205,7 @@ export function MenuPlanner({
         />
         <main className="min-w-0 flex-1">
           <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
-            <div className="inline-flex max-w-full flex-col gap-1 bg-paper px-3 py-2">
+            <div className="inline-flex max-w-full flex-col gap-1">
               <h2
                 id="dish-wall-heading"
                 className={cn(

@@ -34,13 +34,6 @@ export function DishFallback({ name }: { name: string }) {
           </span>
         ))}
       </p>
-      <span
-        className="seal-badge absolute right-[8%] bottom-[8%] scale-75"
-        style={{ ["--seal-rotate" as string]: "6deg" }}
-        aria-hidden="true"
-      >
-        <span className="seal-word">印</span>
-      </span>
     </div>
   );
 }

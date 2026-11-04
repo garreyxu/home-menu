@@ -25,9 +25,11 @@ test("signed-in dish wall screenshots", async ({ page }) => {
     await page.setViewportSize(viewport);
     await page.goto("/");
     await page.evaluate(() => document.fonts.ready);
-    await expect(
-      page.getByRole("heading", { name: "我家食堂", level: 1 }),
-    ).toBeVisible();
+    const cardName = page
+      .locator("ul.dish-grid")
+      .getByRole("heading", { level: 3 })
+      .first();
+    await expect(cardName).toBeVisible();
     await page.screenshot({
       path: `preview-screenshots/dish-wall-${viewport.width}.png`,
       fullPage: true,
@@ -42,8 +44,17 @@ test("signed-in dish wall screenshots", async ({ page }) => {
     }
     const board = page.getByRole("region", { name: "一周菜单" });
     await expect(board).toBeVisible();
-    await board.screenshot({
+    await page.evaluate(() => {
+      for (const node of document.querySelectorAll<HTMLElement>(
+        ".week-panel, .week-tray-panel",
+      )) {
+        node.style.maxHeight = "none";
+        node.style.overflow = "visible";
+      }
+    });
+    await page.screenshot({
       path: `preview-screenshots/week-board-${viewport.width}.png`,
+      fullPage: true,
     });
     if (viewport.width < 1024) await tray.click();
   }

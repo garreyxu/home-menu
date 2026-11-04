@@ -2,24 +2,35 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 
-import { DishCard } from "@/components/dish-card";
+import { DishCard, dishNoteText } from "@/components/dish-card";
 import { fallbackLines } from "@/components/dish-fallback";
 
+describe("dishNoteText", () => {
+  it("keeps a Chinese note and hides English Notion timing", () => {
+    expect(dishNoteText("酸甜下饭")).toBe("酸甜下饭");
+    expect(dishNoteText("Prep Time 5 min Cook Time 20 min")).toBeNull();
+    expect(dishNoteText("  Prep Time 15-20 min Cook Time…  ")).toBeNull();
+    expect(dishNoteText("   ")).toBeNull();
+    expect(dishNoteText(null)).toBeNull();
+  });
+});
+
 describe("DishCard", () => {
-  it("paints a brush fallback and an ink 做过 tag, and keeps 推荐 for the seal", () => {
+  it("paints a brush fallback and an ink 做过 tag, with no card stamp", () => {
     const tried = renderToStaticMarkup(
       createElement(DishCard, {
         id: "dish-pork",
         name: "红烧肉",
         categoryName: "大荤",
+        description: "Prep Time 5 min Cook Time 20 min",
         tried: true,
-        recommended: true,
       }),
     );
     expect(tried).toContain("tried-tag");
     expect(tried).toContain("做过");
-    expect(tried).toContain("seal-on-art");
-    expect(tried).toContain("推荐");
+    expect(tried).not.toContain("seal-on-art");
+    expect(tried).not.toContain("印");
+    expect(tried).not.toContain("Prep Time");
     expect(tried).toContain("还没有插画");
     expect(tried).not.toContain("<img");
     expect(tried).toContain("aspect-[4/3]");
