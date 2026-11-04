@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { e2eCredentials, login } from "./credentials";
+import { readWall } from "./wall";
 
 const credentials = e2eCredentials();
 
@@ -15,38 +16,40 @@ test.describe("dish wall", () => {
     await expect(
       page.getByRole("heading", { name: "我家海上食堂", level: 1 }),
     ).toBeVisible();
-    await expect(page.getByRole("heading", { name: "番茄炒蛋" })).toBeVisible();
-    await expect(
-      page.getByRole("heading", { name: "紫菜蛋花汤" }),
-    ).toBeVisible();
-    await expect(page.getByRole("button", { name: "+加到哪天" })).toHaveCount(
-      12,
+    const dishes = await readWall(page);
+    const wall = page.locator("ul.dish-grid");
+    await expect(wall.getByRole("button", { name: "+加到哪天" })).toHaveCount(
+      dishes.length,
     );
 
-    const soup = page.getByRole("link", { name: "汤品" });
-    await expect(soup).toHaveAttribute("href", /\?category=/);
-    await soup.click();
+    const category = dishes[0]!.category;
+    const outsider = dishes.find((dish) => dish.category !== category);
+    const categoryLink = page.getByRole("link", {
+      name: category,
+      exact: true,
+    });
+    await expect(categoryLink).toHaveAttribute("href", /\?category=/);
+    await categoryLink.click();
 
     await expect(page).toHaveURL(/category=/);
-    await expect(
-      page.getByRole("heading", { name: "紫菜蛋花汤" }),
-    ).toBeVisible();
-    await expect(page.getByRole("heading", { name: "番茄炒蛋" })).toHaveCount(
-      0,
+    const filtered = await readWall(page);
+    expect(filtered.every((dish) => dish.category === category)).toBe(true);
+    if (outsider) {
+      await expect(
+        page.getByRole("heading", { name: outsider.name, exact: true }),
+      ).toHaveCount(0);
+    }
+    await expect(wall.getByRole("button", { name: "+加到哪天" })).toHaveCount(
+      filtered.length,
     );
-    await expect(page.getByRole("button", { name: "+加到哪天" })).toHaveCount(
-      2,
-    );
-    await expect(page.getByRole("link", { name: "汤品" })).toHaveAttribute(
-      "aria-current",
-      "page",
-    );
+    await expect(categoryLink).toHaveAttribute("aria-current", "page");
 
-    await page.getByRole("link", { name: "全部" }).click();
+    await page.getByRole("link", { name: "全部", exact: true }).click();
     await expect(page).toHaveURL("/");
-    await expect(page.getByRole("heading", { name: "番茄炒蛋" })).toBeVisible();
-    await expect(page.getByRole("button", { name: "+加到哪天" })).toHaveCount(
-      12,
+    const restored = await readWall(page);
+    expect(restored).toHaveLength(dishes.length);
+    await expect(wall.getByRole("button", { name: "+加到哪天" })).toHaveCount(
+      dishes.length,
     );
   });
 
@@ -54,15 +57,24 @@ test.describe("dish wall", () => {
     const { username, password } = credentials!;
     await login(page, username, password);
 
-    await page.goto("/?category=" + encodeURIComponent("家常菜"));
-    await expect(page.getByRole("heading", { name: "红烧肉" })).toBeVisible();
-    await expect(page.getByRole("heading", { name: "紫菜蛋花汤" })).toHaveCount(
-      0,
-    );
+    const dishes = await readWall(page);
+    const category = dishes[0]!.category;
+    const outsider = dishes.find((dish) => dish.category !== category);
+
+    await page.goto("/?category=" + encodeURIComponent(category));
+    const filtered = await readWall(page);
+    expect(filtered.every((dish) => dish.category === category)).toBe(true);
+    if (outsider) {
+      await expect(
+        page.getByRole("heading", { name: outsider.name, exact: true }),
+      ).toHaveCount(0);
+    }
 
     await page.goto("/?category=" + encodeURIComponent("没有的分类"));
     await expect(page.getByText("没有这个分类。")).toBeVisible();
-    await expect(page.getByRole("heading", { name: "红烧肉" })).toHaveCount(0);
+    await expect(
+      page.locator("ul.dish-grid").getByRole("listitem"),
+    ).toHaveCount(0);
     await expect(page.locator("[aria-current='page']")).toHaveCount(0);
   });
 
@@ -87,7 +99,12 @@ test.describe("dish wall", () => {
       });
       expect(overflow).toBeLessThanOrEqual(1);
 
-      const card = page.getByRole("main").getByRole("listitem").first();
+      await expect(
+        page.locator("ul.dish-grid").getByRole("listitem"),
+        "菜品墙是空的，端到端测试需要至少一道菜。",
+      ).not.toHaveCount(0);
+      // Any card: the width check is about the grid, not a particular dish.
+      const card = page.locator("ul.dish-grid").getByRole("listitem").first();
       await expect(card).toBeVisible();
       const box = await card.boundingBox();
       expect(box).not.toBeNull();

@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { e2eCredentials } from "./credentials";
+import { readWall } from "./wall";
 
 const credentials = e2eCredentials();
 
@@ -73,7 +74,10 @@ test.describe("credential login", () => {
     await expect(
       page.getByRole("heading", { name: "我家海上食堂" }),
     ).toBeVisible();
-    await expect(page.getByRole("heading", { name: "番茄炒蛋" })).toBeVisible();
+    const [dish] = await readWall(page);
+    await expect(
+      page.getByRole("heading", { name: dish!.name, exact: true }),
+    ).toBeVisible();
 
     const logoutForm = page.locator('form[action="/logout"]');
     await expect(logoutForm).toHaveAttribute("method", "post");
@@ -91,14 +95,14 @@ test.describe("credential login", () => {
     expect(new URL(page.url()).pathname).toBe("/login");
 
     await page.goBack();
-    await expect(page.getByRole("heading", { name: "番茄炒蛋" })).toHaveCount(
-      0,
-    );
+    await expect(
+      page.getByRole("heading", { name: dish!.name, exact: true }),
+    ).toHaveCount(0);
 
     await page.goto("/");
     await expect(page).toHaveURL(/\/login/);
-    await expect(page.getByRole("heading", { name: "番茄炒蛋" })).toHaveCount(
-      0,
-    );
+    await expect(
+      page.getByRole("heading", { name: dish!.name, exact: true }),
+    ).toHaveCount(0);
   });
 });
