@@ -128,7 +128,11 @@ function Slot({
             <span className="week-thumb" aria-hidden="true">
               {Array.from(item.dishName)[0] ?? "菜"}
             </span>
-            <span className="min-w-0 flex-1 truncate text-sm font-semibold text-ink">
+            <span
+              className="week-dish-name"
+              title={item.dishName}
+              aria-label={item.dishName}
+            >
               {item.dishName}
             </span>
             <button
