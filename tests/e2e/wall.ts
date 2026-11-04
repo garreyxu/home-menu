@@ -10,8 +10,8 @@ const EMPTY_WALL = "菜品墙是空的，端到端测试需要至少一道菜。
 /** Dish cards on the wall. Fails immediately when the wall has no dishes. */
 export async function readWall(page: Page): Promise<WallDish[]> {
   const cards = page.locator("ul.dish-grid").getByRole("listitem");
+  await expect(cards, EMPTY_WALL).not.toHaveCount(0);
   const count = await cards.count();
-  expect(count, EMPTY_WALL).toBeGreaterThan(0);
 
   const dishes: WallDish[] = [];
   for (let index = 0; index < count; index += 1) {
