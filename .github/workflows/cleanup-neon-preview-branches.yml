@@ -1,0 +1,78 @@
+name: cleanup-neon-preview-branches
+
+# Deletes Neon preview branches created by the Vercel integration so closed
+# pull requests stop counting against the Neon branch limit.
+#
+# Neon branch name: preview/<github.event.pull_request.head.ref>
+# That is the bare head branch name, not refs/heads/<name>.
+#
+# The first manual run should be a dry run. workflow_dispatch defaults
+# dry_run to true and only lists branches the weekly sweep would delete.
+
+on:
+  pull_request:
+    types: [closed]
+  schedule:
+    # Monday 07:30 UTC. GitHub may delay scheduled runs.
+    - cron: "30 7 * * 1"
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: List preview branches that would be deleted and do not delete them. Leave this checked for the first manual run.
+        type: boolean
+        default: true
+        required: false
+
+# contents: read checks out this workflow's script. pull-requests: read lets the
+# weekly sweep list open pull requests. Neither scope can write to the repo.
+permissions:
+  contents: read
+  pull-requests: read
+
+concurrency:
+  group: cleanup-neon-preview-branches
+  cancel-in-progress: false
+
+env:
+  NEON_PROJECT_ID: steep-voice-67811340
+  NEON_API_BASE: https://console.neon.tech/api/v2
+  # Exact Neon branch names that are never deleted. The script also refuses
+  # Neon default, primary, and protected branches, and any name that does
+  # not start with preview/.
+  NEON_BRANCH_ALLOWLIST: production,vercel-dev
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  cleanup:
+    name: cleanup
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    # Fork pull requests do not receive NEON_API_KEY. Skip them here; the
+    # weekly sweep still removes their preview branches once the PR is closed.
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    steps:
+      # The script lives on the default branch. The pull request head ref
+      # comes from the event, so this job does not need the PR's tree.
+      - name: Checkout cleanup script
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+          ref: ${{ github.event.repository.default_branch }}
+
+      - name: Clean up Neon preview branches
+        env:
+          NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          EVENT_NAME: ${{ github.event_name }}
+          # github.event.pull_request.head.ref is the head branch name.
+          # The script builds preview/<that name> and deletes that Neon branch.
+          PR_HEAD_REF: ${{ github.event.pull_request.head.ref }}
+          # Force the strings true and false. A boolean false in env becomes empty,
+          # and the sweep treats any value other than those two strings as an error
+          # so it will not delete. Manual runs default to dry_run. The weekly cron
+          # is not workflow_dispatch, so the expression is the string false and it deletes.
+          DRY_RUN: ${{ (github.event_name == 'workflow_dispatch' && inputs.dry_run != false && inputs.dry_run != 'false') && 'true' || 'false' }}
+        run: bash .github/scripts/neon-preview-cleanup.sh
