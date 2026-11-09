@@ -1,0 +1,57 @@
+name: neon-ops
+
+# Manual Neon operations. workflow_dispatch only.
+#
+# snapshot creates backup-YYYYMMDD-HHMM (UTC) from the project's
+# default/primary branch. The name does not start with preview/, which is
+# the only prefix .github/scripts/neon-preview-cleanup.sh will delete.
+#
+# sync-report reads production through the Neon connection_uri endpoint
+# inside a read-only transaction. The SQL is fixed in scripts/neon-ops.sh.
+
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        description: snapshot creates a backup branch from production. sync-report prints the last Notion sync runs and imported-dish counts.
+        type: choice
+        required: true
+        options:
+          - snapshot
+          - sync-report
+
+permissions:
+  contents: read
+
+concurrency:
+  group: neon-ops
+  cancel-in-progress: false
+
+env:
+  NEON_PROJECT_ID: steep-voice-67811340
+  NEON_API_BASE: https://console.neon.tech/api/v2
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  neon-ops:
+    name: neon-ops
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Install PostgreSQL client
+        if: inputs.action == 'sync-report'
+        run: sudo apt-get update && sudo apt-get install --yes --no-install-recommends postgresql-client
+
+      - name: Run Neon ops
+        env:
+          NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
+          NEON_OPS_ACTION: ${{ inputs.action }}
+        run: bash scripts/neon-ops.sh

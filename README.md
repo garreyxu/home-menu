@@ -160,6 +160,18 @@ The daily cron starts after that. Clicking the button again is safe: dishes are 
 
 `preview-e2e` reads these GitHub Actions secret names when they are set: `VERCEL_AUTOMATION_BYPASS_SECRET`, `E2E_USERNAME`, and `E2E_PASSWORD`. Missing secrets do not affect `checks`. Login tests in that workflow are skipped when `E2E_USERNAME` or `E2E_PASSWORD` is absent. The `checks` job generates its own throwaway auth values when it runs Playwright and does not commit them.
 
+## Neon operations
+
+Backups and the Notion sync report run from GitHub Actions. The workflow is [`.github/workflows/neon-ops.yml`](.github/workflows/neon-ops.yml). It is manual: open Actions, choose neon-ops, and run the workflow. The run reads the `NEON_API_KEY` secret and uses Neon project `steep-voice-67811340`. It checks out the repo with `contents: read`. The API key, the connection string, and the database password are masked and are not printed.
+
+`snapshot` finds the project's default/primary branch through the Neon API and creates a child branch named `backup-YYYYMMDD-HHMM` (UTC). The request does not send `expires_at` and does not create a compute endpoint. The Neon API does not require an expiry, and it does not set one when that field is omitted. The console's new-branch form defaults to deleting the branch after one day; this workflow calls the API. The job summary prints the branch name, id, parent, and the `expires_at` value from the response.
+
+The preview cleanup workflow deletes a Neon branch only when its name starts with `preview/`, and the delete path refuses every other name. `backup-YYYYMMDD-HHMM` does not start with `preview/`, so cleanup leaves it in place. Each backup counts as one branch. The Free plan allows 10 branches per project. This workflow creates a branch. It does not call Neon's snapshot API, so it does not use the Free plan's single manual snapshot.
+
+`sync-report` requests the production connection URI from the Neon API and runs two fixed queries inside a read-only transaction. The job summary lists the last 10 `notion_sync_runs` rows and the count of imported dishes (`notion_page_id` is not null) grouped by `is_active`. There is no SQL input. Booleans are printed as psql's `t` and `f`.
+
+The workflow is available from the Actions tab after it is on `main`.
+
 ## License
 
 MIT. See [LICENSE](./LICENSE).
