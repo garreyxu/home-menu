@@ -146,7 +146,10 @@ jobs:
           pnpm exec playwright test --trace off
 
       # Page images only. Do not upload traces; those can contain the bypass header.
+      # A failed e2e step skips later steps unless this runs anyway. The job
+      # stays red: this step does not use continue-on-error.
       - name: Screenshot the signed-in dish wall
+        if: ${{ always() && !cancelled() }}
         env:
           VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
           E2E_USERNAME: ${{ secrets.E2E_USERNAME }}
@@ -162,7 +165,7 @@ jobs:
           pnpm exec playwright test tests/e2e/preview-screenshots.spec.ts --trace off
 
       - name: Upload preview screenshots
-        if: always()
+        if: ${{ always() && !cancelled() }}
         continue-on-error: true
         uses: actions/upload-artifact@v7
         with:
