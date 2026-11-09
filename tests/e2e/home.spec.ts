@@ -6,12 +6,12 @@ const credentials = e2eCredentials();
 
 /**
  * One stamp per card. Dishes already on the viewed week say "已加 N 次"
- * instead of "＋加到哪天". Preview Neon branches copy production, and the
+ * instead of "＋添加". Preview Neon branches copy production, and the
  * seed never writes week menus, so the current week may already be filled.
  */
 function wallStamps(wall: Locator): Locator {
   return wall.getByRole("button", {
-    name: /^(＋加到哪天|已加 \d+ 次)$/,
+    name: /^(＋添加|已加 \d+ 次)$/,
   });
 }
 
@@ -22,10 +22,10 @@ test.describe("dish wall", () => {
     const { username, password } = credentials!;
     await login(page, username, password);
 
-    await expect(page).toHaveTitle("我家食堂");
+    await expect(page).toHaveTitle("御膳房");
     await expect(page.locator("html")).toHaveAttribute("lang", "zh-CN");
     await expect(
-      page.getByRole("heading", { name: "我家食堂", level: 1 }),
+      page.getByRole("heading", { name: "御膳房", level: 1 }),
     ).toBeVisible();
     const dishes = await readWall(page);
     const wall = page.locator("ul.dish-grid");

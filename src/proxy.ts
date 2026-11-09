@@ -59,8 +59,10 @@ export const config = {
   matcher: [
     // Own matcher so an API path is gated even when it ends in .webp, .js, etc.
     "/api/:path*",
-    // Everything else except Next's own static files, the favicon,
-    // public frames, and dish illustrations. Those files are not private.
-    "/((?!_next/static|_next/image|favicon.ico|assets/|frames/|illustrations/).*)",
+    // Everything else except Next's own static files, the favicon and
+    // app icons, public frames, and dish illustrations. Those files are
+    // not private. Next serves src/app/icon.png and src/app/apple-icon.png
+    // at /icon.png and /apple-icon.png.
+    "/((?!_next/static|_next/image|favicon.ico$|icon\\.png$|apple-icon\\.png$|icon-512\\.png$|assets/|frames/|illustrations/).*)",
   ],
 };

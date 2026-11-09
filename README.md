@@ -1,6 +1,8 @@
 # home-menu
 
-家庭菜单 is a small web app for planning a family's weekly meals, with a Chinese interface. The repository is public (MIT). It is hosted on Vercel Hobby with a Neon Postgres database. Sign-in is one shared family username and password from environment variables; there is no users table. The home page is the dish wall: active dishes, filtered by category.
+御膳房 is a small web app for planning a family's weekly meals, with a Chinese interface. The repository is public (MIT). It is hosted on Vercel Hobby with a Neon Postgres database. Sign-in is one shared family username and password from environment variables; there is no users table. The home page is the dish wall: active dishes, filtered by category.
+
+Changes are listed in [CHANGELOG.md](CHANGELOG.md). Design notes are in [docs/](docs/).
 
 ## Local setup
 
@@ -74,7 +76,7 @@ openssl rand -base64 48
 
 The session cookie is httpOnly, `SameSite=Lax`, `Secure` in production, and expires after 30 days. Signing uses an HS256 JWT (`jose`); the proxy checks that signature and does not run bcrypt. Logout is POST `/logout` only, so an image tag cannot clear the cookie.
 
-The proxy runs for every path except `/_next/static`, `/_next/image`, `/favicon.ico`, `/assets/`, `/frames/`, and `/illustrations/`. Dish illustrations and ink frames are public files. `/api/*` is always included, including paths that end in an image or script extension.
+The proxy runs for every path except `/_next/static`, `/_next/image`, `/favicon.ico`, `/icon.png`, `/apple-icon.png`, `/icon-512.png`, `/assets/`, `/frames/`, and `/illustrations/`. Dish illustrations, ink frames, and the site icons are public files. `/api/*` is always included, including paths that end in an image or script extension.
 
 The proxy is the outer gate, not the only one. Every Server Action, route handler, and server component that reads data must call `requireSession()` from `src/lib/auth/require-session.ts`. Route handlers that respond with JSON use `requireApiSession()` and return that 401 response when it is not null. Do not rely on the proxy alone. The login action and POST `/logout` are the exceptions, because they run before a session exists. The home page calls `requireSession()`.
 

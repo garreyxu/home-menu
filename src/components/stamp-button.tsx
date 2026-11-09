@@ -28,7 +28,7 @@ export function StampButton({
       )}
       {...props}
     >
-      {children ?? (added ? `已加 ${addedCount} 次` : "＋加到哪天")}
+      {children ?? (added ? `已加 ${addedCount} 次` : "＋添加")}
     </Button>
   );
 }

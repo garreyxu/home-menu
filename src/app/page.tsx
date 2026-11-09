@@ -3,6 +3,7 @@ import { MenuPlanner } from "@/components/menu-planner";
 import { SceneHeader } from "@/components/scene-header";
 import { StampButton } from "@/components/stamp-button";
 import { requireSession } from "@/lib/auth/require-session";
+import { siteName } from "@/lib/site";
 import { firstQueryValue } from "@/lib/category-filter";
 import { toHomeWall } from "@/lib/home-wall";
 import { illustrationForPage } from "@/server/illustrations";
@@ -14,7 +15,7 @@ import { loadWeekMenu } from "@/server/week-menu";
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "我家食堂",
+  title: siteName,
   description: "按分类看家里的菜。",
 };
 

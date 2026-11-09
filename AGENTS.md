@@ -11,3 +11,7 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 ## Design
 
 The UI source of truth is [docs/design/design-spec-izakaya.md](docs/design/design-spec-izakaya.md). It replaces the visual part of [docs/design/design-spec-pixel-seaside.md](docs/design/design-spec-pixel-seaside.md); page structure, breakpoints, and flows still follow that spec and [docs/design/ia-and-flows.md](docs/design/ia-and-flows.md). When a concept mockup disagrees with the design spec, follow the spec.
+
+## Changelog
+
+Every user-visible PR must add an entry under `[Unreleased]` in [CHANGELOG.md](CHANGELOG.md).
