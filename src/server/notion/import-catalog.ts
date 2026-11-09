@@ -60,6 +60,8 @@ export interface DishRepository {
   listNotionDishes(): Promise<StoredNotionDish[]>;
   /** Insert or overwrite by Notion page id. Does not delete the row. */
   upsert(dish: UpsertDish): Promise<"added" | "updated">;
+  /** One statement per chunk. Same result as upsert, without a round trip per dish. */
+  upsertMany(dishes: readonly UpsertDish[]): Promise<void>;
   /**
    * Drop Notion dishes that no longer qualify.
    * A dish still referenced by a weekly menu stays inactive.
@@ -115,6 +117,7 @@ export async function importNotionCatalog(input: {
   let tried = 0;
   let added = 0;
   let updated = 0;
+  const toWrite: UpsertDish[] = [];
 
   for (const page of pages) {
     const pageId = normalizeNotionId(page.id);
@@ -147,7 +150,7 @@ export async function importNotionCatalog(input: {
 
     const mapped = classified.dish;
     keep.add(pageId);
-    await input.dishes.upsert(upsertFromMapped(mapped));
+    toWrite.push(upsertFromMapped(mapped));
     if (existed.has(pageId)) {
       updated += 1;
     } else {
@@ -156,6 +159,8 @@ export async function importNotionCatalog(input: {
     }
     if (mapped.tried) tried += 1;
   }
+
+  await input.dishes.upsertMany(toWrite);
 
   const retireIds = [
     ...new Set(

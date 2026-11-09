@@ -82,6 +82,19 @@ export function NotionSyncButton({
     sawRunning.current = false;
     setPending(true);
     setShowNote(true);
+    // Drop the previous success line immediately. POST returns as soon as the
+    // run row exists; polling then follows that row until it finishes.
+    setState({
+      running: true,
+      processed: 0,
+      total: null,
+      report: null,
+      error: null,
+      settled: true,
+      partial: false,
+      startedAt: null,
+      finishedAt: null,
+    });
     try {
       const response = await fetch("/api/notion/sync", {
         method: "POST",
@@ -91,11 +104,8 @@ export function NotionSyncButton({
       if (body.running) sawRunning.current = true;
       setState(body);
     } catch {
-      setState({
-        running: false,
-        error: "同步没能开始。",
-        settled: false,
-      });
+      // The browser can give up while the server keeps the run. The poll
+      // reads the latest notion_sync_runs row instead of the old report.
     } finally {
       setPending(false);
     }

@@ -39,6 +39,20 @@ describe("formatSyncStamp", () => {
 });
 
 describe("describeSync", () => {
+  it("does not keep the previous success line while a run is still going", () => {
+    const note = describeSync({
+      running: true,
+      processed: 0,
+      total: null,
+      startedAt: "2026-11-09T22:00:00.000Z",
+      report: report(false),
+      error: null,
+    });
+    expect(note).toContain("正在同步");
+    expect(note).toContain("开始 2026-11-09 14:00 PT");
+    expect(note).not.toContain("更新 43");
+  });
+
   it("includes the start and finish in PT and a partial continuation", () => {
     const note = describeSync({
       running: false,

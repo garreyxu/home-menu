@@ -58,13 +58,14 @@ describe("syncRecipeBodies", () => {
       ],
       budgetMs: 45_000,
       now: () => clock,
+      concurrency: 1,
       loadBlocks: async (id) => {
         clock += 20_000;
         if (clock > 45_000) return "timeout";
         return step(id);
       },
-      save: async (page, blocks) => {
-        saved.set(page.id, blocks);
+      saveBatch: async (items) => {
+        for (const item of items) saved.set(item.page.id, item.blocks);
       },
       fail: async () => {
         throw new Error("unexpected failure");
@@ -88,13 +89,14 @@ describe("syncRecipeBodies", () => {
       ],
       budgetMs: 45_000,
       now: () => clock,
+      concurrency: 1,
       loadBlocks: async (id) => {
         clock += 20_000;
         if (clock > 45_000) return "timeout";
         return step(id);
       },
-      save: async (page, blocks) => {
-        saved.set(page.id, blocks);
+      saveBatch: async (items) => {
+        for (const item of items) saved.set(item.page.id, item.blocks);
       },
       fail: async () => {
         throw new Error("unexpected failure");
@@ -104,5 +106,40 @@ describe("syncRecipeBodies", () => {
 
     expect(second.saved[0]).toBe("filled");
     expect(saved.get("filled")?.[0]).toMatchObject({ id: "filled" });
+  });
+
+  it("fetches at most 3 bodies at once and writes them in batches", async () => {
+    const ids = ["a", "b", "c", "d", "e"];
+    let active = 0;
+    let maxActive = 0;
+    const batches: string[][] = [];
+
+    await syncRecipeBodies({
+      pages: ids.map((id) => ({ id })),
+      stored: [],
+      budgetMs: 60_000,
+      now: () => 0,
+      concurrency: 3,
+      batchSize: 2,
+      loadBlocks: async (id) => {
+        active += 1;
+        maxActive = Math.max(maxActive, active);
+        await new Promise((resolve) => setTimeout(resolve, 15));
+        active -= 1;
+        return step(id);
+      },
+      saveBatch: async (items) => {
+        batches.push(items.map((item) => item.page.id));
+      },
+      fail: async () => {
+        throw new Error("unexpected failure");
+      },
+      defer: async () => {},
+    });
+
+    expect(maxActive).toBe(3);
+    expect(batches.flat().sort()).toEqual([...ids].sort());
+    expect(batches.every((batch) => batch.length <= 2)).toBe(true);
+    expect(batches.some((batch) => batch.length === 2)).toBe(true);
   });
 });

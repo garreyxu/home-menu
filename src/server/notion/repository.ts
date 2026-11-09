@@ -113,36 +113,18 @@ export function createDishRepository(db: Database): DishRepository {
     },
 
     async upsert(dish: UpsertDish) {
-      const categoryId = await ensureCategory(dish.categoryName);
-      const values = {
-        name: dish.name,
-        categoryId,
-        description: dish.description,
-        cookTime: dish.cookTime,
-        ingredients: dish.ingredients,
-        rating: dish.rating,
-        tried: dish.tried,
-        cuisines: dish.cuisines,
-        mainIngredient: dish.mainIngredient,
-        body: dish.body,
-        recipeBlocks: dish.recipeBlocks,
-        hasBody: dish.hasBody,
-        photoKey: null,
-        isActive: true,
-        updatedAt: new Date(),
-      };
       const inserted = await db
         .insert(dishes)
-        .values({ notionPageId: dish.notionPageId, ...values })
+        .values(await dishValues(dish, ensureCategory))
         .onConflictDoNothing({ target: dishes.notionPageId })
         .returning({ id: dishes.id });
       if (inserted[0]) return "added";
-
-      await db
-        .update(dishes)
-        .set(values)
-        .where(eq(dishes.notionPageId, dish.notionPageId));
+      await upsertMany(db, [dish], ensureCategory);
       return "updated";
+    },
+
+    async upsertMany(items) {
+      await upsertMany(db, items, ensureCategory);
     },
 
     async removalPlan(notionPageIds) {
@@ -214,6 +196,68 @@ export function createDishRepository(db: Database): DishRepository {
       }
     },
   };
+}
+
+const UPSERT_CHUNK = 20;
+
+async function dishValues(
+  dish: UpsertDish,
+  ensureCategory: (name: string) => Promise<string>,
+) {
+  return {
+    notionPageId: dish.notionPageId,
+    name: dish.name,
+    categoryId: await ensureCategory(dish.categoryName),
+    description: dish.description,
+    cookTime: dish.cookTime,
+    ingredients: dish.ingredients,
+    rating: dish.rating,
+    tried: dish.tried,
+    cuisines: dish.cuisines,
+    mainIngredient: dish.mainIngredient,
+    body: dish.body,
+    recipeBlocks: dish.recipeBlocks,
+    hasBody: dish.hasBody,
+    photoKey: null,
+    isActive: true,
+    updatedAt: new Date(),
+  };
+}
+
+async function upsertMany(
+  db: Database,
+  items: readonly UpsertDish[],
+  ensureCategory: (name: string) => Promise<string>,
+): Promise<void> {
+  if (items.length === 0) return;
+  const rows = [];
+  for (const dish of items) rows.push(await dishValues(dish, ensureCategory));
+  for (let index = 0; index < rows.length; index += UPSERT_CHUNK) {
+    const chunk = rows.slice(index, index + UPSERT_CHUNK);
+    await db
+      .insert(dishes)
+      .values(chunk)
+      .onConflictDoUpdate({
+        target: dishes.notionPageId,
+        set: {
+          name: sql`excluded.name`,
+          categoryId: sql`excluded.category_id`,
+          description: sql`excluded.description`,
+          cookTime: sql`excluded.cook_time`,
+          ingredients: sql`excluded.ingredients`,
+          rating: sql`excluded.rating`,
+          tried: sql`excluded.tried`,
+          cuisines: sql`excluded.cuisines`,
+          mainIngredient: sql`excluded.main_ingredient`,
+          body: sql`excluded.body`,
+          recipeBlocks: sql`excluded.recipe_blocks`,
+          hasBody: sql`excluded.has_body`,
+          photoKey: sql`excluded.photo_key`,
+          isActive: sql`excluded.is_active`,
+          updatedAt: sql`now()`,
+        },
+      });
+  }
 }
 
 /** Retire sample dishes inside one Neon HTTP transaction. */

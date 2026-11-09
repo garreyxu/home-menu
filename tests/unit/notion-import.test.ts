@@ -90,6 +90,10 @@ class MemoryDishes implements DishRepository {
     }));
   }
 
+  async upsertMany(items: readonly UpsertDish[]) {
+    for (const dish of items) await this.upsert(dish);
+  }
+
   async upsert(dish: UpsertDish) {
     const existing = this.rows.get(dish.notionPageId);
     if (!existing) {

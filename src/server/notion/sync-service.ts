@@ -142,14 +142,18 @@ export async function runSync(
         if (loaded.status === "failed") return "failed";
         return loaded.blocks;
       },
-      save: async (page, blocks) => {
-        const snapshot = toSnapshot(page, { blocks });
-        snapshots.push(snapshot);
-        const classified = classifyNotionPage(snapshot);
-        if (classified.kind === "dish") {
-          await dishes.upsert(upsertFromMapped(classified.dish));
+      saveBatch: async (items) => {
+        const writes = [];
+        for (const item of items) {
+          const snapshot = toSnapshot(item.page, { blocks: item.blocks });
+          snapshots.push(snapshot);
+          const classified = classifyNotionPage(snapshot);
+          if (classified.kind === "dish") {
+            writes.push(upsertFromMapped(classified.dish));
+          }
         }
-        await beat();
+        if (writes.length > 0) await dishes.upsertMany(writes);
+        for (let index = 0; index < items.length; index += 1) await beat();
       },
       fail: async (page) => {
         snapshots.push(
