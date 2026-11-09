@@ -179,14 +179,26 @@ test.describe("dish wall", () => {
               overflowX: style.overflowX,
               direction: style.flexDirection,
               wrap: style.flexWrap,
+              scrollbarWidth: style.scrollbarWidth,
             };
           });
         expect(scrolling.overflowX).toBe("auto");
         expect(scrolling.direction).toBe("row");
         expect(scrolling.wrap).toBe("nowrap");
+        expect(scrolling.scrollbarWidth).toBe("none");
+        const fade = await page.locator(".category-nav").evaluate((node) => {
+          const style = getComputedStyle(node, "::after");
+          return { width: style.width, image: style.backgroundImage };
+        });
+        expect(fade.width).toBe("24px");
+        expect(fade.image).toContain("linear-gradient");
       } else {
         expect(nav!.x).toBeLessThan(main!.x);
         expect(Math.abs(nav!.width - viewport.nav)).toBeLessThanOrEqual(1);
+        const fade = await page
+          .locator(".category-nav")
+          .evaluate((node) => getComputedStyle(node, "::after").content);
+        expect(fade).toBe("none");
       }
 
       const board = page.getByRole("region", { name: "一周菜单" });

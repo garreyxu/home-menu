@@ -170,11 +170,35 @@ export function WeekBoard({
   );
 }
 
+function dishInitial(name: string): string {
+  return Array.from(name.trim())[0] ?? "菜";
+}
+
 function WeekThumb({ src, size }: { src: string; size: number }) {
   return (
     // Static illustration file. Not a remote photo.
     // eslint-disable-next-line @next/next/no-img-element
     <img className="week-thumb" src={src} alt="" width={size} height={size} />
+  );
+}
+
+function WeekMark({
+  name,
+  src,
+  size,
+}: {
+  name: string;
+  src: string | undefined;
+  size: number;
+}) {
+  if (src) return <WeekThumb src={src} size={size} />;
+  return (
+    <span
+      className="week-thumb week-thumb-fallback font-brush"
+      aria-hidden="true"
+    >
+      {dishInitial(name)}
+    </span>
   );
 }
 
@@ -258,7 +282,7 @@ function Chip({
 
   return (
     <li className="week-chip" {...press}>
-      {thumb ? <WeekThumb src={thumb} size={24} /> : null}
+      <WeekMark name={item.dishName} src={thumb} size={24} />
       <span
         className="week-dish-name"
         title={item.dishName}
@@ -397,7 +421,7 @@ function PressMenu({
         className="week-press-sheet"
       >
         <div id={titleId} className="week-press-title">
-          {thumb ? <WeekThumb src={thumb} size={40} /> : null}
+          <WeekMark name={target.item.dishName} src={thumb} size={40} />
           <span>
             {target.item.dishName} · {dayLabel}
             {PRESS_MEAL[target.meal]}

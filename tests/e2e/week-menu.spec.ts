@@ -94,6 +94,26 @@ test.describe("weekly menu", () => {
       await expect(tray).toHaveText(`本周已点 ${before + 1} 道`);
       await openTray(page);
       await revealRemove(page, remove);
+      const trayName = page
+        .locator(".week-chip")
+        .filter({
+          has: page.locator(`.week-remove[aria-label="${remove}"]`),
+        })
+        .locator(".week-dish-name");
+      const trayFit = await trayName.evaluate((node) => {
+        const style = getComputedStyle(node);
+        const fontSize = Number.parseFloat(style.fontSize);
+        return {
+          chars: Math.floor((node.clientWidth + 1) / fontSize),
+          fontSize: style.fontSize,
+          lineClamp: style.getPropertyValue("-webkit-line-clamp"),
+          whiteSpace: style.whiteSpace,
+        };
+      });
+      expect(trayFit.fontSize).toBe("13px");
+      expect(trayFit.lineClamp).toBe("2");
+      expect(trayFit.whiteSpace).toBe("normal");
+      expect(trayFit.chars).toBeGreaterThanOrEqual(4);
 
       await page.reload();
       await expect(tray).toHaveText(`本周已点 ${before + 1} 道`);
@@ -179,7 +199,7 @@ test.describe("weekly menu", () => {
               singleGlyph: /^.\u2026$|^.\.\.\.$/.test(text),
             };
           });
-          expect(fit.fontSize).toBe("13px");
+          expect(fit.fontSize).toBe(width >= 2560 ? "15px" : "13px");
           expect(Number(fit.fontWeight)).toBe(500);
           expect(fit.whiteSpace).toBe("nowrap");
           expect(fit.fontFamily).not.toMatch(/Ma Shan Zheng|MaShanZheng/i);
@@ -188,6 +208,14 @@ test.describe("weekly menu", () => {
           expect(fit.chars).toBeGreaterThanOrEqual(2);
           expect(fit.clientWidth).toBeGreaterThan(0);
           expect(fit.scrollWidth / fit.clientWidth).toBeLessThan(1.35);
+          await expect(row.locator(".week-thumb")).toHaveCSS(
+            "width",
+            width >= 2560 ? "30px" : "24px",
+          );
+          await expect(row.locator(".week-thumb")).toHaveCSS(
+            "height",
+            width >= 2560 ? "30px" : "24px",
+          );
 
           await row.evaluate((node) => {
             node.scrollIntoView({ block: "center", inline: "nearest" });
