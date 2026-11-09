@@ -95,7 +95,7 @@ test.describe("weekly menu", () => {
       await openTray(page);
       await revealRemove(page, remove);
       const trayName = page
-        .locator(".week-chip")
+        .locator("#week-tray-panel .week-chip")
         .filter({
           has: page.locator(`.week-remove[aria-label="${remove}"]`),
         })
