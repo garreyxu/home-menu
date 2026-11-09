@@ -79,7 +79,7 @@ function page(overrides: Partial<NotionPageSnapshot> = {}): NotionPageSnapshot {
         type: "multi_select",
         multi_select: [{ name: "川菜" }, { name: "家常" }],
       },
-      主要食材种类: { type: "select", select: { name: "猪肉" } },
+      主要食材种类: { type: "select", select: { name: "猪" } },
       作者: { type: "rich_text", rich_text: [{ plain_text: "不应该出现" }] },
       厨师: { type: "rich_text", rich_text: [{ plain_text: "也不该出现" }] },
     },
@@ -130,13 +130,13 @@ describe("classifyNotionPage", () => {
     expect(classified.dish).toMatchObject({
       notionPageId: "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
       name: "红烧肉",
-      categoryName: "大荤",
+      categoryName: "猪",
       cookTime: "30 分钟",
       ingredients: "排骨",
       rating: "⭐⭐",
       tried: true,
       cuisines: ["川菜", "家常"],
-      mainIngredient: "猪肉",
+      mainIngredient: "猪",
       hasBody: true,
     });
     expect(classified.dish.description).toBeNull();
@@ -178,13 +178,47 @@ describe("classifyNotionPage", () => {
     }
   });
 
-  it("uses 未分类 when 类型 is empty and skips a blank name", () => {
+  it("uses the 主要食材种类 option name and ignores 类型", () => {
+    const duck = classifyNotionPage(
+      page({
+        properties: {
+          菜名: { type: "title", title: [{ plain_text: "啤酒鸭" }] },
+          "已尝试?": { type: "checkbox", checkbox: true },
+          类型: { type: "select", select: { name: "大荤" } },
+          主要食材种类: { type: "select", select: { name: "鸭" } },
+        },
+      }),
+    );
+    expect(duck.kind).toBe("dish");
+    if (duck.kind === "dish") {
+      expect(duck.dish.categoryName).toBe("鸭");
+      expect(duck.dish.mainIngredient).toBe("鸭");
+    }
+
+    const passedThrough = classifyNotionPage(
+      page({
+        properties: {
+          菜名: { type: "title", title: [{ plain_text: "排骨" }] },
+          "已尝试?": { type: "checkbox", checkbox: true },
+          类型: { type: "select", select: { name: "Pork" } },
+          主要食材种类: { type: "select", select: { name: "Pork" } },
+        },
+      }),
+    );
+    expect(passedThrough.kind).toBe("dish");
+    if (passedThrough.kind === "dish") {
+      expect(passedThrough.dish.categoryName).toBe("Pork");
+    }
+  });
+
+  it("uses 其他 when 主要食材种类 is empty and skips a blank name", () => {
     const uncategorized = classifyNotionPage(
       page({
         properties: {
           菜名: { type: "title", title: [{ plain_text: "盐酥鸡" }] },
           "已尝试?": { type: "checkbox", checkbox: true },
-          类型: { type: "select", select: null },
+          类型: { type: "select", select: { name: "大荤" } },
+          主要食材种类: { type: "select", select: null },
         },
         blocks: [
           {
@@ -198,7 +232,8 @@ describe("classifyNotionPage", () => {
     );
     expect(uncategorized.kind).toBe("dish");
     if (uncategorized.kind === "dish") {
-      expect(uncategorized.dish.categoryName).toBe("未分类");
+      expect(uncategorized.dish.categoryName).toBe("其他");
+      expect(uncategorized.dish.mainIngredient).toBeNull();
       expect(uncategorized.dish.tried).toBe(true);
     }
 

@@ -53,6 +53,11 @@ export interface DishRepository {
    * Runs in one database transaction. Returns how many seeds were retired.
    */
   retireSeeds(): Promise<number>;
+  /**
+   * Rewrite category sort order from the display order and the Notion
+   * option list, then delete category rows no dish references.
+   */
+  alignCategories(notionOptionOrder: readonly string[]): Promise<void>;
 }
 
 /** More removals than this, or an empty Notion result, are held back. */
@@ -63,6 +68,11 @@ export function removalCeiling(activeImported: number): number {
 export async function importNotionCatalog(input: {
   loadPages: () => Promise<NotionPageSnapshot[]>;
   dishes: DishRepository;
+  /**
+   * 「主要食材种类」 option names in Notion's order.
+   * Empty when the caller did not read the data source schema.
+   */
+  categoryOptionOrder?: readonly string[];
   /** CLI-only. The cron and the sync button leave this false. */
   allowMassRemoval?: boolean;
 }): Promise<ImportReport> {
@@ -143,6 +153,7 @@ export async function importNotionCatalog(input: {
     : await input.dishes.retire(retireIds);
   const seedsRetired =
     errored === 0 && !removalsSkipped ? await input.dishes.retireSeeds() : 0;
+  await input.dishes.alignCategories(input.categoryOptionOrder ?? []);
   const wall = await input.dishes.countOnWall();
 
   return {

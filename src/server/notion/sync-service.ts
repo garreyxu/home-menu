@@ -80,28 +80,29 @@ export async function runSync(
 ): Promise<ImportReport> {
   try {
     const config = readNotionConfig();
+    const batch = await fetchNotionSnapshots({
+      token: config.token,
+      databaseId: config.databaseId,
+      dataSourceId: config.dataSourceId,
+      onProgress: async (processed, total) => {
+        await db
+          .update(notionSyncRuns)
+          .set({
+            processed,
+            total,
+            heartbeatAt: new Date(),
+          })
+          .where(
+            and(
+              eq(notionSyncRuns.id, runId),
+              eq(notionSyncRuns.status, "running"),
+            ),
+          );
+      },
+    });
     const report = await importNotionCatalog({
-      loadPages: () =>
-        fetchNotionSnapshots({
-          token: config.token,
-          databaseId: config.databaseId,
-          dataSourceId: config.dataSourceId,
-          onProgress: async (processed, total) => {
-            await db
-              .update(notionSyncRuns)
-              .set({
-                processed,
-                total,
-                heartbeatAt: new Date(),
-              })
-              .where(
-                and(
-                  eq(notionSyncRuns.id, runId),
-                  eq(notionSyncRuns.status, "running"),
-                ),
-              );
-          },
-        }),
+      loadPages: async () => batch.pages,
+      categoryOptionOrder: batch.mainIngredientOptions,
       dishes: createDishRepository(db),
       allowMassRemoval: options?.allowMassRemoval === true,
     });

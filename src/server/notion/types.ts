@@ -84,4 +84,3 @@ export type DishBodyBlock =
 export type DishBody = { blocks: DishBodyBlock[] };
 
 export const TRIED_PROPERTY_NAME = "已尝试?";
-export const UNCATEGORIZED = "未分类";

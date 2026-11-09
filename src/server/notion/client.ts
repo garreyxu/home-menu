@@ -1,3 +1,4 @@
+import { MAIN_INGREDIENT_PROPERTY } from "@/server/notion/category-order";
 import { normalizeNotionId } from "@/server/notion/ids";
 import { assertTriedProperty } from "@/server/notion/map-page";
 import type {
@@ -11,6 +12,15 @@ const NOTION_VERSION = "2026-03-11";
 const MAX_DEPTH = 8;
 const MAX_BLOCKS = 400;
 
+export type NotionSnapshotBatch = {
+  pages: NotionPageSnapshot[];
+  /**
+   * 「主要食材种类」 option names, in the data source's option order.
+   * Empty when that select is missing. Used only to place unknown options.
+   */
+  mainIngredientOptions: readonly string[];
+};
+
 export async function fetchNotionSnapshots(options: {
   token: string;
   databaseId: string;
@@ -18,7 +28,7 @@ export async function fetchNotionSnapshots(options: {
   fetchImpl?: typeof fetch;
   minIntervalMs?: number;
   onProgress?: (processed: number, total: number) => Promise<void>;
-}): Promise<NotionPageSnapshot[]> {
+}): Promise<NotionSnapshotBatch> {
   const fetchImpl = options.fetchImpl ?? fetch;
   const wait = createSlotter(options.minIntervalMs ?? 350);
   const notion = (path: string, init?: RequestInit) =>
@@ -31,6 +41,10 @@ export async function fetchNotionSnapshots(options: {
   );
   const dataSource = await notion(`/data_sources/${dataSourceId}`);
   assertTriedProperty(readSchemaProperties(dataSource));
+  const mainIngredientOptions = readSelectOptionNames(
+    dataSource,
+    MAIN_INGREDIENT_PROPERTY,
+  );
 
   const pages = await queryAllPages(dataSourceId, notion);
   const blocksById = new Map<string, NotionBlock[] | null>();
@@ -54,14 +68,17 @@ export async function fetchNotionSnapshots(options: {
     }
   }
 
-  return pages.map((page) => ({
-    id: page.id,
-    properties: page.properties,
-    cover: page.cover,
-    blocks: blocksById.get(page.id) ?? null,
-    blocksError: errors.get(page.id),
-    fetchError: page.fetchError ?? errors.get(page.id),
-  }));
+  return {
+    mainIngredientOptions,
+    pages: pages.map((page) => ({
+      id: page.id,
+      properties: page.properties,
+      cover: page.cover,
+      blocks: blocksById.get(page.id) ?? null,
+      blocksError: errors.get(page.id),
+      fetchError: page.fetchError ?? errors.get(page.id),
+    })),
+  };
 }
 
 type NotionCaller = (path: string, init?: RequestInit) => Promise<unknown>;
@@ -185,6 +202,27 @@ function readDataSources(payload: unknown): { id: string }[] {
     const item = asRecord(source);
     return typeof item?.id === "string" ? [{ id: item.id }] : [];
   });
+}
+
+function readSelectOptionNames(
+  payload: unknown,
+  propertyName: string,
+): string[] {
+  const properties = asRecord(asRecord(payload)?.properties);
+  const prop = asRecord(properties?.[propertyName]);
+  if (!prop || prop.type !== "select") return [];
+  const options = asRecord(prop.select)?.options;
+  if (!Array.isArray(options)) return [];
+  const names: string[] = [];
+  const seen = new Set<string>();
+  for (const option of options) {
+    const raw = asRecord(option)?.name;
+    const name = typeof raw === "string" ? raw.trim() : "";
+    if (!name || seen.has(name)) continue;
+    seen.add(name);
+    names.push(name);
+  }
+  return names;
 }
 
 function readSchemaProperties(
