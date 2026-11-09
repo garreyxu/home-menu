@@ -164,6 +164,20 @@ The daily cron starts after that. Clicking the button again is safe: dishes are 
 
 `preview-e2e` reads these GitHub Actions secret names when they are set: `VERCEL_AUTOMATION_BYPASS_SECRET`, `E2E_USERNAME`, and `E2E_PASSWORD`. Missing secrets do not affect `checks`. Login tests in that workflow are skipped when `E2E_USERNAME` or `E2E_PASSWORD` is absent. The `checks` job generates its own throwaway auth values when it runs Playwright and does not commit them.
 
+## Neon operations
+
+Backups and the Notion sync report run from GitHub Actions. The workflow is [`.github/workflows/neon-ops.yml`](.github/workflows/neon-ops.yml). It is manual: open Actions, choose neon-ops, and run the workflow. The run reads the `NEON_API_KEY` secret and uses Neon project `steep-voice-67811340`. It checks out the repo with `contents: read`. The API key, the connection string, and the database password are masked and are not printed.
+
+`snapshot` finds the project's default/primary branch through the Neon API and creates a child branch named `backup-YYYYMMDD-HHMM` (UTC). It does not create a compute endpoint. `expires_days` is used only by this action. The default is 7. `0` omits `expires_at`, so the branch does not expire. An integer from 1 to 30 sends `expires_at` as UTC now plus that many days. Any other value fails before the script calls Neon. The job summary still prints the `expires_at` value from the create response.
+
+The Free plan allows 10 branches per project, and preview databases share that limit. A backup that never expires keeps one of those 10, so the default is 7 days. `0` is the explicit choice to keep a branch.
+
+The preview cleanup workflow deletes a Neon branch only when its name starts with `preview/`, and the delete path refuses every other name. `backup-YYYYMMDD-HHMM` does not start with `preview/`, so cleanup leaves it in place. The neon-ops self-test checks that by grepping the refusal text in `.github/scripts/neon-preview-cleanup.sh` (`refusing to delete non-preview Neon branch` and `name does not start with preview/`). Changing that message on purpose breaks neon-ops until both scripts are updated. This workflow creates a branch. It does not call Neon's snapshot API, so it does not use the Free plan's single manual snapshot.
+
+`sync-report` requests the production connection URI from the Neon API and runs two fixed queries inside a read-only transaction. The job summary lists the last 10 `notion_sync_runs` rows and the count of imported dishes (`notion_page_id` is not null) grouped by `is_active`. There is no SQL input. Booleans are printed as psql's `t` and `f`.
+
+The workflow is available from the Actions tab after it is on `main`.
+
 ## License
 
 MIT. See [LICENSE](./LICENSE).
