@@ -134,7 +134,7 @@ summary:focus-visible,
   padding: 0;
   border: 0;
   background: transparent;
-  color: var(--color-ai);
+  color: var(--color-shu);
   font-family: var(--font-sans), "Noto Sans SC", sans-serif;
   font-size: 14px;
   font-weight: 700;
@@ -647,14 +647,27 @@ iframe[src*="vercel.live"] {
   width: 24px;
   height: 24px;
   flex: none;
+  overflow: hidden;
   border-radius: 999px;
   object-fit: cover;
   background: var(--color-paper);
 }
 
+.week-thumb-fallback {
+  display: grid;
+  place-items: center;
+  color: var(--color-sumi);
+  font-size: 14px;
+  line-height: 1;
+}
+
 .week-press-title .week-thumb {
   width: 40px;
   height: 40px;
+}
+
+.week-press-title .week-thumb-fallback {
+  font-size: 20px;
 }
 
 .week-dish-name {
@@ -838,6 +851,54 @@ iframe[src*="vercel.live"] {
 
   .week-remove:focus-visible {
     pointer-events: auto;
+  }
+}
+
+/* Phone tray only. Wider boards keep the pill, the thumbnail, and 13px type. */
+@media (max-width: 639px) {
+  .week-day {
+    grid-template-columns: 36px repeat(3, minmax(0, 1fr));
+  }
+
+  .week-day-label {
+    justify-content: center;
+    padding-left: 0;
+    font-size: 16px;
+  }
+
+  .week-slot {
+    padding: 4px;
+  }
+
+  .week-chip {
+    position: relative;
+    height: auto;
+    min-height: 0;
+    padding: 4px 6px;
+    border-radius: 6px;
+  }
+
+  .week-chip > .week-thumb {
+    display: none;
+  }
+
+  .week-chip > .week-remove {
+    position: absolute;
+    top: 2px;
+    right: 2px;
+  }
+
+  .week-dish-name {
+    display: -webkit-box;
+    font-size: 12px;
+    line-height: 1.25;
+    white-space: normal;
+    text-overflow: ellipsis;
+    word-break: break-all;
+    overflow-wrap: anywhere;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
   }
 }
 
@@ -1212,6 +1273,31 @@ iframe[src*="vercel.live"] {
 }
 
 @media (max-width: 1023px) {
+  .category-nav-list {
+    scrollbar-width: none;
+  }
+
+  .category-nav-list::-webkit-scrollbar {
+    display: none;
+  }
+
+  .category-nav::after {
+    content: "";
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    /* Sit on the list, inside the nav's 16px padding, and fade into washi. */
+    right: 16px;
+    z-index: 1;
+    width: 24px;
+    pointer-events: none;
+    background: linear-gradient(
+      to right,
+      rgb(244 236 220 / 0),
+      var(--color-washi)
+    );
+  }
+
   .week-tray {
     position: fixed;
     right: 0;
@@ -1388,6 +1474,23 @@ iframe[src*="vercel.live"] {
   .dish-note,
   .scene-season {
     font-size: 14px;
+  }
+
+  .week-dish-name {
+    font-size: 15px;
+  }
+
+  .week-chip {
+    height: 36px;
+  }
+
+  .week-chip .week-thumb {
+    width: 30px;
+    height: 30px;
+  }
+
+  .week-chip .week-thumb-fallback {
+    font-size: 16px;
   }
 
   .seal-badge {

@@ -44,6 +44,7 @@ describe("WeekBoard", () => {
     expect(html).toContain('title="番茄炒蛋"');
     expect(html).toContain('aria-label="番茄炒蛋"');
     expect(html).toContain('class="week-thumb"');
+    expect(html).not.toContain("week-thumb-fallback");
     expect(html).toContain('width="24"');
     expect(html).toContain('height="24"');
     expect(html).toContain('aria-label="从周一早餐移除番茄炒蛋"');
@@ -66,5 +67,15 @@ describe("WeekBoard", () => {
     expect(html).toContain("+2");
     expect(html).not.toContain("拍黄瓜");
     expect(html).not.toContain("馒头");
+  });
+
+  it("paints the dish initial when a chip has no thumbnail", () => {
+    const html = render([item("squid", 3, "dinner", "香辣鱿鱼面")]);
+    const mark = html.match(
+      /class="week-thumb week-thumb-fallback font-brush"[^>]*>([^<]*)</,
+    );
+
+    expect(mark?.[1]?.trim()).toBe("香");
+    expect(html).not.toContain("<img");
   });
 });

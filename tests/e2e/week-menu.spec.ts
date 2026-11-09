@@ -94,6 +94,40 @@ test.describe("weekly menu", () => {
       await expect(tray).toHaveText(`本周已点 ${before + 1} 道`);
       await openTray(page);
       await revealRemove(page, remove);
+      const trayName = page
+        .locator("#week-tray-panel .week-chip")
+        .filter({
+          has: page.locator(`.week-remove[aria-label="${remove}"]`),
+        })
+        .locator(".week-dish-name");
+      const trayChip = page.locator("#week-tray-panel .week-chip").filter({
+        has: page.locator(`.week-remove[aria-label="${remove}"]`),
+      });
+      const trayFit = await trayName.evaluate((node) => {
+        const style = getComputedStyle(node);
+        const fontSize = Number.parseFloat(style.fontSize);
+        const chip = node.parentElement;
+        const thumb = chip?.querySelector(".week-thumb");
+        const day = chip?.closest(".week-day");
+        const columns = day ? getComputedStyle(day).gridTemplateColumns : "";
+        return {
+          chars: Math.floor((node.clientWidth + 1) / fontSize),
+          fontSize: style.fontSize,
+          lineClamp: style.getPropertyValue("-webkit-line-clamp"),
+          whiteSpace: style.whiteSpace,
+          radius: chip ? getComputedStyle(chip).borderRadius : "",
+          thumbDisplay: thumb ? getComputedStyle(thumb).display : "missing",
+          columns,
+        };
+      });
+      expect(trayFit.fontSize).toBe("12px");
+      expect(trayFit.lineClamp).toBe("2");
+      expect(trayFit.whiteSpace).toBe("normal");
+      expect(trayFit.chars).toBeGreaterThanOrEqual(4);
+      expect(trayFit.radius).toBe("6px");
+      expect(trayFit.thumbDisplay).toBe("none");
+      expect(trayFit.columns.startsWith("36px")).toBe(true);
+      await expect(trayChip).toHaveCount(1);
 
       await page.reload();
       await expect(tray).toHaveText(`本周已点 ${before + 1} 道`);
@@ -179,7 +213,7 @@ test.describe("weekly menu", () => {
               singleGlyph: /^.\u2026$|^.\.\.\.$/.test(text),
             };
           });
-          expect(fit.fontSize).toBe("13px");
+          expect(fit.fontSize).toBe(width >= 2560 ? "15px" : "13px");
           expect(Number(fit.fontWeight)).toBe(500);
           expect(fit.whiteSpace).toBe("nowrap");
           expect(fit.fontFamily).not.toMatch(/Ma Shan Zheng|MaShanZheng/i);
@@ -188,6 +222,14 @@ test.describe("weekly menu", () => {
           expect(fit.chars).toBeGreaterThanOrEqual(2);
           expect(fit.clientWidth).toBeGreaterThan(0);
           expect(fit.scrollWidth / fit.clientWidth).toBeLessThan(1.35);
+          await expect(row.locator(".week-thumb")).toHaveCSS(
+            "width",
+            width >= 2560 ? "30px" : "24px",
+          );
+          await expect(row.locator(".week-thumb")).toHaveCSS(
+            "height",
+            width >= 2560 ? "30px" : "24px",
+          );
 
           await row.evaluate((node) => {
             node.scrollIntoView({ block: "center", inline: "nearest" });
