@@ -35,13 +35,18 @@ describe("proxy matcher", () => {
     expect(proxyMatches("/api/dishes/x.webp")).toBe(true);
     expect(proxyMatches("/api/anything.js")).toBe(true);
     expect(proxyMatches("/foo.png")).toBe(true);
+    expect(proxyMatches("/icon")).toBe(true);
+    expect(proxyMatches("/apple-icon")).toBe(true);
     expect(proxyMatches("/")).toBe(true);
   });
 
-  it("skips Next static files, the favicon, frames, and illustrations", () => {
+  it("skips Next static files, icons, frames, and illustrations", () => {
     expect(proxyMatches("/_next/static/chunks/app.js")).toBe(false);
     expect(proxyMatches("/_next/image")).toBe(false);
     expect(proxyMatches("/favicon.ico")).toBe(false);
+    expect(proxyMatches("/icon.png")).toBe(false);
+    expect(proxyMatches("/apple-icon.png")).toBe(false);
+    expect(proxyMatches("/icon-512.png")).toBe(false);
     expect(proxyMatches("/assets/pixel.png")).toBe(false);
     expect(proxyMatches("/frames/card-a.svg")).toBe(false);
     expect(proxyMatches("/illustrations/dish-480.webp")).toBe(false);

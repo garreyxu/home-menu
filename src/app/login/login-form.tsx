@@ -6,6 +6,7 @@ import { StampButton } from "@/components/stamp-button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import type { LoginState } from "@/lib/auth/messages";
+import { siteName } from "@/lib/site";
 
 function formatRemaining(ms: number): string {
   const seconds = Math.max(0, Math.ceil(ms / 1000));
@@ -57,7 +58,7 @@ export function LoginForm({ nextPath }: { nextPath: string }) {
         className="flex flex-col gap-5 px-5 py-6 sm:px-6"
       >
         <div className="flex flex-col items-center gap-2 text-center">
-          <h1 className="page-title font-brush text-sumi">我家食堂</h1>
+          <h1 className="page-title font-brush text-sumi">{siteName}</h1>
           <p className="text-sm text-sumi-soft">登录</p>
         </div>
         <input type="hidden" name="next" value={nextPath} />

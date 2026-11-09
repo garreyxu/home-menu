@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Ma_Shan_Zheng, Noto_Sans_SC } from "next/font/google";
 import "./globals.css";
 import "./ink.css";
+import { siteName } from "@/lib/site";
 import { cn } from "@/lib/utils";
 
 const noto = Noto_Sans_SC({
@@ -23,7 +24,7 @@ const brush = Ma_Shan_Zheng({
 });
 
 export const metadata: Metadata = {
-  title: "家庭菜单",
+  title: siteName,
   description: "家里的菜单，按分类挑菜。",
 };
 

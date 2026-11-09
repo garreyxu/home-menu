@@ -37,7 +37,7 @@ test("unauthenticated visit to / redirects to /login", async ({ page }) => {
   expect(url.pathname).toBe("/login");
   expect(url.searchParams.get("next")).toBe("/");
   await expect(page.locator("html")).toHaveAttribute("lang", "zh-CN");
-  await expect(page.getByRole("heading", { name: "我家食堂" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "御膳房" })).toBeVisible();
   await expect(page.getByRole("button", { name: "开门" })).toBeVisible();
 });
 
@@ -69,7 +69,7 @@ test.describe("credential login", () => {
     await page.getByRole("button", { name: "开门" }).click();
 
     await expect(page).toHaveURL("/");
-    await expect(page.getByRole("heading", { name: "我家食堂" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "御膳房" })).toBeVisible();
     const [dish] = await readWall(page);
     await expect(
       page.getByRole("heading", { name: dish!.name, exact: true }),

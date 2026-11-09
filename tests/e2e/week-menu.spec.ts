@@ -258,7 +258,7 @@ async function addDish(page: Page, dishName: string, slotName: string) {
   await expect(card).toHaveCount(1);
   // Already on this week, the stamp says "已加 N 次" and still opens the picker.
   await card
-    .getByRole("button", { name: /^(＋加到哪天|已加 \d+ 次)$/ })
+    .getByRole("button", { name: /^(＋添加|已加 \d+ 次)$/ })
     .click();
   await page.getByRole("button", { name: slotName, exact: true }).click();
 }
