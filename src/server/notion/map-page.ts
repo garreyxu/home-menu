@@ -39,6 +39,7 @@ export type MappedDish = {
 export type PageClass =
   | { kind: "skip"; name: string | null; reason: string }
   | { kind: "errored"; name: string | null }
+  | { kind: "deferred"; name: string | null }
   | { kind: "no_steps"; name: string }
   | { kind: "dish"; dish: MappedDish };
 
@@ -83,6 +84,7 @@ export function classifyNotionPage(page: NotionPageSnapshot): PageClass {
   const notionPageId = normalizeNotionId(page.id);
   const name = cleanDishName(rawName(page.properties)) || null;
 
+  if (page.deferred) return { kind: "deferred", name };
   if (page.fetchError || page.blocksError || page.blocks === null) {
     return { kind: "errored", name };
   }

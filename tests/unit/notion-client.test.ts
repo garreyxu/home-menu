@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { fetchNotionSnapshots } from "@/server/notion/client";
+import { fetchNotionSnapshots, openNotionRead } from "@/server/notion/client";
 
 const DATABASE = "ff95d9e8-3ae1-44ff-aaa4-61286c9652ad";
 const DATA_SOURCE = "b8a7d4f9-5bfd-4ed3-bacd-5a5298796038";
@@ -216,7 +216,7 @@ describe("fetchNotionSnapshots", () => {
       return json({ message: "unexpected" }, 500);
     };
 
-    const pages = await fetchNotionSnapshots({
+    const { pages } = await fetchNotionSnapshots({
       token: TOKEN,
       databaseId: DATABASE,
       dataSourceId: DATA_SOURCE,
@@ -234,6 +234,25 @@ describe("fetchNotionSnapshots", () => {
       }),
       expect.objectContaining({ id: "later" }),
     ]);
+  });
+
+  it("stops before the first block request when the deadline has passed", async () => {
+    let calls = 0;
+    const fetchImpl: typeof fetch = async () => {
+      calls += 1;
+      return json({ message: "should not be called" }, 500);
+    };
+    const session = openNotionRead({
+      token: TOKEN,
+      databaseId: DATABASE,
+      dataSourceId: DATA_SOURCE,
+      fetchImpl,
+      minIntervalMs: 0,
+    });
+    await expect(session.loadBlocks(TRIED, 0)).resolves.toEqual({
+      status: "timeout",
+    });
+    expect(calls).toBe(0);
   });
 
   it("stops before changing anything when 已尝试? is not a checkbox", async () => {

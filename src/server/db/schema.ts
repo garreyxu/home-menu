@@ -129,7 +129,7 @@ export const notionSyncRuns = pgTable(
       .where(sql`${table.status} = 'running'`),
     check(
       "notion_sync_runs_status",
-      sql`${table.status} in ('running', 'succeeded', 'failed')`,
+      sql`${table.status} in ('running', 'succeeded', 'failed', 'partial')`,
     ),
   ],
 );

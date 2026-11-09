@@ -1,0 +1,108 @@
+import { describe, expect, it } from "vitest";
+
+import {
+  orderForRecipeBackfill,
+  syncRecipeBodies,
+} from "@/server/notion/body-sync";
+import type { NotionBlock } from "@/server/notion/types";
+
+const OLD = "2020-01-01T00:00:00.000Z";
+
+function step(text: string): NotionBlock[] {
+  return [
+    {
+      id: text,
+      type: "paragraph",
+      paragraph: { rich_text: [{ plain_text: text }] },
+    },
+  ];
+}
+
+describe("orderForRecipeBackfill", () => {
+  it("reads missing recipe_blocks first and ignores last_edited_time", () => {
+    const ordered = orderForRecipeBackfill(
+      [
+        { id: "has-body", lastEditedTime: "2019-01-01T00:00:00.000Z" },
+        { id: "missing-new", lastEditedTime: OLD },
+        { id: "missing-old", lastEditedTime: OLD },
+      ],
+      [
+        { notionPageId: "has-body", hasRecipe: true, lastEditedTime: OLD },
+        { notionPageId: "missing-old", hasRecipe: false, lastEditedTime: OLD },
+      ],
+    );
+    expect(ordered.map((page) => page.id)).toEqual([
+      "missing-new",
+      "missing-old",
+      "has-body",
+    ]);
+  });
+});
+
+describe("syncRecipeBodies", () => {
+  it("backfills null recipe_blocks inside the budget and continues on the next run", async () => {
+    const pages = [
+      { id: "filled", lastEditedTime: OLD },
+      { id: "null-a", lastEditedTime: OLD },
+      { id: "null-b", lastEditedTime: OLD },
+    ];
+    const saved = new Map<string, NotionBlock[]>();
+    let clock = 0;
+
+    const first = await syncRecipeBodies({
+      pages,
+      stored: [
+        { notionPageId: "filled", hasRecipe: true, lastEditedTime: OLD },
+        { notionPageId: "null-a", hasRecipe: false, lastEditedTime: OLD },
+        { notionPageId: "null-b", hasRecipe: false, lastEditedTime: OLD },
+      ],
+      budgetMs: 45_000,
+      now: () => clock,
+      loadBlocks: async (id) => {
+        clock += 20_000;
+        if (clock > 45_000) return "timeout";
+        return step(id);
+      },
+      save: async (page, blocks) => {
+        saved.set(page.id, blocks);
+      },
+      fail: async () => {
+        throw new Error("unexpected failure");
+      },
+      defer: async () => {},
+    });
+
+    expect(first.partial).toBe(true);
+    expect(first.saved).toEqual(["null-a", "null-b"]);
+    expect(first.deferred).toEqual(["filled"]);
+    expect(saved.has("filled")).toBe(false);
+    expect(saved.get("null-a")?.[0]).toMatchObject({ id: "null-a" });
+
+    clock = 0;
+    const second = await syncRecipeBodies({
+      pages,
+      stored: [
+        { notionPageId: "filled", hasRecipe: false, lastEditedTime: OLD },
+        { notionPageId: "null-a", hasRecipe: true, lastEditedTime: OLD },
+        { notionPageId: "null-b", hasRecipe: true, lastEditedTime: OLD },
+      ],
+      budgetMs: 45_000,
+      now: () => clock,
+      loadBlocks: async (id) => {
+        clock += 20_000;
+        if (clock > 45_000) return "timeout";
+        return step(id);
+      },
+      save: async (page, blocks) => {
+        saved.set(page.id, blocks);
+      },
+      fail: async () => {
+        throw new Error("unexpected failure");
+      },
+      defer: async () => {},
+    });
+
+    expect(second.saved[0]).toBe("filled");
+    expect(saved.get("filled")?.[0]).toMatchObject({ id: "filled" });
+  });
+});

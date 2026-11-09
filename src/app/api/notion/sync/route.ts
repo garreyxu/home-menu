@@ -55,6 +55,9 @@ export async function POST(request: Request): Promise<Response> {
         report: null,
         error: "同步没能开始。",
         settled: false,
+        partial: false,
+        startedAt: null,
+        finishedAt: null,
       },
       403,
     );
@@ -93,5 +96,8 @@ function idleError(error: unknown): SyncState {
     report: null,
     error: safeSyncError(error),
     settled: false,
+    partial: false,
+    startedAt: null,
+    finishedAt: null,
   };
 }

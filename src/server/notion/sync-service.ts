@@ -2,9 +2,15 @@ import { and, desc, eq, lt } from "drizzle-orm";
 
 import type { Database } from "@/server/db";
 import { notionSyncRuns } from "@/server/db/schema";
-import { fetchNotionSnapshots } from "@/server/notion/client";
+import type { NotionPageSnapshot } from "@/server/notion/types";
+import { SYNC_BUDGET_MS, syncRecipeBodies } from "@/server/notion/body-sync";
+import { openNotionRead, type NotionListedPage } from "@/server/notion/client";
 import { readNotionConfig } from "@/server/notion/config";
-import { importNotionCatalog } from "@/server/notion/import-catalog";
+import {
+  importNotionCatalog,
+  upsertFromMapped,
+} from "@/server/notion/import-catalog";
+import { classifyNotionPage } from "@/server/notion/map-page";
 import { createDishRepository } from "@/server/notion/repository";
 import {
   safeSyncError,
@@ -21,6 +27,9 @@ export type SyncState = {
   report: ImportReport | null;
   error: string | null;
   settled: boolean;
+  partial: boolean;
+  startedAt: string | null;
+  finishedAt: string | null;
 };
 
 export async function beginSyncRun(
@@ -61,35 +70,54 @@ export async function readSyncState(db: Database): Promise<SyncState> {
       report: null,
       error: null,
       settled: false,
+      partial: false,
+      startedAt: null,
+      finishedAt: null,
     };
   }
+  const finished = row.status === "succeeded" || row.status === "partial";
   return {
     running: row.status === "running",
     processed: row.processed,
     total: row.total,
-    report: row.status === "succeeded" ? reportFromRow(row) : null,
+    report: finished ? reportFromRow(row, row.status === "partial") : null,
     error: row.status === "failed" ? (row.error ?? "同步失败") : null,
     settled: true,
+    partial: row.status === "partial",
+    startedAt: row.startedAt.toISOString(),
+    finishedAt: row.finishedAt ? row.finishedAt.toISOString() : null,
   };
 }
 
 export async function runSync(
   db: Database,
   runId: string,
-  options?: { allowMassRemoval?: boolean },
+  options?: { allowMassRemoval?: boolean; budgetMs?: number },
 ): Promise<ImportReport> {
   try {
     const config = readNotionConfig();
-    const batch = await fetchNotionSnapshots({
+    const dishes = createDishRepository(db);
+    const budgetMs = options?.budgetMs ?? SYNC_BUDGET_MS;
+    const deadline = Date.now() + budgetMs;
+    const session = openNotionRead({
       token: config.token,
       databaseId: config.databaseId,
       dataSourceId: config.dataSourceId,
-      onProgress: async (processed, total) => {
+    });
+    const listed = await session.listPages();
+    const stored = await dishes.listNotionDishes();
+    const remainingMs = Math.max(0, deadline - Date.now());
+    const snapshots: NotionPageSnapshot[] = [];
+    let touched = 0;
+
+    const beat = async () => {
+      touched += 1;
+      try {
         await db
           .update(notionSyncRuns)
           .set({
-            processed,
-            total,
+            processed: touched,
+            total: listed.pages.length,
             heartbeatAt: new Date(),
           })
           .where(
@@ -98,18 +126,52 @@ export async function runSync(
               eq(notionSyncRuns.status, "running"),
             ),
           );
+      } catch {
+        // A failed heartbeat must not abort the import.
+      }
+    };
+
+    await syncRecipeBodies({
+      pages: listed.pages,
+      stored,
+      budgetMs: remainingMs,
+      now: () => Date.now(),
+      loadBlocks: async (id) => {
+        const loaded = await session.loadBlocks(id, deadline);
+        if (loaded.status === "timeout") return "timeout";
+        if (loaded.status === "failed") return "failed";
+        return loaded.blocks;
+      },
+      save: async (page, blocks) => {
+        const snapshot = toSnapshot(page, { blocks });
+        snapshots.push(snapshot);
+        const classified = classifyNotionPage(snapshot);
+        if (classified.kind === "dish") {
+          await dishes.upsert(upsertFromMapped(classified.dish));
+        }
+        await beat();
+      },
+      fail: async (page) => {
+        snapshots.push(
+          toSnapshot(page, { blocks: null, blocksError: "正文读取失败" }),
+        );
+        await beat();
+      },
+      defer: async (page) => {
+        snapshots.push(toSnapshot(page, { blocks: null, deferred: true }));
       },
     });
+
     const report = await importNotionCatalog({
-      loadPages: async () => batch.pages,
-      categoryOptionOrder: batch.mainIngredientOptions,
-      dishes: createDishRepository(db),
+      loadPages: async () => snapshots,
+      categoryOptionOrder: listed.mainIngredientOptions,
+      dishes,
       allowMassRemoval: options?.allowMassRemoval === true,
     });
     await db
       .update(notionSyncRuns)
       .set({
-        status: "succeeded",
+        status: report.partial ? "partial" : "succeeded",
         finishedAt: new Date(),
         heartbeatAt: new Date(),
         added: report.added,
@@ -178,26 +240,31 @@ async function expireStaleRuns(db: Database): Promise<void> {
     );
 }
 
-function reportFromRow(row: {
-  added: number;
-  updated: number;
-  deleted: number;
-  inactivated: number;
-  imported: number;
-  tried: number;
-  noSteps: number;
-  errored: number;
-  seedsRetired: number;
-  wouldRemove: number;
-  removalsSkipped: boolean;
-  noStepPages: unknown;
-  erroredPages: unknown;
-  onWall: number;
-  skipped: unknown;
-  warnings: unknown;
-}): ImportReport {
+function reportFromRow(
+  row: {
+    added: number;
+    updated: number;
+    deleted: number;
+    inactivated: number;
+    imported: number;
+    tried: number;
+    noSteps: number;
+    errored: number;
+    seedsRetired: number;
+    wouldRemove: number;
+    removalsSkipped: boolean;
+    noStepPages: unknown;
+    erroredPages: unknown;
+    onWall: number;
+    skipped: unknown;
+    warnings: unknown;
+  },
+  partial: boolean,
+): ImportReport {
   return {
     imported: row.imported,
+    partial,
+    deferred: 0,
     tried: row.tried,
     noSteps: row.noSteps,
     errored: row.errored,
@@ -258,6 +325,21 @@ function asSkips(value: unknown): NotionSkip[] {
 function asStrings(value: unknown): string[] {
   if (!Array.isArray(value)) return [];
   return value.filter((item): item is string => typeof item === "string");
+}
+
+function toSnapshot(
+  page: NotionListedPage,
+  extra: Pick<NotionPageSnapshot, "blocks" | "blocksError" | "deferred">,
+): NotionPageSnapshot {
+  return {
+    id: page.id,
+    properties: page.properties,
+    cover: page.cover,
+    blocks: extra.blocks,
+    blocksError: extra.blocksError,
+    fetchError: page.fetchError ?? extra.blocksError,
+    deferred: extra.deferred,
+  };
 }
 
 function isRunningLockError(error: unknown): boolean {

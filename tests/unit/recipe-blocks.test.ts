@@ -172,6 +172,11 @@ describe("normalizeRecipeBlocks", () => {
 });
 
 describe("parseRecipeBlocks", () => {
+  it("treats a missing body as no blocks", () => {
+    expect(parseRecipeBlocks(null)).toEqual([]);
+    expect(parseRecipeBlocks(undefined)).toEqual([]);
+  });
+
   it("drops links, unknown types, and list nesting past one level", () => {
     const parsed = parseRecipeBlocks([
       {

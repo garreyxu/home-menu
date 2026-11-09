@@ -43,6 +43,13 @@
       "when": 1794255895017,
       "tag": "0005_recipe_blocks",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1794262905938,
+      "tag": "0006_sync_partial_status",
+      "breakpoints": true
     }
   ]
 }

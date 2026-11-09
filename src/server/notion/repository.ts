@@ -93,6 +93,7 @@ export function createDishRepository(db: Database): DishRepository {
           notionPageId: dishes.notionPageId,
           name: dishes.name,
           isActive: dishes.isActive,
+          hasRecipe: sql<boolean>`${dishes.recipeBlocks} is not null`,
         })
         .from(dishes)
         .where(isNotNull(dishes.notionPageId));
@@ -105,6 +106,7 @@ export function createDishRepository(db: Database): DishRepository {
           notionPageId: row.notionPageId,
           name: row.name,
           isActive: row.isActive,
+          hasRecipe: row.hasRecipe === true,
         });
       }
       return stored;

@@ -564,6 +564,36 @@ describe("importNotionCatalog", () => {
     expect(dishes.categoryOptionOrders).toEqual([["猪", "鸭", "其他"]]);
   });
 
+  it("keeps a dish whose body was deferred and does not call it a read failure", async () => {
+    const run = harness([
+      snapshot(TRIED, "红烧肉", true),
+      {
+        ...snapshot(OTHER, "青菜", false),
+        blocks: null,
+        deferred: true,
+      },
+    ]);
+    run.dishes.rows.set(OTHER, {
+      id: "dish-greens",
+      notionPageId: OTHER,
+      name: "青菜",
+      isActive: true,
+      tried: false,
+      hasBody: true,
+      categoryName: "大荤",
+    });
+    const report = await run.run();
+    expect(report.partial).toBe(true);
+    expect(report.deferred).toBe(1);
+    expect(report.errored).toBe(0);
+    expect(report.warnings.join(" ")).toContain("下次同步会继续");
+    expect(run.dishes.rows.get(OTHER)).not.toHaveProperty("recipeBlocks");
+    expect(
+      (run.dishes.rows.get(TRIED) as { recipeBlocks?: unknown } | undefined)
+        ?.recipeBlocks,
+    ).toEqual([{ type: "paragraph", spans: [{ text: "炖" }] }]);
+  });
+
   it("strips tokens and signed urls from sync errors", () => {
     const message = safeSyncError(
       new Error(

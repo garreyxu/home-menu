@@ -55,6 +55,11 @@ export type NotionPageSnapshot = {
   blocksError?: string;
   /** Set when this page's properties or blocks could not be fetched. */
   fetchError?: string;
+  /**
+   * The page was listed, but its body was not read in this run.
+   * It must stay on the wall. The next sync tries again.
+   */
+  deferred?: boolean;
 };
 
 export type DishBodyBlock =

@@ -13,6 +13,9 @@ export type ListedPage = {
 
 export type ImportReport = {
   imported: number;
+  /** True when some page bodies were left for the next run. */
+  partial: boolean;
+  deferred: number;
   tried: number;
   noSteps: number;
   errored: number;
