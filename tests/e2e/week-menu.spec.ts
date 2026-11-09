@@ -35,7 +35,7 @@ test.describe("weekly menu", () => {
       await page.reload();
       await revealRemove(page, remove);
 
-      await removeButton(page, remove).click();
+      await removeButton(page, remove).click({ timeout: 5_000 });
       await expect(removeButton(page, remove)).toHaveCount(0);
       await page.reload();
       await expect(removeButton(page, remove)).toHaveCount(0);
@@ -100,7 +100,7 @@ test.describe("weekly menu", () => {
       await openTray(page);
       await revealRemove(page, remove);
 
-      await removeButton(page, remove).click();
+      await removeButton(page, remove).click({ timeout: 5_000 });
       await expect(removeButton(page, remove)).toHaveCount(0);
     } finally {
       await openTray(page);
@@ -189,7 +189,10 @@ test.describe("weekly menu", () => {
           expect(fit.clientWidth).toBeGreaterThan(0);
           expect(fit.scrollWidth / fit.clientWidth).toBeLessThan(1.35);
 
-          await row.hover();
+          await row.evaluate((node) => {
+            node.scrollIntoView({ block: "center", inline: "nearest" });
+          });
+          await row.hover({ timeout: 5_000 });
           await expect(remove).toHaveCSS("opacity", "1");
           const nameBox = await name.boundingBox();
           const removeBox = await remove.boundingBox();
@@ -265,9 +268,15 @@ async function revealRemove(page: Page, name: string) {
   const button = removeButton(page, name);
   await expect(button).toHaveCount(1);
   await expect(button).toHaveCSS("opacity", "0");
-  await button
-    .locator("xpath=ancestor::li[contains(@class,'week-chip')]")
-    .hover();
+  const chip = button.locator(
+    "xpath=ancestor::li[contains(@class,'week-chip')]",
+  );
+  // Playwright's scroll chases the sticky board. Scroll the chip ourselves,
+  // and don't let a covered chip consume the whole test timeout.
+  await chip.evaluate((node) => {
+    node.scrollIntoView({ block: "center", inline: "nearest" });
+  });
+  await chip.hover({ timeout: 5_000 });
   await expect(button).toHaveCSS("opacity", "1");
   return button;
 }
@@ -289,12 +298,14 @@ async function addDish(page: Page, dishName: string, slotName: string) {
 }
 
 async function removeIfPresent(page: Page, name: string) {
+  if (page.isClosed()) return;
   const button = removeButton(page, name);
-  if ((await button.count()) === 0) return;
-  await button
-    .locator("xpath=ancestor::li[contains(@class,'week-chip')]")
-    .hover();
-  await button.click();
+  if ((await button.count().catch(() => 0)) === 0) return;
+  // × stays transparent until hover. A DOM click still runs the handler,
+  // including from finally after a failure, without waiting out the test.
+  await button.evaluate((node) => {
+    if (node instanceof HTMLButtonElement) node.click();
+  });
   await expect(button).toHaveCount(0);
 }
 
