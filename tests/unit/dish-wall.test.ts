@@ -205,9 +205,22 @@ describe("buildDishWall", () => {
       "番茄炒蛋",
       "紫菜蛋花汤",
     ]);
-    expect(wall.categories.map((category) => category.dishCount)).toEqual([
-      1, 1, 0,
+    expect(wall.categories.map((category) => category.name)).toEqual([
+      "家常菜",
+      "汤品",
     ]);
+    expect(wall.categories.map((category) => category.dishCount)).toEqual([
+      1, 1,
+    ]);
+  });
+
+  it("hides a category with no dishes on the wall", () => {
+    const wall = buildDishWall(catalog, "凉菜");
+    expect(wall.unknownCategory).toBe(true);
+    expect(wall.dishes).toEqual([]);
+    expect(wall.categories.map((category) => category.name)).not.toContain(
+      "凉菜",
+    );
   });
 
   it("keeps only the named category", () => {
@@ -235,7 +248,6 @@ describe("buildDishWall", () => {
     expect(wall.categories.map((category) => category.name)).toEqual([
       "家常菜",
       "汤品",
-      "凉菜",
     ]);
   });
 });

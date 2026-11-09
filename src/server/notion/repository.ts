@@ -1,27 +1,14 @@
-import { and, eq, inArray, isNotNull, isNull, sql } from "drizzle-orm";
+import { and, eq, inArray, isNotNull, isNull } from "drizzle-orm";
 
 import type { Database } from "@/server/db";
 import { categories, dishes, menuItems } from "@/server/db/schema";
+import { planCategoryAlignment } from "@/server/notion/category-order";
 import type {
   DishRepository,
   StoredNotionDish,
   UpsertDish,
 } from "@/server/notion/import-catalog";
 import { planSeedRetirement } from "@/server/notion/seed-rows";
-
-const CATEGORY_ORDER = [
-  "大荤",
-  "小荤",
-  "素菜",
-  "靓汤",
-  "主食",
-  "早餐",
-  "豆制品",
-  "酱汁",
-  "一锅煮",
-  "蛋料理",
-  "未分类",
-];
 
 export function createDishRepository(db: Database): DishRepository {
   const categoryIds = new Map<string, string>();
@@ -40,20 +27,10 @@ export function createDishRepository(db: Database): DishRepository {
       return found.id;
     }
 
-    const preferred = CATEGORY_ORDER.indexOf(name);
-    let sortOrder = preferred;
-    if (preferred < 0) {
-      const [maxRow] = await db
-        .select({
-          value: sql<number>`coalesce(max(${categories.sortOrder}), -1)`,
-        })
-        .from(categories);
-      sortOrder = Number(maxRow?.value ?? -1) + 1;
-    }
-
+    // alignCategories rewrites sort_order after the sync. 0 is a placeholder.
     const inserted = await db
       .insert(categories)
-      .values({ name, sortOrder })
+      .values({ name, sortOrder: 0 })
       .onConflictDoNothing({ target: categories.name })
       .returning({ id: categories.id });
     const created = inserted[0];
@@ -197,6 +174,41 @@ export function createDishRepository(db: Database): DishRepository {
         .from(dishes)
         .where(and(eq(dishes.isActive, true), isNotNull(dishes.notionPageId)));
       return { onWall: rows.length };
+    },
+
+    async alignCategories(notionOptionOrder) {
+      const existing = await db
+        .select({
+          id: categories.id,
+          name: categories.name,
+          sortOrder: categories.sortOrder,
+        })
+        .from(categories);
+      if (existing.length === 0) return;
+
+      const refs = await db
+        .select({ categoryId: dishes.categoryId })
+        .from(dishes);
+      const plan = planCategoryAlignment({
+        categories: existing,
+        referencedCategoryIds: new Set(refs.map((row) => row.categoryId)),
+        notionOptionOrder,
+      });
+
+      if (plan.deleteIds.length > 0) {
+        await db
+          .delete(categories)
+          .where(inArray(categories.id, plan.deleteIds));
+      }
+
+      const current = new Map(existing.map((row) => [row.id, row.sortOrder]));
+      for (const item of plan.sort) {
+        if (current.get(item.id) === item.sortOrder) continue;
+        await db
+          .update(categories)
+          .set({ sortOrder: item.sortOrder })
+          .where(eq(categories.id, item.id));
+      }
     },
   };
 }

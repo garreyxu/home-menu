@@ -104,14 +104,16 @@ describe("fetchNotionSnapshots", () => {
       return json({ message: "unexpected" }, 500);
     };
 
-    const pages = await fetchNotionSnapshots({
+    const batch = await fetchNotionSnapshots({
       token: TOKEN,
       databaseId: DATABASE,
       dataSourceId: DATA_SOURCE,
       fetchImpl,
       minIntervalMs: 0,
     });
+    const pages = batch.pages;
 
+    expect(batch.mainIngredientOptions).toEqual([]);
     expect(calls.map((call) => call.version)).toEqual([
       "2026-03-11",
       "2026-03-11",
@@ -205,7 +207,7 @@ describe("fetchNotionSnapshots", () => {
       return json({ message: "unexpected" }, 500);
     };
 
-    const pages = await fetchNotionSnapshots({
+    const { pages } = await fetchNotionSnapshots({
       token: TOKEN,
       databaseId: DATABASE,
       dataSourceId: DATA_SOURCE,
@@ -217,6 +219,48 @@ describe("fetchNotionSnapshots", () => {
     expect(pages[0]?.blocks).toBeNull();
     expect(pages[0]?.fetchError).toBe("正文读取失败");
     expect(pages[1]?.fetchError).toBe("属性读取失败");
+  });
+
+  it("reads 主要食材种类 options in Notion's order", async () => {
+    const fetchImpl: typeof fetch = async (input) => {
+      const url = String(input);
+      if (url.includes("/databases/")) {
+        return json({ data_sources: [{ id: DATA_SOURCE }] });
+      }
+      if (url.endsWith(`/data_sources/${DATA_SOURCE}`)) {
+        return json({
+          properties: {
+            "已尝试?": { type: "checkbox" },
+            主要食材种类: {
+              type: "select",
+              select: {
+                options: [
+                  { name: "猪" },
+                  { name: "  鸭  " },
+                  { name: "" },
+                  { name: "鸭" },
+                  { name: "其他" },
+                ],
+              },
+            },
+          },
+        });
+      }
+      if (url.endsWith(`/data_sources/${DATA_SOURCE}/query`)) {
+        return json({ results: [], has_more: false, next_cursor: null });
+      }
+      return json({ message: "unexpected" }, 500);
+    };
+
+    const batch = await fetchNotionSnapshots({
+      token: TOKEN,
+      databaseId: DATABASE,
+      dataSourceId: DATA_SOURCE,
+      fetchImpl,
+      minIntervalMs: 0,
+    });
+    expect(batch.pages).toEqual([]);
+    expect(batch.mainIngredientOptions).toEqual(["猪", "鸭", "其他"]);
   });
 
   it("does not include the token when Notion rejects the request", async () => {

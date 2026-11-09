@@ -144,7 +144,8 @@ function compareZh(a: string, b: string): number {
  * Active dishes on the wall. Sample dishes have no Notion id and stay visible.
  * A Notion dish that lost its steps, or was deleted in Notion, is inactive
  * when a weekly menu still references it, and is omitted here.
- * Categories stay even when every dish is hidden.
+ * A category whose dishes are all hidden stays in this list.
+ * buildDishWall drops it so an empty or stale category is not a nav tag.
  * Categories are ordered by sort_order, then name. Dishes are ordered by name.
  */
 export function groupActiveDishesByCategory(
@@ -179,8 +180,11 @@ export function buildDishWall(
   categories: readonly CategoryWithDishes[],
   categoryParam: string | null | undefined,
 ): DishWall {
+  // Hide a category with no dishes on the wall, including a 「类型」 name
+  // that only inactive rows still reference.
+  const visible = categories.filter((category) => category.dishes.length > 0);
   const selected = categoryParam?.trim() ?? "";
-  const nav = categories.map((category) => ({
+  const nav = visible.map((category) => ({
     id: category.id,
     name: category.name,
     sortOrder: category.sortOrder,
@@ -202,7 +206,7 @@ export function buildDishWall(
   if (!selected) {
     return {
       categories: nav,
-      dishes: categories.flatMap((category) =>
+      dishes: visible.flatMap((category) =>
         category.dishes.map(toDish(category)),
       ),
       selectedCategory: null,
@@ -210,7 +214,7 @@ export function buildDishWall(
     };
   }
 
-  const match = categories.find((category) => category.name === selected);
+  const match = visible.find((category) => category.name === selected);
   if (!match) {
     return {
       categories: nav,

@@ -59,6 +59,7 @@ function snapshot(
       菜名: { type: "title", title: [{ plain_text: name }] },
       "已尝试?": { type: "checkbox", checkbox: tried },
       类型: { type: "select", select: { name: "大荤" } },
+      主要食材种类: { type: "select", select: { name: "猪" } },
     },
     cover: null,
     blocks,
@@ -150,6 +151,12 @@ class MemoryDishes implements DishRepository {
     };
   }
 
+  categoryOptionOrders: string[][] = [];
+
+  async alignCategories(notionOptionOrder: readonly string[]) {
+    this.categoryOptionOrders.push([...notionOptionOrder]);
+  }
+
   async retireSeeds() {
     const imported = [...this.rows.values()].map((row) => ({
       id: row.id,
@@ -228,7 +235,9 @@ describe("importNotionCatalog", () => {
     });
     expect(first.dishes.rows.size).toBe(2);
     expect(first.dishes.rows.get(TRIED)?.tried).toBe(true);
+    expect(first.dishes.rows.get(TRIED)?.categoryName).toBe("猪");
     expect(first.dishes.rows.get(OTHER)?.tried).toBe(false);
+    expect(first.dishes.categoryOptionOrders).toEqual([[]]);
     expect(first.dishes.rows.has(PLAIN)).toBe(false);
     expect(formatImportReport(report)).toContain("做过 1");
     expect(formatImportReport(report)).toContain("没有步骤 1");
@@ -464,6 +473,7 @@ describe("importNotionCatalog", () => {
       name: "红烧肉",
       tried: true,
       isActive: true,
+      categoryName: "大荤",
     });
     expect(run.dishes.rows.get(OTHER)?.name).toBe("青菜");
   });
@@ -541,6 +551,17 @@ describe("importNotionCatalog", () => {
     expect(emptyReport.removalsSkipped).toBe(true);
     expect(emptyReport.seedsRetired).toBe(0);
     expect(empty.dishes.seedRows).toHaveLength(1);
+  });
+
+  it("aligns categories with the Notion option order after a sync", async () => {
+    const dishes = new MemoryDishes();
+    await importNotionCatalog({
+      loadPages: async () => [snapshot(TRIED, "红烧肉", true)],
+      dishes,
+      categoryOptionOrder: ["猪", "鸭", "其他"],
+    });
+    expect(dishes.rows.get(TRIED)?.categoryName).toBe("猪");
+    expect(dishes.categoryOptionOrders).toEqual([["猪", "鸭", "其他"]]);
   });
 
   it("strips tokens and signed urls from sync errors", () => {

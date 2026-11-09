@@ -31,9 +31,20 @@ test.describe("dish wall", () => {
     const wall = page.locator("ul.dish-grid");
     await expect(wallStamps(wall)).toHaveCount(dishes.length);
 
-    const category = dishes[0]!.category;
+    const nav = page.getByRole("navigation", { name: "菜品分类" });
+    const navLabels = (await nav.getByRole("link").allInnerTexts()).map(
+      (label) => label.trim(),
+    );
+    expect(navLabels[0]).toBe("全部");
+    const navCategories = navLabels.slice(1);
+    expect(new Set(navCategories).size).toBe(navCategories.length);
+    expect(new Set(navCategories)).toEqual(
+      new Set(dishes.map((dish) => dish.category)),
+    );
+
+    const category = navCategories[0] ?? dishes[0]!.category;
     const outsider = dishes.find((dish) => dish.category !== category);
-    const categoryLink = page.getByRole("link", {
+    const categoryLink = nav.getByRole("link", {
       name: category,
       exact: true,
     });
@@ -129,6 +140,19 @@ test.describe("dish wall", () => {
       expect(main).not.toBeNull();
       if (viewport.name === "mobile") {
         expect(nav!.y).toBeLessThan(main!.y);
+        const scrolling = await page
+          .locator(".category-nav-list")
+          .evaluate((node) => {
+            const style = getComputedStyle(node);
+            return {
+              overflowX: style.overflowX,
+              direction: style.flexDirection,
+              wrap: style.flexWrap,
+            };
+          });
+        expect(scrolling.overflowX).toBe("auto");
+        expect(scrolling.direction).toBe("row");
+        expect(scrolling.wrap).toBe("nowrap");
       } else {
         expect(nav!.x).toBeLessThan(main!.x);
         expect(nav!.width).toBeGreaterThan(180);

@@ -1,4 +1,8 @@
 import { blocksToBody } from "@/server/notion/body";
+import {
+  FALLBACK_CATEGORY,
+  MAIN_INGREDIENT_PROPERTY,
+} from "@/server/notion/category-order";
 import { normalizeNotionId } from "@/server/notion/ids";
 import { pageHasSteps } from "@/server/notion/steps";
 import {
@@ -9,7 +13,6 @@ import {
 } from "@/server/notion/text";
 import {
   TRIED_PROPERTY_NAME,
-  UNCATEGORIZED,
   type DishBody,
   type NotionPageSnapshot,
   type NotionProperty,
@@ -92,20 +95,20 @@ export function classifyNotionPage(page: NotionPageSnapshot): PageClass {
     return { kind: "no_steps", name };
   }
 
-  const category = displayText(page.properties["类型"]) ?? UNCATEGORIZED;
+  const mainIngredient = displayText(page.properties[MAIN_INGREDIENT_PROPERTY]);
   const body = blocksToBody(page.blocks);
   return {
     kind: "dish",
     dish: {
       notionPageId,
       name,
-      categoryName: category,
+      categoryName: mainIngredient ?? FALLBACK_CATEGORY,
       cookTime: displayText(page.properties["料理时间"]),
       ingredients: displayText(page.properties["需要食材"]),
       rating: displayText(page.properties["评分"]),
       tried: isTriedPage(page.properties),
       cuisines: multiNames(page.properties["菜系"]),
-      mainIngredient: displayText(page.properties["主要食材种类"]),
+      mainIngredient,
       body,
       hasBody: true,
       // Card notes come only from a structured property, never the page body.
