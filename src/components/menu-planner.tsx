@@ -6,6 +6,7 @@ import { reloadDishWall } from "@/app/wall-actions";
 import { AddToDay } from "@/components/add-to-day";
 import { CategoryNav } from "@/components/category-nav";
 import { DishCard } from "@/components/dish-card";
+import { RecipeSheet } from "@/components/recipe-sheet";
 import { NotionSyncButton } from "@/components/notion-sync-button";
 import { EmptyMenu } from "@/components/empty-menu";
 import { StampButton } from "@/components/stamp-button";
@@ -53,6 +54,7 @@ export function MenuPlanner({
   const [pending, setPending] = useState(0);
   const [toast, setToast] = useState<Toast | null>(null);
   const [openDishId, setOpenDishId] = useState<string | null>(null);
+  const [recipeDishId, setRecipeDishId] = useState<string | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [trayOpen, setTrayOpen] = useState(false);
   const [trackedWallKey, setTrackedWallKey] = useState(() =>
@@ -255,15 +257,22 @@ export function MenuPlanner({
                   (item) => item.dishId === dish.id,
                 ).length;
                 return (
-                  <li key={dish.id} className="min-w-0">
+                  <li
+                    key={dish.id}
+                    className="min-w-0"
+                    data-category={dish.categoryName}
+                  >
                     <DishCard
                       id={dish.id}
                       name={dish.name}
-                      categoryName={dish.categoryName}
                       description={dish.description}
                       illustration={dish.illustration}
                       tried={dish.tried}
                       plannedCount={plannedCount}
+                      onOpenRecipe={() => {
+                        setOpenDishId(null);
+                        setRecipeDishId(dish.id);
+                      }}
                       action={
                         <AddToDay
                           dishId={dish.id}
@@ -328,6 +337,26 @@ export function MenuPlanner({
           本周已点 {items.length} 道
         </button>
       </div>
+      {recipeDishId ? (
+        <RecipeSheet
+          key={recipeDishId}
+          dishId={recipeDishId}
+          dishName={
+            wall.dishes.find((dish) => dish.id === recipeDishId)?.name ?? ""
+          }
+          onClose={() => {
+            const id = recipeDishId;
+            setRecipeDishId(null);
+            window.requestAnimationFrame(() => {
+              document
+                .querySelector<HTMLElement>(
+                  `[data-recipe-for="${CSS.escape(id)}"]`,
+                )
+                ?.focus();
+            });
+          }}
+        />
+      ) : null}
       {toast ? (
         <p
           role={toast.tone === "err" ? "alert" : "status"}

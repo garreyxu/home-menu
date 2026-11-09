@@ -3,18 +3,10 @@
 import { startTransition, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { StampButton } from "@/components/stamp-button";
-import {
-  removalSkippedNotice,
-  type ImportReport,
-  type ListedPage,
-} from "@/server/notion/report";
+import { describeSync, type SyncNoteState } from "@/lib/sync-note";
+import type { ListedPage } from "@/server/notion/report";
 
-type SyncState = {
-  running?: boolean;
-  processed?: number;
-  total?: number | null;
-  report?: ImportReport | null;
-  error?: string | null;
+type SyncState = SyncNoteState & {
   settled?: boolean;
 };
 
@@ -90,6 +82,19 @@ export function NotionSyncButton({
     sawRunning.current = false;
     setPending(true);
     setShowNote(true);
+    // Drop the previous success line immediately. POST returns as soon as the
+    // run row exists; polling then follows that row until it finishes.
+    setState({
+      running: true,
+      processed: 0,
+      total: null,
+      report: null,
+      error: null,
+      settled: true,
+      partial: false,
+      startedAt: null,
+      finishedAt: null,
+    });
     try {
       const response = await fetch("/api/notion/sync", {
         method: "POST",
@@ -99,11 +104,8 @@ export function NotionSyncButton({
       if (body.running) sawRunning.current = true;
       setState(body);
     } catch {
-      setState({
-        running: false,
-        error: "同步没能开始。",
-        settled: false,
-      });
+      // The browser can give up while the server keeps the run. The poll
+      // reads the latest notion_sync_runs row instead of the old report.
     } finally {
       setPending(false);
     }
@@ -170,33 +172,4 @@ function PageList({
       </ul>
     </details>
   );
-}
-
-function describeSync(state: SyncState | null): string | null {
-  if (!state) return null;
-  if (state.running) {
-    const total = state.total ?? 0;
-    return total > 0
-      ? `正在同步，已处理 ${state.processed ?? 0} / ${total}`
-      : "正在同步…";
-  }
-  if (state.error) return state.error;
-  if (!state.report) return null;
-  const report = state.report;
-  const parts = [
-    `新增 ${report.added}，更新 ${report.updated}，删除 ${report.deleted}，下架 ${report.inactivated}，上墙 ${report.onWall}`,
-    `导入 ${report.imported} 道，做过 ${report.tried}，没有步骤 ${report.noSteps}，读取失败 ${report.errored}，样本菜退下 ${report.seedsRetired}`,
-  ];
-  if (report.removalsSkipped) {
-    parts.unshift(removalSkippedNotice(report.wouldRemove));
-  }
-  if (report.skipped.length > 0) {
-    parts.push(
-      report.skipped
-        .map((skip) => `跳过 ${skip.name ?? "未命名"}：${skip.reason}`)
-        .join("；"),
-    );
-  }
-  if (report.warnings.length > 0) parts.push(report.warnings.join(" "));
-  return parts.join("。");
 }

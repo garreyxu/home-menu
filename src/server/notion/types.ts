@@ -1,4 +1,9 @@
-export type NotionRichText = { plain_text?: string };
+export type NotionRichText = {
+  plain_text?: string;
+  annotations?: { bold?: boolean; italic?: boolean };
+  /** Present on some Notion payloads. The recipe store never keeps it. */
+  href?: string | null;
+};
 
 export type NotionProperty = {
   type?: string;
@@ -50,6 +55,11 @@ export type NotionPageSnapshot = {
   blocksError?: string;
   /** Set when this page's properties or blocks could not be fetched. */
   fetchError?: string;
+  /**
+   * The page was listed, but its body was not read in this run.
+   * It must stay on the wall. The next sync tries again.
+   */
+  deferred?: boolean;
 };
 
 export type DishBodyBlock =

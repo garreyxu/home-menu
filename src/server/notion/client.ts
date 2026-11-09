@@ -1,3 +1,4 @@
+import { readBlockChildrenPage } from "@/server/notion/block-page";
 import { MAIN_INGREDIENT_PROPERTY } from "@/server/notion/category-order";
 import { normalizeNotionId } from "@/server/notion/ids";
 import { assertTriedProperty } from "@/server/notion/map-page";
@@ -21,6 +22,77 @@ export type NotionSnapshotBatch = {
   mainIngredientOptions: readonly string[];
 };
 
+export type NotionListedPage = {
+  id: string;
+  archived: boolean;
+  inTrash: boolean;
+  properties: Record<string, NotionProperty>;
+  cover: NotionFile | null;
+  fetchError?: string;
+};
+
+export type NotionReadSession = {
+  listPages: () => Promise<{
+    pages: NotionListedPage[];
+    mainIngredientOptions: readonly string[];
+  }>;
+  loadBlocks: (
+    pageId: string,
+    deadline: number,
+  ) => Promise<
+    | { status: "ok"; blocks: NotionBlock[] }
+    | { status: "timeout" }
+    | { status: "failed" }
+  >;
+};
+
+export function openNotionRead(options: {
+  token: string;
+  databaseId: string;
+  dataSourceId: string;
+  fetchImpl?: typeof fetch;
+  minIntervalMs?: number;
+}): NotionReadSession {
+  const fetchImpl = options.fetchImpl ?? fetch;
+  const wait = createSlotter(options.minIntervalMs ?? 350);
+  const notion = (path: string, init?: RequestInit) =>
+    notionRequest(options.token, path, fetchImpl, wait, init);
+
+  return {
+    async listPages() {
+      const database = await notion(`/databases/${options.databaseId}`);
+      const dataSourceId = chooseDataSource(
+        readDataSources(database),
+        options.dataSourceId,
+      );
+      const dataSource = await notion(`/data_sources/${dataSourceId}`);
+      assertTriedProperty(readSchemaProperties(dataSource));
+      return {
+        pages: await queryAllPages(dataSourceId, notion),
+        mainIngredientOptions: readSelectOptionNames(
+          dataSource,
+          MAIN_INGREDIENT_PROPERTY,
+        ),
+      };
+    },
+    async loadBlocks(pageId, deadline) {
+      try {
+        const loaded = await loadTree(
+          pageId,
+          notion,
+          0,
+          { count: 0 },
+          () => Date.now() >= deadline,
+        );
+        if (loaded === "timeout") return { status: "timeout" };
+        return { status: "ok", blocks: loaded };
+      } catch {
+        return { status: "failed" };
+      }
+    },
+  };
+}
+
 export async function fetchNotionSnapshots(options: {
   token: string;
   databaseId: string;
@@ -29,33 +101,19 @@ export async function fetchNotionSnapshots(options: {
   minIntervalMs?: number;
   onProgress?: (processed: number, total: number) => Promise<void>;
 }): Promise<NotionSnapshotBatch> {
-  const fetchImpl = options.fetchImpl ?? fetch;
-  const wait = createSlotter(options.minIntervalMs ?? 350);
-  const notion = (path: string, init?: RequestInit) =>
-    notionRequest(options.token, path, fetchImpl, wait, init);
-
-  const database = await notion(`/databases/${options.databaseId}`);
-  const dataSourceId = chooseDataSource(
-    readDataSources(database),
-    options.dataSourceId,
-  );
-  const dataSource = await notion(`/data_sources/${dataSourceId}`);
-  assertTriedProperty(readSchemaProperties(dataSource));
-  const mainIngredientOptions = readSelectOptionNames(
-    dataSource,
-    MAIN_INGREDIENT_PROPERTY,
-  );
-
-  const pages = await queryAllPages(dataSourceId, notion);
+  const session = openNotionRead(options);
+  const listed = await session.listPages();
+  const pages = listed.pages;
+  const mainIngredientOptions = listed.mainIngredientOptions;
   const blocksById = new Map<string, NotionBlock[] | null>();
   const errors = new Map<string, string>();
 
   for (let index = 0; index < pages.length; index += 1) {
     const page = pages[index];
     if (!page) continue;
-    try {
-      blocksById.set(page.id, await loadTree(page.id, notion, 0, { count: 0 }));
-    } catch {
+    const loaded = await session.loadBlocks(page.id, Number.POSITIVE_INFINITY);
+    if (loaded.status === "ok") blocksById.set(page.id, loaded.blocks);
+    else {
       blocksById.set(page.id, null);
       errors.set(page.id, "正文读取失败");
     }
@@ -86,8 +144,8 @@ type NotionCaller = (path: string, init?: RequestInit) => Promise<unknown>;
 async function queryAllPages(
   dataSourceId: string,
   notion: NotionCaller,
-): Promise<RawPage[]> {
-  const pages: RawPage[] = [];
+): Promise<NotionListedPage[]> {
+  const pages: NotionListedPage[] = [];
   let cursor: string | undefined;
   do {
     const body: { page_size: number; start_cursor?: string } = {
@@ -129,10 +187,14 @@ async function loadTree(
   notion: NotionCaller,
   depth: number,
   budget: { count: number },
-): Promise<NotionBlock[]> {
+  stop: () => boolean,
+): Promise<NotionBlock[] | "timeout"> {
+  if (stop()) return "timeout";
   if (depth > MAX_DEPTH || budget.count >= MAX_BLOCKS) return [];
-  const blocks = await listChildren(blockId, notion);
+  const blocks = await listChildren(blockId, notion, stop);
+  if (blocks === "timeout") return "timeout";
   for (const block of blocks) {
+    if (stop()) return "timeout";
     budget.count += 1;
     if (budget.count > MAX_BLOCKS) break;
     if (
@@ -141,7 +203,15 @@ async function loadTree(
       block.type !== "child_database" &&
       depth < MAX_DEPTH
     ) {
-      block.children = await loadTree(block.id, notion, depth + 1, budget);
+      const children = await loadTree(
+        block.id,
+        notion,
+        depth + 1,
+        budget,
+        stop,
+      );
+      if (children === "timeout") return "timeout";
+      block.children = children;
     }
   }
   return blocks;
@@ -150,29 +220,19 @@ async function loadTree(
 async function listChildren(
   blockId: string,
   notion: NotionCaller,
-): Promise<NotionBlock[]> {
+  stop: () => boolean,
+): Promise<NotionBlock[] | "timeout"> {
   const blocks: NotionBlock[] = [];
   let cursor: string | undefined;
   do {
+    if (stop()) return "timeout";
     const query = new URLSearchParams({ page_size: "100" });
     if (cursor) query.set("start_cursor", cursor);
-    const payload = await notion(
-      `/blocks/${blockId}/children?${query.toString()}`,
+    const page = readBlockChildrenPage(
+      await notion(`/blocks/${blockId}/children?${query.toString()}`),
     );
-    const record = asRecord(payload);
-    const results = record?.results;
-    if (!Array.isArray(results)) {
-      throw new Error("正文读取失败");
-    }
-    for (const result of results) {
-      const block = readBlock(result);
-      if (block) blocks.push(block);
-    }
-    const hasMore = record?.has_more === true;
-    const next = record?.next_cursor;
-    cursor =
-      hasMore && typeof next === "string" && next.length > 0 ? next : undefined;
-    if (hasMore && !cursor) throw new Error("正文读取失败");
+    blocks.push(...page.blocks);
+    cursor = page.nextCursor ?? undefined;
   } while (cursor);
   return blocks;
 }
@@ -243,16 +303,7 @@ function readSchemaProperties(
   return result;
 }
 
-type RawPage = {
-  id: string;
-  archived: boolean;
-  inTrash: boolean;
-  properties: Record<string, NotionProperty>;
-  cover: NotionFile | null;
-  fetchError?: string;
-};
-
-function readPage(value: unknown): RawPage | null {
+function readPage(value: unknown): NotionListedPage | null {
   const record = asRecord(value);
   if (!record || typeof record.id !== "string") return null;
   const properties = asRecord(record.properties);
@@ -269,18 +320,6 @@ function readPage(value: unknown): RawPage | null {
     ...base,
     properties: properties as Record<string, NotionProperty>,
   };
-}
-
-function readBlock(value: unknown): NotionBlock | null {
-  const record = asRecord(value);
-  if (
-    !record ||
-    typeof record.id !== "string" ||
-    typeof record.type !== "string"
-  ) {
-    return null;
-  }
-  return record as unknown as NotionBlock;
 }
 
 function readFile(value: unknown): NotionFile | null {

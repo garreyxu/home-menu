@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { fetchNotionSnapshots } from "@/server/notion/client";
+import { fetchNotionSnapshots, openNotionRead } from "@/server/notion/client";
 
 const DATABASE = "ff95d9e8-3ae1-44ff-aaa4-61286c9652ad";
 const DATA_SOURCE = "b8a7d4f9-5bfd-4ed3-bacd-5a5298796038";
@@ -137,6 +137,122 @@ describe("fetchNotionSnapshots", () => {
     expect(pages[1]?.blocks).toEqual([
       expect.objectContaining({ id: "step", type: "paragraph" }),
     ]);
+  });
+
+  it("follows the cursor for a block's children and keeps one nested list", async () => {
+    const calls: string[] = [];
+    const fetchImpl: typeof fetch = async (input) => {
+      const url = String(input);
+      calls.push(url);
+      if (url.endsWith(`/databases/${DATABASE}`)) {
+        return json({ data_sources: [{ id: DATA_SOURCE }] });
+      }
+      if (url.endsWith(`/data_sources/${DATA_SOURCE}`)) {
+        return json({
+          properties: {
+            菜名: { type: "title" },
+            "已尝试?": { type: "checkbox" },
+          },
+        });
+      }
+      if (url.endsWith(`/data_sources/${DATA_SOURCE}/query`)) {
+        return json({
+          results: [
+            {
+              id: TRIED,
+              properties: {
+                菜名: { type: "title", title: [{ plain_text: "红烧肉" }] },
+                "已尝试?": { type: "checkbox", checkbox: true },
+              },
+            },
+          ],
+          has_more: false,
+          next_cursor: null,
+        });
+      }
+      if (url.includes(`/blocks/${TRIED}/children`)) {
+        const cursor = new URL(url).searchParams.get("start_cursor");
+        if (!cursor) {
+          return json({
+            results: [
+              {
+                id: "outer",
+                type: "bulleted_list_item",
+                has_children: true,
+                bulleted_list_item: { rich_text: [{ plain_text: "外" }] },
+              },
+            ],
+            has_more: true,
+            next_cursor: "child-2",
+          });
+        }
+        return json({
+          results: [
+            {
+              id: "later",
+              type: "paragraph",
+              has_children: false,
+              paragraph: { rich_text: [{ plain_text: "后" }] },
+            },
+          ],
+          has_more: false,
+          next_cursor: null,
+        });
+      }
+      if (url.includes("/blocks/outer/children")) {
+        return json({
+          results: [
+            {
+              id: "inner",
+              type: "bulleted_list_item",
+              has_children: false,
+              bulleted_list_item: { rich_text: [{ plain_text: "内" }] },
+            },
+          ],
+          has_more: false,
+          next_cursor: null,
+        });
+      }
+      return json({ message: "unexpected" }, 500);
+    };
+
+    const { pages } = await fetchNotionSnapshots({
+      token: TOKEN,
+      databaseId: DATABASE,
+      dataSourceId: DATA_SOURCE,
+      fetchImpl,
+      minIntervalMs: 0,
+    });
+
+    expect(calls.some((url) => url.includes("start_cursor=child-2"))).toBe(
+      true,
+    );
+    expect(pages[0]?.blocks).toEqual([
+      expect.objectContaining({
+        id: "outer",
+        children: [expect.objectContaining({ id: "inner" })],
+      }),
+      expect.objectContaining({ id: "later" }),
+    ]);
+  });
+
+  it("stops before the first block request when the deadline has passed", async () => {
+    let calls = 0;
+    const fetchImpl: typeof fetch = async () => {
+      calls += 1;
+      return json({ message: "should not be called" }, 500);
+    };
+    const session = openNotionRead({
+      token: TOKEN,
+      databaseId: DATABASE,
+      dataSourceId: DATA_SOURCE,
+      fetchImpl,
+      minIntervalMs: 0,
+    });
+    await expect(session.loadBlocks(TRIED, 0)).resolves.toEqual({
+      status: "timeout",
+    });
+    expect(calls).toBe(0);
   });
 
   it("stops before changing anything when 已尝试? is not a checkbox", async () => {

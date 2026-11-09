@@ -1,5 +1,5 @@
 import { neon } from "@neondatabase/serverless";
-import { inArray, isNotNull } from "drizzle-orm";
+import { and, eq, inArray, isNotNull, isNull } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/neon-http";
 
 import { seedDecision } from "../src/server/db/seed-policy";
@@ -96,9 +96,18 @@ async function seed(): Promise<void> {
         name: dish.name,
         categoryId: categoryId(dish.categoryName),
         description: dish.description,
+        recipeBlocks: dish.recipeBlocks ?? null,
         isActive: true,
       })),
     );
+  }
+
+  for (const dish of seedDishes) {
+    if (!dish.recipeBlocks) continue;
+    await db
+      .update(dishes)
+      .set({ recipeBlocks: dish.recipeBlocks })
+      .where(and(eq(dishes.name, dish.name), isNull(dishes.notionPageId)));
   }
 
   console.log(

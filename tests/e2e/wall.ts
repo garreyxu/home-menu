@@ -19,7 +19,8 @@ export async function readWall(page: Page): Promise<WallDish[]> {
     const name = (
       await card.getByRole("heading", { level: 3 }).innerText()
     ).trim();
-    const category = (await card.locator("p.dish-category").innerText()).trim();
+    const category = (await card.getAttribute("data-category"))?.trim() ?? "";
+    expect(await card.locator("p.dish-category").count()).toBe(0);
     expect(name, "菜品卡片没有菜名").not.toBe("");
     expect(category, `${name} 没有分类`).not.toBe("");
     dishes.push({ name, category });

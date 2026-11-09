@@ -1,10 +1,11 @@
-import { classifyNotionPage } from "@/server/notion/map-page";
+import { classifyNotionPage, type MappedDish } from "@/server/notion/map-page";
 import { normalizeNotionId, notionPageUrl } from "@/server/notion/ids";
 import type {
   ImportReport,
   ListedPage,
   NotionSkip,
 } from "@/server/notion/report";
+import type { RecipeBlock } from "@/lib/recipe-blocks";
 import type { NotionPageSnapshot } from "@/server/notion/types";
 
 export type StoredNotionDish = {
@@ -12,6 +13,8 @@ export type StoredNotionDish = {
   notionPageId: string;
   name: string;
   isActive: boolean;
+  /** False when recipe_blocks is still null. Missing means unknown, so treat as not stored. */
+  hasRecipe?: boolean;
 };
 
 export type UpsertDish = {
@@ -26,8 +29,27 @@ export type UpsertDish = {
   cuisines: string[];
   mainIngredient: string | null;
   body: { blocks: unknown[] };
+  recipeBlocks: RecipeBlock[];
   hasBody: boolean;
 };
+
+export function upsertFromMapped(mapped: MappedDish): UpsertDish {
+  return {
+    notionPageId: mapped.notionPageId,
+    name: mapped.name,
+    categoryName: mapped.categoryName,
+    description: mapped.description,
+    cookTime: mapped.cookTime,
+    ingredients: mapped.ingredients,
+    rating: mapped.rating,
+    tried: mapped.tried,
+    cuisines: mapped.cuisines,
+    mainIngredient: mapped.mainIngredient,
+    body: mapped.body,
+    recipeBlocks: mapped.recipeBlocks,
+    hasBody: mapped.hasBody,
+  };
+}
 
 export type RetireResult = {
   deleted: number;
@@ -38,6 +60,8 @@ export interface DishRepository {
   listNotionDishes(): Promise<StoredNotionDish[]>;
   /** Insert or overwrite by Notion page id. Does not delete the row. */
   upsert(dish: UpsertDish): Promise<"added" | "updated">;
+  /** One statement per chunk. Same result as upsert, without a round trip per dish. */
+  upsertMany(dishes: readonly UpsertDish[]): Promise<void>;
   /**
    * Drop Notion dishes that no longer qualify.
    * A dish still referenced by a weekly menu stays inactive.
@@ -80,19 +104,29 @@ export async function importNotionCatalog(input: {
   const existingRows = await input.dishes.listNotionDishes();
 
   const keep = new Set<string>();
+  const existed = new Set(
+    existingRows.map((row) => normalizeNotionId(row.notionPageId)),
+  );
   const skipped: NotionSkip[] = [];
   const noStepPages: ListedPage[] = [];
   const erroredPages: ListedPage[] = [];
   const warnings: string[] = [];
   let noSteps = 0;
   let errored = 0;
+  let deferred = 0;
   let tried = 0;
   let added = 0;
   let updated = 0;
+  const toWrite: UpsertDish[] = [];
 
   for (const page of pages) {
     const pageId = normalizeNotionId(page.id);
     const classified = classifyNotionPage(page);
+    if (classified.kind === "deferred") {
+      keep.add(pageId);
+      deferred += 1;
+      continue;
+    }
     if (classified.kind === "errored") {
       keep.add(pageId);
       errored += 1;
@@ -116,24 +150,17 @@ export async function importNotionCatalog(input: {
 
     const mapped = classified.dish;
     keep.add(pageId);
-    const result = await input.dishes.upsert({
-      notionPageId: mapped.notionPageId,
-      name: mapped.name,
-      categoryName: mapped.categoryName,
-      description: mapped.description,
-      cookTime: mapped.cookTime,
-      ingredients: mapped.ingredients,
-      rating: mapped.rating,
-      tried: mapped.tried,
-      cuisines: mapped.cuisines,
-      mainIngredient: mapped.mainIngredient,
-      body: mapped.body,
-      hasBody: mapped.hasBody,
-    });
-    if (result === "added") added += 1;
-    else updated += 1;
+    toWrite.push(upsertFromMapped(mapped));
+    if (existed.has(pageId)) {
+      updated += 1;
+    } else {
+      added += 1;
+      existed.add(pageId);
+    }
     if (mapped.tried) tried += 1;
   }
+
+  await input.dishes.upsertMany(toWrite);
 
   const retireIds = [
     ...new Set(
@@ -148,16 +175,24 @@ export async function importNotionCatalog(input: {
   const removalsSkipped =
     !input.allowMassRemoval &&
     (pages.length === 0 || wouldRemove > removalCeiling(activeImported));
+  const partial = deferred > 0;
+  if (partial) {
+    warnings.push(`还有 ${deferred} 道菜的做法没读完，下次同步会继续。`);
+  }
   const retired = removalsSkipped
     ? { deleted: 0, inactivated: 0 }
     : await input.dishes.retire(retireIds);
   const seedsRetired =
-    errored === 0 && !removalsSkipped ? await input.dishes.retireSeeds() : 0;
+    errored === 0 && !removalsSkipped && !partial
+      ? await input.dishes.retireSeeds()
+      : 0;
   await input.dishes.alignCategories(input.categoryOptionOrder ?? []);
   const wall = await input.dishes.countOnWall();
 
   return {
     imported: added + updated,
+    partial,
+    deferred,
     tried,
     noSteps,
     errored,

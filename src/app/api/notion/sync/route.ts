@@ -14,6 +14,7 @@ import {
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+/** Fluid compute allows 300s. The sync stops itself at 240s and resumes next run. */
 export const maxDuration = 300;
 
 function json(body: SyncState, status = 200): Response {
@@ -55,6 +56,9 @@ export async function POST(request: Request): Promise<Response> {
         report: null,
         error: "同步没能开始。",
         settled: false,
+        partial: false,
+        startedAt: null,
+        finishedAt: null,
       },
       403,
     );
@@ -93,5 +97,8 @@ function idleError(error: unknown): SyncState {
     report: null,
     error: safeSyncError(error),
     settled: false,
+    partial: false,
+    startedAt: null,
+    finishedAt: null,
   };
 }

@@ -1,9 +1,11 @@
+import type { RecipeBlock } from "@/lib/recipe-blocks";
 import { blocksToBody } from "@/server/notion/body";
 import {
   FALLBACK_CATEGORY,
   MAIN_INGREDIENT_PROPERTY,
 } from "@/server/notion/category-order";
 import { normalizeNotionId } from "@/server/notion/ids";
+import { normalizeRecipeBlocks } from "@/server/notion/recipe-blocks";
 import { pageHasSteps } from "@/server/notion/steps";
 import {
   cleanDishName,
@@ -29,6 +31,7 @@ export type MappedDish = {
   cuisines: string[];
   mainIngredient: string | null;
   body: DishBody;
+  recipeBlocks: RecipeBlock[];
   hasBody: boolean;
   description: string | null;
 };
@@ -36,6 +39,7 @@ export type MappedDish = {
 export type PageClass =
   | { kind: "skip"; name: string | null; reason: string }
   | { kind: "errored"; name: string | null }
+  | { kind: "deferred"; name: string | null }
   | { kind: "no_steps"; name: string }
   | { kind: "dish"; dish: MappedDish };
 
@@ -80,6 +84,7 @@ export function classifyNotionPage(page: NotionPageSnapshot): PageClass {
   const notionPageId = normalizeNotionId(page.id);
   const name = cleanDishName(rawName(page.properties)) || null;
 
+  if (page.deferred) return { kind: "deferred", name };
   if (page.fetchError || page.blocksError || page.blocks === null) {
     return { kind: "errored", name };
   }
@@ -110,6 +115,7 @@ export function classifyNotionPage(page: NotionPageSnapshot): PageClass {
       cuisines: multiNames(page.properties["菜系"]),
       mainIngredient,
       body,
+      recipeBlocks: normalizeRecipeBlocks(page.blocks),
       hasBody: true,
       // Card notes come only from a structured property, never the page body.
       description: null,

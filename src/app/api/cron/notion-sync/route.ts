@@ -9,6 +9,7 @@ import {
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+/** Same 300s ceiling as the manual sync. The import stops itself at 240s. */
 export const maxDuration = 300;
 
 function unauthorized(): Response {

@@ -1,0 +1,2 @@
+ALTER TABLE "notion_sync_runs" DROP CONSTRAINT "notion_sync_runs_status";--> statement-breakpoint
+ALTER TABLE "notion_sync_runs" ADD CONSTRAINT "notion_sync_runs_status" CHECK ("notion_sync_runs"."status" in ('running', 'succeeded', 'failed', 'partial'));

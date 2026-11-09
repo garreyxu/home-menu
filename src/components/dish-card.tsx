@@ -9,7 +9,6 @@ import { cn } from "@/lib/utils";
 export type DishCardProps = {
   id?: string;
   name: string;
-  categoryName: string;
   description?: string | null;
   /**
    * Watercolor at public/illustrations/<notionPageId>-<240|480|960>.webp.
@@ -21,16 +20,17 @@ export type DishCardProps = {
   tried?: boolean;
   plannedCount?: number;
   action?: ReactNode;
+  onOpenRecipe?: () => void;
 };
 
 export function DishCard({
   id = "dish",
   name,
-  categoryName,
   illustration = null,
   tried = false,
   plannedCount = 0,
   action = null,
+  onOpenRecipe,
 }: DishCardProps) {
   const letter = frameLetter(id);
 
@@ -42,18 +42,26 @@ export function DishCard({
       )}
     >
       <div className="relative">
-        <div
-          className="dish-art-clip relative aspect-[4/3]"
-          data-asset="dish-illustration"
+        <button
+          type="button"
+          className="dish-art-open"
+          aria-label={`查看${name}的做法`}
+          aria-haspopup="dialog"
+          onClick={onOpenRecipe}
         >
-          {illustration ? (
-            <DishArt illustration={illustration} />
-          ) : (
-            <div className="dish-art absolute inset-0">
-              <DishFallback name={name} />
-            </div>
-          )}
-        </div>
+          <div
+            className="dish-art-clip relative aspect-[4/3]"
+            data-asset="dish-illustration"
+          >
+            {illustration ? (
+              <DishArt illustration={illustration} />
+            ) : (
+              <div className="dish-art absolute inset-0">
+                <DishFallback name={name} />
+              </div>
+            )}
+          </div>
+        </button>
         {plannedCount > 0 ? (
           <span className="planned-tag">已点×{plannedCount}</span>
         ) : null}
@@ -62,7 +70,15 @@ export function DishCard({
       <h3 className="dish-name font-brush line-clamp-2 text-sumi">
         <BrushRuns text={name} />
       </h3>
-      <p className="dish-category font-brush">{categoryName}</p>
+      <button
+        type="button"
+        className="dish-recipe-entry focus-ring"
+        data-recipe-for={id}
+        aria-haspopup="dialog"
+        onClick={onOpenRecipe}
+      >
+        做法
+      </button>
       {action}
     </Card>
   );
@@ -90,7 +106,6 @@ export function DishCardSkeleton() {
     >
       <div className="ink-skeleton aspect-[4/3]" />
       <div className="ink-skeleton h-6 w-2/3" />
-      <div className="ink-skeleton h-4 w-1/2" />
     </div>
   );
 }
