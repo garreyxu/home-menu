@@ -5,6 +5,7 @@ name: neon-ops
 # snapshot creates backup-YYYYMMDD-HHMM (UTC) from the project's
 # default/primary branch. The name does not start with preview/, which is
 # the only prefix .github/scripts/neon-preview-cleanup.sh will delete.
+# expires_days is used only by snapshot. 0 omits expires_at. 1-30 sends it.
 #
 # sync-report reads production through the Neon connection_uri endpoint
 # inside a read-only transaction. The SQL is fixed in scripts/neon-ops.sh.
@@ -19,6 +20,11 @@ on:
         options:
           - snapshot
           - sync-report
+      expires_days:
+        description: Snapshot only. Days until Neon deletes the backup branch. 0 keeps it. Allowed values are 0 and integers 1 through 30.
+        type: string
+        required: false
+        default: "7"
 
 permissions:
   contents: read
@@ -54,4 +60,5 @@ jobs:
         env:
           NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
           NEON_OPS_ACTION: ${{ inputs.action }}
+          NEON_OPS_EXPIRES_DAYS: ${{ inputs.expires_days }}
         run: bash scripts/neon-ops.sh

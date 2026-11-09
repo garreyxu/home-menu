@@ -7,6 +7,9 @@
 #   .github/scripts/neon-preview-cleanup.sh keeps it: that script deletes a
 #   branch only when the name matches preview/*, and delete_neon_branch
 #   refuses every other name.
+#   NEON_OPS_EXPIRES_DAYS defaults to 7. 0 omits expires_at. 1-30 sends
+#   expires_at as UTC now plus that many days. Invalid values fail before
+#   any Neon request.
 #
 # sync-report
 #   Fetch the production connection URI from the Neon API, mask the URI and
@@ -268,6 +271,72 @@ validate_backup_name() {
     preview/*) return 1 ;;
   esac
   return 0
+}
+
+# Empty means the default, 7 days. 0 means no expiry. Otherwise an integer 1-30.
+# The match is the whole string: 07, 7.0, and whitespace are rejected.
+resolve_expires_days() {
+  local raw="$1"
+  if [ -z "$raw" ]; then
+    printf '7'
+    return 0
+  fi
+  case "$raw" in
+    0 | [1-9] | 1[0-9] | 2[0-9] | 30)
+      printf '%s' "$raw"
+      ;;
+    *)
+      return 1
+      ;;
+  esac
+}
+
+# Prints RFC3339 UTC now+N days, or an empty string when days is 0.
+expires_at_for_days() {
+  local days="$1"
+  case "$days" in
+    0)
+      printf ''
+      ;;
+    [1-9] | 1[0-9] | 2[0-9] | 30)
+      date -u -d "+${days} days" +%Y-%m-%dT%H:%M:%SZ
+      ;;
+    *)
+      return 1
+      ;;
+  esac
+}
+
+write_branch_create_body() {
+  local name="$1"
+  local parent="$2"
+  local expires_at="$3"
+  if [ -n "$expires_at" ]; then
+    # shellcheck disable=SC2016
+    jq -n --arg name "$name" --arg parent "$parent" --arg expires "$expires_at" \
+      '{branch:{name:$name, parent_id:$parent, expires_at:$expires}}'
+  else
+    # shellcheck disable=SC2016
+    jq -n --arg name "$name" --arg parent "$parent" \
+      '{branch:{name:$name, parent_id:$parent}}'
+  fi
+}
+
+confirm_branch_create_body() {
+  local body="$1"
+  local expect_expires="$2"
+  local actual status=0
+  jq_result 'has("endpoints") or has("expires_at") or (.branch | has("endpoints"))' "$body" || status=$?
+  if [ "$status" -eq 0 ]; then
+    fail "branch create body included an endpoint or a top-level expiry"
+  fi
+  if [ "$status" -ne 1 ]; then
+    fail "could not inspect the branch create body"
+  fi
+  actual="$(jq -r 'if (.branch | has("expires_at")) and .branch.expires_at != null then .branch.expires_at else "" end' "$body")"
+  if [ "$actual" != "$expect_expires" ]; then
+    fail "branch create body expiry did not match expires_days"
+  fi
 }
 
 query_is_allowed() {
@@ -604,6 +673,43 @@ assert_cleanup_keeps_backup_names() {
   esac
 }
 
+assert_expires_days() {
+  local got stamp start end delta body
+  local -a accepted_input=("0" "1" "7" "30" "")
+  local -a accepted_days=("0" "1" "7" "30" "7")
+  local index input
+  for index in 0 1 2 3 4; do
+    input="${accepted_input[$index]}"
+    if ! got="$(resolve_expires_days "$input")"; then
+      fail "expires_days value was rejected"
+    fi
+    [ "$got" = "${accepted_days[$index]}" ] || fail "expires_days did not normalize to ${accepted_days[$index]}"
+  done
+  for input in -1 31 abc; do
+    if resolve_expires_days "$input" >/dev/null; then
+      fail "expires_days ${input} was accepted"
+    fi
+  done
+  [ -z "$(expires_at_for_days 0)" ] || fail "expires_days 0 produced an expiry"
+  for input in 1 7 30; do
+    stamp="$(expires_at_for_days "$input")"
+    is_rfc3339 "$stamp" || fail "expires_days ${input} did not produce an RFC3339 timestamp"
+  done
+  stamp="$(expires_at_for_days 7)"
+  start="$(date -u +%s)"
+  end="$(date -u -d "$stamp" +%s)"
+  delta=$((end - start))
+  if [ "$delta" -lt 604790 ] || [ "$delta" -gt 604810 ]; then
+    fail "expires_days 7 was not seven days ahead"
+  fi
+  body="$(mktemp)"
+  write_branch_create_body "backup-20261109-2141" "br-prod" "" >"$body"
+  confirm_branch_create_body "$body" ""
+  write_branch_create_body "backup-20261109-2141" "br-prod" "$stamp" >"$body"
+  confirm_branch_create_body "$body" "$stamp"
+  rm -f "$body"
+}
+
 assert_queries_are_fixed() {
   local expected_runs expected_dishes
   expected_runs="select started_at, status, added, updated, deleted, inactivated, would_remove, removals_skipped, on_wall from notion_sync_runs order by started_at desc limit 10;"
@@ -741,6 +847,9 @@ assert_workflow_is_manual() {
   [ -f "$workflow" ] || fail "neon-ops workflow is missing"
   grep -q 'NEON_PROJECT_ID: steep-voice-67811340' "$workflow" || fail "workflow project id drifted"
   grep -q 'workflow_dispatch:' "$workflow" || fail "workflow is missing workflow_dispatch"
+  grep -q 'expires_days:' "$workflow" || fail "workflow is missing expires_days"
+  grep -q 'default: "7"' "$workflow" || fail "expires_days default is not 7"
+  grep -q 'NEON_OPS_EXPIRES_DAYS:' "$workflow" || fail "workflow does not pass expires_days"
   if grep -nE '^[[:space:]]*(schedule|pull_request|push|workflow_call|workflow_run|repository_dispatch):' "$workflow"; then
     fail "neon-ops workflow has an unexpected trigger"
   fi
@@ -816,6 +925,7 @@ self_test() {
   require_command python3
   require_command jq
   assert_cleanup_keeps_backup_names
+  assert_expires_days
   assert_queries_are_fixed
   assert_production_selection
   assert_jq_result
@@ -831,8 +941,18 @@ snapshot_branch() {
   local plan_file subscription_type branches_limit branch_count
   local body response created status
   local created_id created_name created_parent created_expires created_ttl created_init endpoint_count
-  local name_status body_status
+  local name_status days expires_at
   refuse_xtrace
+  # Reject a bad expires_days before any Neon request.
+  if ! days="$(resolve_expires_days "${NEON_OPS_EXPIRES_DAYS-}")"; then
+    fail "expires_days must be 0 (no expiry) or an integer from 1 to 30"
+  fi
+  if ! expires_at="$(expires_at_for_days "$days")"; then
+    fail "could not build expires_at"
+  fi
+  if [ -n "$expires_at" ] && ! is_rfc3339 "$expires_at"; then
+    fail "expires_at was not RFC3339 UTC"
+  fi
   require_neon_auth
   branches="$(mktemp)"
   plan_file="$(mktemp)"
@@ -873,21 +993,16 @@ snapshot_branch() {
   fi
   log "Neon project: ${NEON_PROJECT_ID}"
   log "Production branch: ${parent_name} (${parent_id})"
-  log "Creating ${backup_name} from ${parent_id} with no compute endpoint and no expires_at"
+  if [ -n "$expires_at" ]; then
+    log "Creating ${backup_name} from ${parent_id} with no compute endpoint, expires_at ${expires_at} (${days} days)"
+  else
+    log "Creating ${backup_name} from ${parent_id} with no compute endpoint and no expires_at"
+  fi
   body="$(mktemp)"
   response="$(mktemp)"
   created="$(mktemp)"
-  jq -n --arg name "$backup_name" --arg parent "$parent_id" '{branch:{name:$name, parent_id:$parent}}' >"$body"
-  body_status=0
-  jq_result 'has("expires_at") or has("endpoints") or (.branch | has("expires_at"))' "$body" || body_status=$?
-  if [ "$body_status" -eq 0 ]; then
-    rm -f "$branches" "$plan_file" "$body" "$response" "$created"
-    fail "branch create body included an expiry or an endpoint"
-  fi
-  if [ "$body_status" -ne 1 ]; then
-    rm -f "$branches" "$plan_file" "$body" "$response" "$created"
-    fail "could not inspect the branch create body"
-  fi
+  write_branch_create_body "$backup_name" "$parent_id" "$expires_at" >"$body"
+  confirm_branch_create_body "$body" "$expires_at"
   status="$(neon_request POST "${NEON_API_BASE}/projects/${NEON_PROJECT_ID}/branches" "$response" "$body")" || fail "Neon API POST did not complete. The branch may already exist; do not retry until that is known."
   if [ "$status" != "201" ] && [ "$status" != "200" ]; then
     api_failure "$status" "$response" "Creating Neon branch ${backup_name}"
@@ -952,17 +1067,30 @@ snapshot_branch() {
   emit "- Id: \`$(display_text "$created_id")\`"
   emit "- Parent: \`$(display_text "$parent_name")\` (\`$(display_text "$created_parent")\`)"
   emit "- Compute endpoints created: ${endpoint_count}"
+  emit "- Requested expires_days: ${days}"
   if [ -n "$created_expires" ]; then
     emit "- Expires at: \`$(display_text "$created_expires")\`"
     if [ -n "$created_ttl" ]; then
       emit "- TTL seconds: ${created_ttl}"
     fi
-    emit ""
-    emit "The create request omitted expires_at. Neon still returned an expiry. This branch will be deleted when that time is reached."
   else
     emit "- Expires at: none"
-    emit ""
-    emit "The create request omitted expires_at. The response has no expiry. The Neon API does not require one and does not apply one when the field is omitted."
+  fi
+  emit ""
+  if [ -n "$expires_at" ]; then
+    emit "The create request set expires_at to \`$(display_text "$expires_at")\` (${days} days)."
+    if [ -z "$created_expires" ]; then
+      emit "The response did not include an expiry."
+    elif [ "$created_expires" != "$expires_at" ]; then
+      emit "The response expiry differs from the requested timestamp."
+    fi
+  else
+    emit "The create request omitted expires_at because expires_days is 0."
+    if [ -n "$created_expires" ]; then
+      emit "Neon still returned an expiry. This branch will be deleted when that time is reached."
+    else
+      emit "The response has no expiry. The Neon API does not require one and does not apply one when the field is omitted."
+    fi
   fi
   if [ "$endpoint_count" -ne 0 ]; then
     emit ""
