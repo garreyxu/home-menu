@@ -89,6 +89,9 @@ test.describe("weekly menu", () => {
 
     try {
       await addDish(page, dish!.name, "周三午餐");
+      // The tray updates optimistically. Wait for the server toast before
+      // reload, or the preview read can land before the write commits.
+      await expect(page.getByRole("status")).toContainText("已加到 周三·中");
       const cell = page.getByRole("button", { name: "周三午餐", exact: true });
       const box = await cell.boundingBox();
       expect(box).not.toBeNull();
@@ -253,7 +256,10 @@ async function addDish(page: Page, dishName: string, slotName: string) {
     }),
   });
   await expect(card).toHaveCount(1);
-  await card.getByRole("button", { name: "＋加到哪天" }).click();
+  // Already on this week, the stamp says "已加 N 次" and still opens the picker.
+  await card
+    .getByRole("button", { name: /^(＋加到哪天|已加 \d+ 次)$/ })
+    .click();
   await page.getByRole("button", { name: slotName, exact: true }).click();
 }
 
