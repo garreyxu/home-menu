@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  SYNC_BUDGET_MS,
   orderForRecipeBackfill,
   syncRecipeBodies,
 } from "@/server/notion/body-sync";
@@ -40,7 +41,37 @@ describe("orderForRecipeBackfill", () => {
 });
 
 describe("syncRecipeBodies", () => {
-  it("backfills null recipe_blocks inside the budget and continues on the next run", async () => {
+  it("finishes 43 pages at 2.8s each inside the 240s budget", async () => {
+    expect(SYNC_BUDGET_MS).toBe(240_000);
+    const pages = Array.from({ length: 43 }, (_, index) => ({
+      id: `page-${index}`,
+    }));
+    let clock = 0;
+    const saved: string[] = [];
+    const result = await syncRecipeBodies({
+      pages,
+      stored: [],
+      budgetMs: SYNC_BUDGET_MS,
+      now: () => clock,
+      concurrency: 1,
+      loadBlocks: async (id) => {
+        clock += 2_800;
+        return step(id);
+      },
+      saveBatch: async (items) => {
+        for (const item of items) saved.push(item.page.id);
+      },
+      fail: async () => {
+        throw new Error("unexpected failure");
+      },
+      defer: async () => {},
+    });
+    expect(result.partial).toBe(false);
+    expect(result.deferred).toEqual([]);
+    expect(saved).toHaveLength(43);
+  });
+
+  it("still resumes on the next run when a short budget stops early", async () => {
     const pages = [
       { id: "filled", lastEditedTime: OLD },
       { id: "null-a", lastEditedTime: OLD },

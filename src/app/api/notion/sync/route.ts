@@ -14,6 +14,7 @@ import {
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+/** Fluid compute allows 300s. The sync stops itself at 240s and resumes next run. */
 export const maxDuration = 300;
 
 function json(body: SyncState, status = 200): Response {
