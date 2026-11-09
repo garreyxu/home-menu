@@ -468,11 +468,17 @@ iframe[src*="vercel.live"] {
   display: none;
 }
 
+.week-board {
+  padding: 12px;
+}
+
 .week-board-head {
   display: flex;
-  flex-direction: column;
-  gap: 8px;
-  padding: 4px 4px 8px;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 12px;
+  padding: 0 2px 10px;
   border-bottom: 3px solid var(--color-sumi);
 }
 
@@ -480,6 +486,36 @@ iframe[src*="vercel.live"] {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
+}
+
+.week-board-range {
+  margin: 0 0 0 auto;
+  color: var(--color-sumi-soft);
+  font-family: var(--font-sans), "Noto Sans SC", sans-serif;
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 1.4;
+  text-align: right;
+}
+
+.week-custom {
+  display: inline-flex;
+  align-self: flex-start;
+  align-items: center;
+  justify-content: center;
+  width: fit-content;
+  height: 32px;
+  margin: 10px 0;
+  padding: 0 12px;
+  border: 1.5px dashed var(--color-shu);
+  border-radius: 16px;
+  background: transparent;
+  color: var(--color-shu);
+  font-family: var(--font-sans), "Noto Sans SC", sans-serif;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
 }
 
 .week-nav-link {
@@ -504,41 +540,47 @@ iframe[src*="vercel.live"] {
 .week-board-body {
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  padding: 8px 4px 4px;
+  gap: 6px;
+  min-width: 0;
+  padding: 0 2px 2px;
 }
 
 .week-day {
   display: grid;
-  grid-template-columns: minmax(3em, max-content) repeat(3, minmax(0, 1fr));
-  gap: 4px;
+  grid-template-columns: 44px repeat(3, minmax(0, 1fr));
+  gap: 6px;
   align-items: stretch;
-  background-image: url(/frames/rule.svg);
-  background-repeat: repeat-x;
-  background-position: left bottom;
-  background-size: 240px 8px;
-  padding-bottom: 6px;
-}
-
-.week-day[data-today="true"] {
-  box-shadow: inset 4px 0 0 var(--color-shu);
+  min-width: 0;
 }
 
 .week-day-head {
   color: var(--color-sumi);
   font-size: 20px;
+  line-height: 1.2;
   text-align: center;
+}
+
+.week-day-head span {
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .week-day-label {
   display: flex;
   align-items: center;
-  justify-content: center;
-  gap: 2px;
-  min-width: 3em;
+  justify-content: flex-start;
+  min-width: 0;
+  padding-left: 4px;
   color: var(--color-sumi);
   font-size: 18px;
+  line-height: 1.1;
   white-space: nowrap;
+}
+
+.week-day[data-today="true"] .week-day-label {
+  color: var(--color-shu);
+  box-shadow: inset 4px 0 0 var(--color-shu);
 }
 
 .today-seal {
@@ -557,18 +599,22 @@ iframe[src*="vercel.live"] {
 }
 
 .week-slot {
-  container-type: inline-size;
+  display: flex;
   min-width: 0;
   min-height: 44px;
+  flex-direction: column;
+  justify-content: center;
+  gap: 4px;
+  border: 1px dashed var(--color-rule);
+  border-radius: 3px;
+  padding: 4px;
 }
 
 .week-slot-empty {
-  display: grid;
-  place-items: center;
-  border: 1.5px dashed var(--color-sumi-soft);
-  color: var(--color-sumi-soft);
-  font-size: 12px;
-  line-height: 1.4;
+  align-items: center;
+  color: #b9a98f;
+  font-size: 16px;
+  line-height: 1;
   text-align: center;
 }
 
@@ -579,70 +625,96 @@ iframe[src*="vercel.live"] {
   margin: 0;
   padding: 0;
   list-style: none;
+  min-width: 0;
 }
 
-.week-slot-item {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
-  grid-template-rows: auto auto;
-  column-gap: 2px;
-  row-gap: 2px;
+.week-chip {
+  display: flex;
   align-items: center;
+  gap: 6px;
+  height: 28px;
   min-width: 0;
+  padding: 1px 4px 1px 1px;
+  border: 1px solid #cdbb9c;
+  border-radius: 14px;
+  background: #fff8ec;
+  touch-action: pan-y;
+  user-select: none;
 }
 
 .week-thumb {
   display: block;
-  grid-column: 1;
-  grid-row: 1;
-  width: 32px;
-  height: 32px;
-  justify-self: center;
+  width: 24px;
+  height: 24px;
+  flex: none;
   border-radius: 999px;
   object-fit: cover;
   background: var(--color-paper);
 }
 
+.week-press-title .week-thumb {
+  width: 40px;
+  height: 40px;
+}
+
 .week-dish-name {
-  grid-column: 2;
-  grid-row: 1 / span 2;
   min-width: 0;
+  flex: 1;
   overflow: hidden;
   color: var(--color-sumi);
   font-family: var(--font-sans), "Noto Sans SC", sans-serif;
   font-size: 13px;
   font-weight: 500;
-  line-height: 1.35;
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
-  line-clamp: 2;
-  word-break: break-all;
-  overflow-wrap: anywhere;
-}
-
-.week-remove,
-.week-more {
-  flex: none;
-  border: 0;
-  background: var(--color-paper);
-  color: var(--color-sumi);
-  font-weight: 700;
-  min-width: 32px;
-  min-height: 32px;
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .week-remove {
-  grid-column: 1;
-  grid-row: 2;
-  justify-self: center;
+  display: inline-flex;
+  width: 24px;
+  height: 24px;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  margin: 0;
   padding: 0;
+  border: 0;
+  background: transparent;
+  color: #b9a98f;
+  font-family: var(--font-sans), "Noto Sans SC", sans-serif;
+  font-size: 13px;
+  font-weight: 400;
   line-height: 1;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.week-remove:focus-visible {
+  opacity: 1;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .week-chip:hover > .week-remove,
+  .week-chip:focus-within > .week-remove {
+    opacity: 1;
+  }
 }
 
 .week-more {
-  width: 100%;
-  margin-top: 4px;
+  align-self: flex-start;
+  height: 28px;
+  margin: 0;
+  padding: 0 10px;
+  border: 1px solid #cdbb9c;
+  border-radius: 14px;
+  background: #fff8ec;
+  color: var(--color-sumi-soft);
+  font-family: var(--font-sans), "Noto Sans SC", sans-serif;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1;
+  cursor: pointer;
 }
 
 .week-empty {
@@ -670,6 +742,103 @@ iframe[src*="vercel.live"] {
 
 .week-tray {
   display: none;
+}
+
+.week-press-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+}
+
+.week-press-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  border: 0;
+  background: var(--color-scrim);
+  cursor: pointer;
+}
+
+.week-press-sheet {
+  position: fixed;
+  z-index: 51;
+  bottom: calc(16px + env(safe-area-inset-bottom));
+  left: 50%;
+  width: min(440px, calc(100vw - 32px));
+  transform: translateX(-50%);
+  overflow: hidden;
+  border: 2px solid var(--color-sumi);
+  border-radius: 10px;
+  background: var(--color-paper);
+  color: var(--color-sumi);
+}
+
+.week-press-sheet:focus {
+  outline: none;
+}
+
+.week-press-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 48px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--color-rule);
+  font-family: var(--font-sans), "Noto Sans SC", sans-serif;
+  font-size: 16px;
+  font-weight: 700;
+  line-height: 1.3;
+}
+
+.week-press-action {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  min-height: 48px;
+  margin: 0;
+  padding: 14px 16px;
+  border: 0;
+  border-bottom: 1px solid var(--color-paper-shade);
+  background: transparent;
+  color: var(--color-sumi);
+  font-family: var(--font-sans), "Noto Sans SC", sans-serif;
+  font-size: 16px;
+  font-weight: 400;
+  line-height: 1.3;
+  text-align: left;
+  cursor: pointer;
+}
+
+.week-press-delete {
+  color: var(--color-shu);
+}
+
+.week-press-cancel {
+  justify-content: center;
+  border-bottom: 0;
+  color: var(--color-sumi-soft);
+}
+
+@media (pointer: coarse) {
+  .week-chip,
+  .week-more {
+    height: auto;
+    min-height: 44px;
+    border-radius: 22px;
+  }
+
+  .week-custom {
+    height: auto;
+    min-height: 44px;
+  }
+
+  .week-remove {
+    pointer-events: none;
+  }
+
+  .week-remove:focus-visible {
+    pointer-events: auto;
+  }
 }
 
 .add-day-layer {
@@ -1075,50 +1244,17 @@ iframe[src*="vercel.live"] {
     background: var(--color-washi);
     padding: 8px;
   }
-
-  .week-day {
-    grid-template-columns: 2.4em repeat(3, minmax(0, 1fr));
-  }
-
-  .week-day-label {
-    min-width: 0;
-    font-size: 15px;
-  }
-
-  .week-slot-item {
-    grid-template-columns: minmax(0, 1fr) 32px;
-    grid-template-rows: auto;
-    align-items: start;
-  }
-
-  .week-dish-name {
-    grid-column: 1;
-    grid-row: 1;
-  }
-
-  .week-thumb {
-    display: none;
-  }
-
-  .week-remove {
-    grid-column: 2;
-    grid-row: 1;
-    width: 32px;
-    min-width: 32px;
-    height: 32px;
-    min-height: 32px;
-    border: 1px solid var(--color-sumi);
-    border-image: none;
-  }
-}
-
-@container (max-width: 95px) {
-  .week-thumb {
-    display: none;
-  }
 }
 
 @media (min-width: 1024px) {
+  .dish-grid {
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  }
+
+  .week-board {
+    padding: 16px 18px;
+  }
+
   .week-tray,
   .week-tray-toggle {
     display: none;
@@ -1147,7 +1283,7 @@ iframe[src*="vercel.live"] {
     top: 0;
     right: 0;
     z-index: 36;
-    width: min(380px, 100vw);
+    width: min(560px, 100vw);
     height: 100svh;
     overflow: auto;
     background: var(--color-washi);
@@ -1156,14 +1292,41 @@ iframe[src*="vercel.live"] {
 }
 
 @media (min-width: 1440px) {
+  .dish-grid {
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  }
+
+  .category-nav {
+    width: 160px;
+  }
+
   .week-panel {
-    display: block;
+    display: flex;
+    flex-direction: column;
     position: sticky;
     top: 16px;
-    width: 380px;
-    max-width: 380px;
+    width: 560px;
+    min-width: 560px;
+    max-width: 560px;
     flex: none;
-    max-height: calc(100svh - 32px);
+    height: calc(100dvh - 32px);
+    max-height: calc(100dvh - 32px);
+    overflow: hidden;
+  }
+
+  .week-panel > .week-board {
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: column;
+    height: 100%;
+    min-height: 0;
+  }
+
+  .week-panel .week-board-body {
+    display: grid;
+    flex: 1 1 auto;
+    grid-template-rows: auto repeat(7, minmax(64px, 1fr));
+    min-height: 0;
     overflow: auto;
   }
 
@@ -1173,6 +1336,10 @@ iframe[src*="vercel.live"] {
 }
 
 @media (min-width: 1920px) {
+  .dish-grid {
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  }
+
   .page-title {
     font-size: 44px;
   }
@@ -1181,13 +1348,14 @@ iframe[src*="vercel.live"] {
     font-size: 24px;
   }
 
-  .week-dish-name {
-    font-size: 14px;
+  .category-nav {
+    width: 180px;
   }
 
   .week-panel {
-    width: 420px;
-    max-width: 420px;
+    width: 640px;
+    min-width: 640px;
+    max-width: 640px;
   }
 
   .stamp-button {
@@ -1196,6 +1364,11 @@ iframe[src*="vercel.live"] {
 }
 
 @media (min-width: 2560px) {
+  .dish-grid {
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 20px;
+  }
+
   .scene-header {
     min-height: 180px;
   }
@@ -1217,23 +1390,6 @@ iframe[src*="vercel.live"] {
     font-size: 14px;
   }
 
-  .week-dish-name {
-    font-size: 15px;
-  }
-
-  .week-day-head {
-    font-size: 26px;
-  }
-
-  .week-day-label {
-    font-size: 22px;
-  }
-
-  .week-thumb {
-    width: 40px;
-    height: 40px;
-  }
-
   .seal-badge {
     width: 56px;
     height: 56px;
@@ -1248,8 +1404,9 @@ iframe[src*="vercel.live"] {
   }
 
   .week-panel {
-    width: clamp(560px, 18vw, 640px);
-    max-width: 640px;
+    width: 760px;
+    min-width: 760px;
+    max-width: 760px;
   }
 
   .scene-deco {

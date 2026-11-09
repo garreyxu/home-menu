@@ -250,7 +250,7 @@ export function MenuPlanner({
           ) : (
             <ul
               aria-labelledby="dish-wall-heading"
-              className="dish-grid grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-[repeat(auto-fill,minmax(200px,1fr))] min-[1920px]:grid-cols-[repeat(auto-fill,minmax(220px,1fr))] min-[2560px]:grid-cols-[repeat(auto-fill,minmax(280px,1fr))] min-[2560px]:gap-5"
+              className="dish-grid grid grid-cols-2 gap-4 sm:grid-cols-3"
             >
               {wall.dishes.map((dish) => {
                 const plannedCount = items.filter(

@@ -28,24 +28,17 @@ test.describe("weekly menu", () => {
     try {
       await removeIfPresent(page, remove);
       await addDish(page, dish!.name, "周二晚餐");
-      await expect(
-        page.getByRole("button", { name: remove, exact: true }),
-      ).toBeVisible();
+      await page.keyboard.press("Escape");
+      await revealRemove(page, remove);
       await expect(page.getByRole("status")).toContainText("已加到 周二·晚");
 
       await page.reload();
-      await expect(
-        page.getByRole("button", { name: remove, exact: true }),
-      ).toBeVisible();
+      await revealRemove(page, remove);
 
-      await page.getByRole("button", { name: remove, exact: true }).click();
-      await expect(
-        page.getByRole("button", { name: remove, exact: true }),
-      ).toHaveCount(0);
+      await removeButton(page, remove).click();
+      await expect(removeButton(page, remove)).toHaveCount(0);
       await page.reload();
-      await expect(
-        page.getByRole("button", { name: remove, exact: true }),
-      ).toHaveCount(0);
+      await expect(removeButton(page, remove)).toHaveCount(0);
     } finally {
       await removeIfPresent(page, remove);
     }
@@ -66,8 +59,7 @@ test.describe("weekly menu", () => {
     await expect(drawer.getByText("12月27日–1月2日")).toBeVisible();
     const box = await drawer.boundingBox();
     expect(box).not.toBeNull();
-    expect(box!.width).toBeGreaterThanOrEqual(360);
-    expect(box!.width).toBeLessThanOrEqual(384);
+    expect(Math.abs(box!.width - 560)).toBeLessThanOrEqual(1);
   });
 
   test("mobile tray shows the count and the dish after adding", async ({
@@ -101,21 +93,15 @@ test.describe("weekly menu", () => {
 
       await expect(tray).toHaveText(`本周已点 ${before + 1} 道`);
       await openTray(page);
-      await expect(
-        page.getByRole("button", { name: remove, exact: true }),
-      ).toBeVisible();
+      await revealRemove(page, remove);
 
       await page.reload();
       await expect(tray).toHaveText(`本周已点 ${before + 1} 道`);
       await openTray(page);
-      await expect(
-        page.getByRole("button", { name: remove, exact: true }),
-      ).toBeVisible();
+      await revealRemove(page, remove);
 
-      await page.getByRole("button", { name: remove, exact: true }).click();
-      await expect(
-        page.getByRole("button", { name: remove, exact: true }),
-      ).toHaveCount(0);
+      await removeButton(page, remove).click();
+      await expect(removeButton(page, remove)).toHaveCount(0);
     } finally {
       await openTray(page);
       await removeIfPresent(page, remove);
@@ -143,12 +129,21 @@ test.describe("weekly menu", () => {
         await page.keyboard.press("Escape");
       }
 
-      for (const width of [1440, 1920]) {
-        await page.setViewportSize({ width, height: 900 });
+      for (const width of [1440, 1920, 3440]) {
+        await page.setViewportSize({
+          width,
+          height: width === 3440 ? 1440 : 900,
+        });
         const board = page.getByRole("region", { name: "一周菜单" });
         await expect(board).toBeVisible();
         await expect(board.getByRole("button", { name: "空着呢" })).toHaveCount(
           0,
+        );
+        const expectedWidth = width === 1440 ? 560 : width === 1920 ? 640 : 760;
+        const boardBox = await board.boundingBox();
+        expect(boardBox).not.toBeNull();
+        expect(Math.abs(boardBox!.width - expectedWidth)).toBeLessThanOrEqual(
+          1,
         );
         // Any empty slot: the check is that empty slots are not buttons.
         const empty = board.locator(".week-slot-empty").first();
@@ -157,10 +152,12 @@ test.describe("weekly menu", () => {
         expect(await empty.evaluate((node) => node.tabIndex)).toBeLessThan(0);
 
         for (const item of planned) {
-          const row = board.locator(".week-slot-item").filter({
-            has: page.getByRole("button", { name: item.remove, exact: true }),
+          const row = board.locator(".week-chip").filter({
+            has: page.locator(`.week-remove[aria-label="${item.remove}"]`),
           });
           await expect(row).toHaveCount(1);
+          const remove = row.locator(".week-remove");
+          await expect(remove).toHaveCSS("opacity", "0");
           const name = row.locator(".week-dish-name");
           await expect(name).toHaveCount(1);
           await expect(name).toHaveAttribute("title", item.dish);
@@ -170,8 +167,11 @@ test.describe("weekly menu", () => {
             const fontSize = Number.parseFloat(style.fontSize);
             const text = node.textContent ?? "";
             return {
-              // A CJK glyph is about one em wide. The old layout fit one glyph
-              // plus an ellipsis (about 25px at 14px).
+              fontSize: style.fontSize,
+              fontWeight: style.fontWeight,
+              fontFamily: style.fontFamily,
+              whiteSpace: style.whiteSpace,
+              // A CJK glyph is about one em wide.
               chars: Math.floor((node.clientWidth + 1) / fontSize),
               text,
               clientWidth: node.clientWidth,
@@ -179,16 +179,20 @@ test.describe("weekly menu", () => {
               singleGlyph: /^.\u2026$|^.\.\.\.$/.test(text),
             };
           });
+          expect(fit.fontSize).toBe("13px");
+          expect(Number(fit.fontWeight)).toBe(500);
+          expect(fit.whiteSpace).toBe("nowrap");
+          expect(fit.fontFamily).not.toMatch(/Ma Shan Zheng|MaShanZheng/i);
           expect(fit.text).toBe(item.dish);
           expect(fit.singleGlyph).toBe(false);
           expect(fit.chars).toBeGreaterThanOrEqual(2);
           expect(fit.clientWidth).toBeGreaterThan(0);
           expect(fit.scrollWidth / fit.clientWidth).toBeLessThan(1.35);
 
+          await row.hover();
+          await expect(remove).toHaveCSS("opacity", "1");
           const nameBox = await name.boundingBox();
-          const removeBox = await board
-            .getByRole("button", { name: item.remove, exact: true })
-            .boundingBox();
+          const removeBox = await remove.boundingBox();
           expect(nameBox).not.toBeNull();
           expect(removeBox).not.toBeNull();
           const separated =
@@ -247,6 +251,27 @@ function removeLabel(slot: string, dish: string): string {
   return `从${slot}移除${dish}`;
 }
 
+function shownBoard(page: Page) {
+  return page.locator(
+    ".week-panel:visible, .week-drawer-panel:visible, #week-tray-panel:visible",
+  );
+}
+
+function removeButton(page: Page, name: string) {
+  return shownBoard(page).locator(`.week-remove[aria-label="${name}"]`);
+}
+
+async function revealRemove(page: Page, name: string) {
+  const button = removeButton(page, name);
+  await expect(button).toHaveCount(1);
+  await expect(button).toHaveCSS("opacity", "0");
+  await button
+    .locator("xpath=ancestor::li[contains(@class,'week-chip')]")
+    .hover();
+  await expect(button).toHaveCSS("opacity", "1");
+  return button;
+}
+
 async function addDish(page: Page, dishName: string, slotName: string) {
   const card = page.getByRole("listitem").filter({
     has: page.getByRole("heading", {
@@ -264,8 +289,11 @@ async function addDish(page: Page, dishName: string, slotName: string) {
 }
 
 async function removeIfPresent(page: Page, name: string) {
-  const button = page.getByRole("button", { name, exact: true });
+  const button = removeButton(page, name);
   if ((await button.count()) === 0) return;
+  await button
+    .locator("xpath=ancestor::li[contains(@class,'week-chip')]")
+    .hover();
   await button.click();
   await expect(button).toHaveCount(0);
 }

@@ -1,4 +1,4 @@
-import { expect, test, type Locator } from "@playwright/test";
+import { expect, test, type Locator, type Page } from "@playwright/test";
 import { e2eCredentials, login } from "./credentials";
 import { readWall } from "./wall";
 
@@ -95,9 +95,31 @@ test.describe("dish wall", () => {
   });
 
   const viewports = [
-    { name: "mobile", width: 390, height: 844 },
-    { name: "desktop", width: 1440, height: 900 },
-    { name: "ultrawide", width: 3440, height: 1440 },
+    { name: "mobile", width: 390, height: 844, columns: 2 },
+    {
+      name: "desktop",
+      width: 1440,
+      height: 900,
+      board: 560,
+      nav: 160,
+      columns: 3,
+    },
+    {
+      name: "wide",
+      width: 1920,
+      height: 1080,
+      board: 640,
+      nav: 180,
+      columns: 4,
+    },
+    {
+      name: "ultrawide",
+      width: 3440,
+      height: 1440,
+      board: 760,
+      nav: 220,
+      columns: 6,
+    },
   ] as const;
 
   for (const viewport of viewports) {
@@ -109,11 +131,7 @@ test.describe("dish wall", () => {
       });
       await login(page, username, password);
 
-      const overflow = await page.evaluate(() => {
-        const doc = document.documentElement;
-        return doc.scrollWidth - doc.clientWidth;
-      });
-      expect(overflow).toBeLessThanOrEqual(1);
+      await expectNoHorizontalOverflow(page);
 
       await expect(
         page.locator("ul.dish-grid").getByRole("listitem"),
@@ -127,9 +145,22 @@ test.describe("dish wall", () => {
       if (viewport.name === "mobile") {
         expect(box!.width).toBeGreaterThan(120);
         expect(box!.width).toBeLessThan(220);
-      } else {
+      } else if (viewport.name === "desktop") {
+        expect(box!.width).toBeGreaterThan(160);
+        expect(box!.width).toBeLessThan(280);
+      } else if (viewport.name === "wide") {
         expect(box!.width).toBeGreaterThan(200);
+        expect(box!.width).toBeLessThan(360);
+      } else {
+        expect(box!.width).toBeGreaterThan(250);
         expect(box!.width).toBeLessThan(420);
+      }
+
+      const columns = await firstRowCount(page.locator("ul.dish-grid"));
+      if (viewport.name === "ultrawide") {
+        expect(columns).toBeGreaterThanOrEqual(viewport.columns);
+      } else {
+        expect(columns).toBe(viewport.columns);
       }
 
       const nav = await page
@@ -155,25 +186,32 @@ test.describe("dish wall", () => {
         expect(scrolling.wrap).toBe("nowrap");
       } else {
         expect(nav!.x).toBeLessThan(main!.x);
-        expect(nav!.width).toBeGreaterThan(180);
-        expect(nav!.width).toBeLessThan(260);
+        expect(Math.abs(nav!.width - viewport.nav)).toBeLessThanOrEqual(1);
       }
 
       const board = page.getByRole("region", { name: "一周菜单" });
       if (viewport.name === "mobile") {
-        await expect(
-          page.getByRole("button", { name: /本周已点 \d+ 道/ }),
-        ).toBeVisible();
+        const tray = page.getByRole("button", { name: /本周已点 \d+ 道/ });
+        await expect(tray).toBeVisible();
         await expect(board).toHaveCount(0);
+        await expect(page.locator(".week-drawer-toggle")).toBeHidden();
+        await tray.click();
+        await expect(board).toBeVisible();
+        await expectNoHorizontalOverflow(page);
+        await tray.click();
       } else {
         await expect(board).toBeVisible();
+        await expect(page.locator(".week-drawer-toggle")).toBeHidden();
+        await expect(page.locator(".week-tray-toggle")).toBeHidden();
         const boardBox = await board.boundingBox();
         expect(boardBox).not.toBeNull();
         expect(boardBox!.x).toBeGreaterThan(main!.x);
-        if (viewport.name === "desktop") {
-          expect(boardBox!.width).toBeGreaterThanOrEqual(376);
-          expect(boardBox!.width).toBeLessThanOrEqual(384);
-        }
+        expect(Math.abs(boardBox!.width - viewport.board)).toBeLessThanOrEqual(
+          1,
+        );
+        expect(
+          Math.abs(boardBox!.height - (viewport.height - 32)),
+        ).toBeLessThanOrEqual(2);
         if (viewport.name === "ultrawide") {
           expect(nav!.x).toBeLessThanOrEqual(120);
           expect(
@@ -182,8 +220,6 @@ test.describe("dish wall", () => {
           expect(boardBox!.x + boardBox!.width - nav!.x).toBeGreaterThanOrEqual(
             3200,
           );
-          expect(boardBox!.width).toBeGreaterThanOrEqual(560);
-          expect(boardBox!.width).toBeLessThanOrEqual(640);
         }
       }
     });
@@ -221,3 +257,24 @@ test.describe("dish wall", () => {
     expect(clamped.pageOverflow).toBeLessThanOrEqual(1);
   });
 });
+
+async function expectNoHorizontalOverflow(page: Page) {
+  const overflow = await page.evaluate(() => {
+    const doc = document.documentElement;
+    return doc.scrollWidth - doc.clientWidth;
+  });
+  expect(overflow).toBeLessThanOrEqual(1);
+}
+
+async function firstRowCount(grid: Locator) {
+  return grid.evaluate((node) => {
+    const items = [...node.children];
+    const first = items[0];
+    if (!(first instanceof HTMLElement)) return 0;
+    const top = first.getBoundingClientRect().top;
+    return items.filter((item) => {
+      if (!(item instanceof HTMLElement)) return false;
+      return Math.abs(item.getBoundingClientRect().top - top) < 2;
+    }).length;
+  });
+}
