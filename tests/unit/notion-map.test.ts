@@ -141,6 +141,30 @@ describe("classifyNotionPage", () => {
     });
     expect(classified.dish.description).toBeNull();
     expect(classified.dish).not.toHaveProperty("photo");
+    expect(classified.dish.recipeBlocks).toEqual([
+      { type: "heading", level: 2, spans: [{ text: "步骤" }] },
+      {
+        type: "bulleted_list_item",
+        spans: [{ text: "切肉" }],
+        children: [],
+      },
+      {
+        type: "to_do",
+        spans: [{ text: "腌制" }],
+        checked: true,
+        children: [],
+      },
+      { type: "paragraph", spans: [{ text: "左" }] },
+      { type: "placeholder", label: "图片" },
+      { type: "paragraph", spans: [{ text: "备注" }] },
+      { type: "paragraph", spans: [{ text: "少盐" }] },
+    ]);
+    expect(JSON.stringify(classified.dish.recipeBlocks)).not.toContain(
+      BODY_IMAGE,
+    );
+    expect(JSON.stringify(classified.dish.recipeBlocks)).not.toContain(
+      "notion.so",
+    );
     expect(classified.dish.body.blocks).toEqual([
       { type: "heading", level: 2, text: "步骤", children: [] },
       { type: "bulleted_list_item", text: "切肉", children: [] },

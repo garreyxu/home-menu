@@ -25,7 +25,6 @@ describe("DishCard", () => {
       createElement(DishCard, {
         id: "dish-pork",
         name: "红烧肉",
-        categoryName: "大荤",
         description: "【简介】⏱ 制作时间 40 分钟",
         tried: true,
       }),
@@ -40,12 +39,15 @@ describe("DishCard", () => {
     expect(tried).toContain("还没有插画");
     expect(tried).not.toContain("<img");
     expect(tried).toContain("aspect-[4/3]");
+    expect(tried).not.toContain("dish-category");
+    expect(tried).not.toContain("大荤");
+    expect(tried).toContain("做法");
+    expect(tried).toContain("查看红烧肉的做法");
 
     const fresh = renderToStaticMarkup(
       createElement(DishCard, {
         id: "dish-greens",
         name: "青菜",
-        categoryName: "素菜",
         tried: false,
       }),
     );
@@ -59,7 +61,6 @@ describe("DishCard", () => {
       createElement(DishCard, {
         id: "dish-1",
         name: "番茄炒蛋",
-        categoryName: "家常菜",
         illustration: {
           src: "/illustrations/dish-1-480.webp?v=1",
           srcSet:

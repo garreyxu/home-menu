@@ -1,3 +1,5 @@
+import type { RecipeBlock } from "@/lib/recipe-blocks";
+
 export type SeedCategory = {
   name: string;
   sortOrder: number;
@@ -7,7 +9,48 @@ export type SeedDish = {
   name: string;
   categoryName: string;
   description: string;
+  recipeBlocks?: RecipeBlock[];
 };
+
+const tomatoEggRecipe: RecipeBlock[] = [
+  { type: "heading", level: 2, spans: [{ text: "食材" }] },
+  {
+    type: "bulleted_list_item",
+    spans: [{ text: "鸡蛋", bold: true }, { text: " 2 个" }],
+    children: [],
+  },
+  {
+    type: "bulleted_list_item",
+    spans: [{ text: "番茄" }],
+    children: [
+      {
+        type: "bulleted_list_item",
+        spans: [{ text: "切块" }],
+        children: [],
+      },
+    ],
+  },
+  { type: "heading", level: 2, spans: [{ text: "步骤" }] },
+  {
+    type: "numbered_list_item",
+    spans: [{ text: "鸡蛋打散" }],
+    children: [],
+  },
+  {
+    type: "numbered_list_item",
+    spans: [{ text: "番茄炒出汁", italic: true }],
+    children: [],
+  },
+  {
+    type: "to_do",
+    spans: [{ text: "撒葱花" }],
+    checked: false,
+    children: [],
+  },
+  { type: "divider" },
+  { type: "quote", spans: [{ text: "酸甜就好" }] },
+  { type: "callout", spans: [{ text: "中火" }] },
+];
 
 export const seedCategories: readonly SeedCategory[] = [
   { name: "家常菜", sortOrder: 0 },
@@ -21,6 +64,7 @@ export const seedDishes: readonly SeedDish[] = [
     name: "番茄炒蛋",
     categoryName: "家常菜",
     description: "番茄和鸡蛋一起炒，酸甜家常。",
+    recipeBlocks: tomatoEggRecipe,
   },
   {
     name: "红烧肉",

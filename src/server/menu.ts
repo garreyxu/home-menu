@@ -2,7 +2,9 @@ import "server-only";
 
 import { and, asc, eq } from "drizzle-orm";
 
+import { parseRecipeBlocks, type RecipeBlock } from "@/lib/recipe-blocks";
 import { getDb } from "@/server/db";
+import { seedDishes } from "@/server/db/seed-data";
 import { categories, dishes, menuItems, weeklyMenus } from "@/server/db/schema";
 import { DishNotFoundError } from "@/server/menu-errors";
 import { sampleDishCatalog } from "@/server/sample-catalog";
@@ -144,6 +146,32 @@ function isForeignKeyError(error: unknown): boolean {
     current = "cause" in current ? current.cause : undefined;
   }
   return false;
+}
+
+export async function getDishRecipe(
+  dishId: string,
+): Promise<{ name: string; blocks: RecipeBlock[] } | null> {
+  const id = assertDishId(dishId);
+  if (usesEphemeralMenu()) return sampleRecipe(id);
+
+  const [row] = await getDb()
+    .select({ name: dishes.name, recipeBlocks: dishes.recipeBlocks })
+    .from(dishes)
+    .where(eq(dishes.id, id))
+    .limit(1);
+  if (!row) return null;
+  return { name: row.name, blocks: parseRecipeBlocks(row.recipeBlocks) };
+}
+
+function sampleRecipe(
+  dishId: string,
+): { name: string; blocks: RecipeBlock[] } | null {
+  const dish = seedDishes.find((item) => `sample-dish:${item.name}` === dishId);
+  if (!dish) return null;
+  return {
+    name: dish.name,
+    blocks: parseRecipeBlocks(dish.recipeBlocks ?? []),
+  };
 }
 
 export async function findDish(

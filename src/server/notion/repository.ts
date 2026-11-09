@@ -123,6 +123,7 @@ export function createDishRepository(db: Database): DishRepository {
         cuisines: dish.cuisines,
         mainIngredient: dish.mainIngredient,
         body: dish.body,
+        recipeBlocks: dish.recipeBlocks,
         hasBody: dish.hasBody,
         photoKey: null,
         isActive: true,

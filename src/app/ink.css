@@ -112,9 +112,34 @@ summary:focus-visible,
   line-height: 1.5;
 }
 
-.dish-category {
-  color: var(--color-sumi);
-  font-size: 18px;
+.dish-art-open {
+  display: block;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  text-align: inherit;
+  cursor: pointer;
+}
+
+.dish-recipe-entry {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  min-height: 44px;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--color-ai);
+  font-family: var(--font-sans), "Noto Sans SC", sans-serif;
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.2;
+  cursor: pointer;
 }
 
 .stamp-button {
@@ -217,6 +242,7 @@ summary:focus-visible,
   bottom: auto;
   left: auto;
   z-index: 3;
+  pointer-events: none;
   padding: 1px 8px 2px;
   border: 1.5px solid var(--color-sumi);
   border-radius: 2px 7px 3px 8px;
@@ -234,6 +260,7 @@ summary:focus-visible,
   top: 8px;
   left: 8px;
   z-index: 3;
+  pointer-events: none;
   padding: 2px 8px;
   border-radius: 3px 8px 4px 6px;
   background: color-mix(in srgb, var(--color-kaki) 35%, var(--color-paper));
@@ -727,6 +754,138 @@ iframe[src*="vercel.live"] {
   line-height: 1;
 }
 
+.recipe-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  background: var(--color-scrim);
+}
+
+.recipe-panel {
+  position: fixed;
+  inset: 0;
+  z-index: 51;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  overflow: hidden;
+  background: var(--color-paper);
+  color: var(--color-sumi);
+  padding: 16px 16px calc(16px + env(safe-area-inset-bottom));
+}
+
+.recipe-toolbar {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.recipe-title {
+  margin: 0;
+  overflow-wrap: anywhere;
+  font-size: 28px;
+  line-height: 1.2;
+}
+
+.recipe-scroll {
+  min-height: 0;
+  flex: 1;
+  overflow: auto;
+}
+
+.recipe-body {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  color: var(--color-sumi);
+  font-size: 15px;
+  line-height: 1.6;
+}
+
+.recipe-body p,
+.recipe-body h3,
+.recipe-body h4,
+.recipe-body h5,
+.recipe-body ul,
+.recipe-body ol,
+.recipe-body blockquote,
+.recipe-body aside {
+  margin: 0;
+}
+
+.recipe-heading {
+  font-weight: 700;
+  line-height: 1.4;
+}
+
+.recipe-text {
+  white-space: pre-wrap;
+}
+
+.recipe-list {
+  padding-left: 1.25rem;
+}
+
+.recipe-list li + li {
+  margin-top: 4px;
+}
+
+.recipe-todo {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.recipe-check {
+  display: inline-grid;
+  width: 1.1rem;
+  height: 1.1rem;
+  flex: none;
+  place-items: center;
+  margin-top: 0.2rem;
+  border: 1.5px solid var(--color-sumi);
+  background: var(--color-paper);
+  color: var(--color-sumi);
+  font-size: 12px;
+  line-height: 1;
+}
+
+.recipe-quote {
+  padding-left: 12px;
+  border-left: 2px solid var(--color-rule);
+  color: var(--color-sumi-soft);
+}
+
+.recipe-callout {
+  padding: 8px 12px;
+  background: var(--color-paper-shade);
+  border-left: 3px solid var(--color-shu);
+}
+
+.recipe-divider {
+  width: 100%;
+  height: 0;
+  margin: 4px 0;
+  border: 0;
+  border-top: 1px solid var(--color-rule);
+}
+
+.recipe-placeholder,
+.recipe-empty {
+  color: var(--color-sumi-soft);
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.recipe-error {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 12px;
+  color: var(--color-shu);
+}
+
 .menu-toast {
   position: fixed;
   top: 12px;
@@ -810,6 +969,16 @@ iframe[src*="vercel.live"] {
 }
 
 @media (min-width: 640px) {
+  .recipe-panel {
+    inset: auto;
+    top: 50%;
+    left: 50%;
+    width: min(36rem, calc(100vw - 48px));
+    max-height: min(80vh, 720px);
+    transform: translate(-50%, -50%);
+    padding: 20px;
+  }
+
   .page-title {
     font-size: 40px;
   }

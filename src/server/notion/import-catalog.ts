@@ -5,6 +5,7 @@ import type {
   ListedPage,
   NotionSkip,
 } from "@/server/notion/report";
+import type { RecipeBlock } from "@/lib/recipe-blocks";
 import type { NotionPageSnapshot } from "@/server/notion/types";
 
 export type StoredNotionDish = {
@@ -26,6 +27,7 @@ export type UpsertDish = {
   cuisines: string[];
   mainIngredient: string | null;
   body: { blocks: unknown[] };
+  recipeBlocks: RecipeBlock[];
   hasBody: boolean;
 };
 
@@ -128,6 +130,7 @@ export async function importNotionCatalog(input: {
       cuisines: mapped.cuisines,
       mainIngredient: mapped.mainIngredient,
       body: mapped.body,
+      recipeBlocks: mapped.recipeBlocks,
       hasBody: mapped.hasBody,
     });
     if (result === "added") added += 1;

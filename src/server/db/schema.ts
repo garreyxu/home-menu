@@ -16,6 +16,7 @@ import {
   uuid,
 } from "drizzle-orm/pg-core";
 
+import type { RecipeBlock } from "@/lib/recipe-blocks";
 import { MEALS } from "../meals";
 
 export const mealEnum = pgEnum("meal", MEALS);
@@ -56,6 +57,8 @@ export const dishes = pgTable(
       .default(sql`'[]'::jsonb`),
     mainIngredient: text("main_ingredient"),
     body: jsonb("body"),
+    // Normalized page body for the in-site recipe. Null until a sync or seed writes it.
+    recipeBlocks: jsonb("recipe_blocks").$type<RecipeBlock[]>(),
     // True when the dish was imported with cooking steps.
     hasBody: boolean("has_body").notNull().default(false),
     isActive: boolean("is_active").notNull().default(true),

@@ -1,4 +1,9 @@
-export type NotionRichText = { plain_text?: string };
+export type NotionRichText = {
+  plain_text?: string;
+  annotations?: { bold?: boolean; italic?: boolean };
+  /** Present on some Notion payloads. The recipe store never keeps it. */
+  href?: string | null;
+};
 
 export type NotionProperty = {
   type?: string;

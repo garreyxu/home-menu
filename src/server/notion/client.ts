@@ -1,3 +1,4 @@
+import { readBlockChildrenPage } from "@/server/notion/block-page";
 import { MAIN_INGREDIENT_PROPERTY } from "@/server/notion/category-order";
 import { normalizeNotionId } from "@/server/notion/ids";
 import { assertTriedProperty } from "@/server/notion/map-page";
@@ -156,23 +157,11 @@ async function listChildren(
   do {
     const query = new URLSearchParams({ page_size: "100" });
     if (cursor) query.set("start_cursor", cursor);
-    const payload = await notion(
-      `/blocks/${blockId}/children?${query.toString()}`,
+    const page = readBlockChildrenPage(
+      await notion(`/blocks/${blockId}/children?${query.toString()}`),
     );
-    const record = asRecord(payload);
-    const results = record?.results;
-    if (!Array.isArray(results)) {
-      throw new Error("正文读取失败");
-    }
-    for (const result of results) {
-      const block = readBlock(result);
-      if (block) blocks.push(block);
-    }
-    const hasMore = record?.has_more === true;
-    const next = record?.next_cursor;
-    cursor =
-      hasMore && typeof next === "string" && next.length > 0 ? next : undefined;
-    if (hasMore && !cursor) throw new Error("正文读取失败");
+    blocks.push(...page.blocks);
+    cursor = page.nextCursor ?? undefined;
   } while (cursor);
   return blocks;
 }
@@ -269,18 +258,6 @@ function readPage(value: unknown): RawPage | null {
     ...base,
     properties: properties as Record<string, NotionProperty>,
   };
-}
-
-function readBlock(value: unknown): NotionBlock | null {
-  const record = asRecord(value);
-  if (
-    !record ||
-    typeof record.id !== "string" ||
-    typeof record.type !== "string"
-  ) {
-    return null;
-  }
-  return record as unknown as NotionBlock;
 }
 
 function readFile(value: unknown): NotionFile | null {
