@@ -100,20 +100,34 @@ test.describe("weekly menu", () => {
           has: page.locator(`.week-remove[aria-label="${remove}"]`),
         })
         .locator(".week-dish-name");
+      const trayChip = page.locator("#week-tray-panel .week-chip").filter({
+        has: page.locator(`.week-remove[aria-label="${remove}"]`),
+      });
       const trayFit = await trayName.evaluate((node) => {
         const style = getComputedStyle(node);
         const fontSize = Number.parseFloat(style.fontSize);
+        const chip = node.parentElement;
+        const thumb = chip?.querySelector(".week-thumb");
+        const day = chip?.closest(".week-day");
+        const columns = day ? getComputedStyle(day).gridTemplateColumns : "";
         return {
           chars: Math.floor((node.clientWidth + 1) / fontSize),
           fontSize: style.fontSize,
           lineClamp: style.getPropertyValue("-webkit-line-clamp"),
           whiteSpace: style.whiteSpace,
+          radius: chip ? getComputedStyle(chip).borderRadius : "",
+          thumbDisplay: thumb ? getComputedStyle(thumb).display : "missing",
+          columns,
         };
       });
-      expect(trayFit.fontSize).toBe("13px");
+      expect(trayFit.fontSize).toBe("12px");
       expect(trayFit.lineClamp).toBe("2");
       expect(trayFit.whiteSpace).toBe("normal");
       expect(trayFit.chars).toBeGreaterThanOrEqual(4);
+      expect(trayFit.radius).toBe("6px");
+      expect(trayFit.thumbDisplay).toBe("none");
+      expect(trayFit.columns.startsWith("36px")).toBe(true);
+      await expect(trayChip).toHaveCount(1);
 
       await page.reload();
       await expect(tray).toHaveText(`本周已点 ${before + 1} 道`);

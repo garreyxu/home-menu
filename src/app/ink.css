@@ -600,7 +600,6 @@ iframe[src*="vercel.live"] {
 
 .week-slot {
   display: flex;
-  container-type: inline-size;
   min-width: 0;
   min-height: 44px;
   flex-direction: column;
@@ -855,35 +854,43 @@ iframe[src*="vercel.live"] {
   }
 }
 
-/* A 390px tray cell is about 90px. A 24px mark beside the name leaves one
-   character. Stack the mark and wrap the name instead of shrinking the type. */
-@container (max-width: 136px) {
+/* Phone tray only. Wider boards keep the pill, the thumbnail, and 13px type. */
+@media (max-width: 639px) {
+  .week-day {
+    grid-template-columns: 36px repeat(3, minmax(0, 1fr));
+  }
+
+  .week-day-label {
+    justify-content: center;
+    padding-left: 0;
+    font-size: 16px;
+  }
+
+  .week-slot {
+    padding: 4px;
+  }
+
   .week-chip {
     position: relative;
-    flex-direction: column;
-    align-items: stretch;
     height: auto;
-    gap: 2px;
-    padding: 4px 2px 3px;
-    border-radius: 8px;
+    min-height: 0;
+    padding: 4px 6px;
+    border-radius: 6px;
   }
 
   .week-chip > .week-thumb {
-    align-self: center;
+    display: none;
   }
 
   .week-chip > .week-remove {
     position: absolute;
-    top: 0;
-    right: 0;
-    z-index: 1;
+    top: 2px;
+    right: 2px;
   }
 
   .week-dish-name {
     display: -webkit-box;
-    flex: none;
-    width: 100%;
-    overflow: hidden;
+    font-size: 12px;
     line-height: 1.25;
     white-space: normal;
     text-overflow: ellipsis;
