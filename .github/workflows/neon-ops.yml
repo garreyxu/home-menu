@@ -17,9 +17,10 @@ on:
         description: snapshot creates a backup branch from production. sync-report prints the last Notion sync runs and imported-dish counts.
         type: choice
         required: true
+        default: sync-report
         options:
-          - snapshot
           - sync-report
+          - snapshot
       expires_days:
         description: Snapshot only. Days until Neon deletes the backup branch. 0 keeps it. Allowed values are 0 and integers 1 through 30.
         type: string

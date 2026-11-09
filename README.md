@@ -170,7 +170,7 @@ The daily cron starts after that. Clicking the button again is safe: dishes are 
 
 ## Neon operations
 
-Backups and the Notion sync report run from GitHub Actions. The workflow is [`.github/workflows/neon-ops.yml`](.github/workflows/neon-ops.yml). It is manual: open Actions, choose neon-ops, and run the workflow. The run reads the `NEON_API_KEY` secret and uses Neon project `steep-voice-67811340`. It checks out the repo with `contents: read`. The API key, the connection string, and the database password are masked and are not printed.
+Backups and the Notion sync report run from GitHub Actions. The workflow is [`.github/workflows/neon-ops.yml`](.github/workflows/neon-ops.yml). It is manual: open Actions, choose neon-ops, and run the workflow. The default action is `sync-report`. `snapshot` creates a Neon branch and must be chosen explicitly. The run reads the `NEON_API_KEY` secret and uses Neon project `steep-voice-67811340`. It checks out the repo with `contents: read`. The API key, the connection string, and the database password are masked and are not printed.
 
 `snapshot` finds the project's default/primary branch through the Neon API and creates a child branch named `backup-YYYYMMDD-HHMM` (UTC). It does not create a compute endpoint. `expires_days` is used only by this action. The default is 7. `0` omits `expires_at`, so the branch does not expire. An integer from 1 to 30 sends `expires_at` as UTC now plus that many days. Any other value fails before the script calls Neon. The job summary still prints the `expires_at` value from the create response.
 
