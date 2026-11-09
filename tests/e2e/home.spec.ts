@@ -1,8 +1,19 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Locator } from "@playwright/test";
 import { e2eCredentials, login } from "./credentials";
 import { readWall } from "./wall";
 
 const credentials = e2eCredentials();
+
+/**
+ * One stamp per card. Dishes already on the viewed week say "已加 N 次"
+ * instead of "＋加到哪天". Preview Neon branches copy production, and the
+ * seed never writes week menus, so the current week may already be filled.
+ */
+function wallStamps(wall: Locator): Locator {
+  return wall.getByRole("button", {
+    name: /^(＋加到哪天|已加 \d+ 次)$/,
+  });
+}
 
 test.describe("dish wall", () => {
   test.skip(!credentials, "E2E_USERNAME and E2E_PASSWORD are not set");
@@ -18,9 +29,7 @@ test.describe("dish wall", () => {
     ).toBeVisible();
     const dishes = await readWall(page);
     const wall = page.locator("ul.dish-grid");
-    await expect(wall.getByRole("button", { name: "＋加到哪天" })).toHaveCount(
-      dishes.length,
-    );
+    await expect(wallStamps(wall)).toHaveCount(dishes.length);
 
     const category = dishes[0]!.category;
     const outsider = dishes.find((dish) => dish.category !== category);
@@ -39,18 +48,14 @@ test.describe("dish wall", () => {
         page.getByRole("heading", { name: outsider.name, exact: true }),
       ).toHaveCount(0);
     }
-    await expect(wall.getByRole("button", { name: "＋加到哪天" })).toHaveCount(
-      filtered.length,
-    );
+    await expect(wallStamps(wall)).toHaveCount(filtered.length);
     await expect(categoryLink).toHaveAttribute("aria-current", "page");
 
     await page.getByRole("link", { name: "全部", exact: true }).click();
     await expect(page).toHaveURL("/");
     const restored = await readWall(page);
     expect(restored).toHaveLength(dishes.length);
-    await expect(wall.getByRole("button", { name: "＋加到哪天" })).toHaveCount(
-      dishes.length,
-    );
+    await expect(wallStamps(wall)).toHaveCount(dishes.length);
   });
 
   test("category query is linkable", async ({ page }) => {
