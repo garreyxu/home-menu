@@ -7,6 +7,27 @@ const credentials = e2eCredentials();
 test.describe("in-site recipe", () => {
   test.skip(!credentials, "E2E_USERNAME and E2E_PASSWORD are not set");
 
+  test("localizes seeded recipe body text in the sheet", async ({
+    page,
+    world,
+  }) => {
+    const dish = world.dishes.find((dish) => dish.hasRecipe)!;
+    test.skip(
+      dish.id.startsWith("sample-dish:"),
+      "Requires database-backed /api/e2e dishes",
+    );
+    expect(Number(world.weeks[0].slice(0, 4))).toBeGreaterThanOrEqual(2090);
+    await login(page, credentials!.username, credentials!.password);
+    await page.locator(`[data-recipe-for="${dish.id}"]`).click();
+    const body = page
+      .getByRole("dialog", { name: dish.name })
+      .locator(".recipe-body");
+    await expect(body).toContainText("准备10 分钟，炖60 分钟");
+    await expect(body).toContainText("酱豆腐1勺（可选）");
+    await expect(body).toContainText("焖5 分钟，加盐（可选）");
+    await expect(body).not.toContainText(/min|option/i);
+  });
+
   test("opens a recipe in the site and does not link to Notion", async ({
     page,
     world,
