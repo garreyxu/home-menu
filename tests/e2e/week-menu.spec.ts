@@ -467,7 +467,6 @@ function removeButton(page: Page, name: string) {
 async function revealRemove(page: Page, name: string) {
   const button = removeButton(page, name);
   await expect(button).toHaveCount(1);
-  await expect(button).toHaveCSS("opacity", "0");
   const chip = button.locator(
     "xpath=ancestor::li[contains(@class,'week-chip')]",
   );
@@ -476,8 +475,16 @@ async function revealRemove(page: Page, name: string) {
   await chip.evaluate((node) => {
     node.scrollIntoView({ block: "center", inline: "nearest" });
   });
-  await chip.hover({ timeout: 5_000 });
+  await page.mouse.move(0, 0);
+  await expect(button).toBeVisible();
   await expect(button).toHaveCSS("opacity", "1");
+  const box = await button.boundingBox();
+  expect(box).not.toBeNull();
+  expect(box!.width).toBeGreaterThanOrEqual(28);
+  expect(box!.height).toBeGreaterThanOrEqual(28);
+  await button.click({ trial: true, timeout: 5_000 });
+  await button.hover({ timeout: 5_000 });
+  await expect(button).toHaveCSS("color", "rgb(200, 48, 40)");
   return button;
 }
 
@@ -519,13 +526,8 @@ async function removeIfPresent(page: Page, name: string) {
   if (page.isClosed()) return;
   const button = removeButton(page, name);
   if ((await button.count().catch(() => 0)) === 0) return;
-  // × stays transparent until hover. A DOM click still runs the handler,
-  // including from finally after a failure, without waiting out the test.
-  await persistMenuAction(page, () =>
-    button.evaluate((node) => {
-      if (node instanceof HTMLButtonElement) node.click();
-    }),
-  );
+  await revealRemove(page, name);
+  await persistMenuAction(page, () => button.click({ timeout: 5_000 }));
   await expect(button).toHaveCount(0);
 }
 
