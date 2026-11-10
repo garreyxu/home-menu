@@ -53,7 +53,7 @@ for (const width of [1440, 390]) {
     const before = Number(/已点 (\d+) 道/.exec(await range.innerText())![1]);
     expect(before).toBe(0);
     let ownedId: string | null = null;
-    let renamedSlot = "周三午餐";
+    let renamedSlot = "周三午";
     try {
       await shownBoard(page)
         .getByRole("button", { name: "＋ 自定义（外卖、聚餐…）", exact: true })
@@ -214,7 +214,7 @@ for (const width of [1440, 390]) {
               .locator(".add-day-cell")
               .filter({ hasNotText: renamed })
               .first()
-          : editor.getByRole("button", { name: "周三午餐", exact: true });
+          : editor.getByRole("button", { name: "周三午", exact: true });
       renamedSlot = (await renameCell.getAttribute("aria-label"))!;
       await renameCell.click();
       await editor.getByRole("button", { name: "保存", exact: true }).click();

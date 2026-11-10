@@ -53,7 +53,7 @@ async function addCustom(page: Page, name: string) {
     .click();
   const editor = page.getByRole("dialog", { name: "自定义条目", exact: true });
   await editor.getByRole("textbox").fill(name);
-  await editor.getByRole("button", { name: "周一午餐", exact: true }).click();
+  await editor.getByRole("button", { name: "周一午", exact: true }).click();
   await editor.getByRole("button", { name: "放进去", exact: true }).click();
   await expect(editor).toHaveCount(0);
   await expect(chip(page, name)).toHaveCount(1);

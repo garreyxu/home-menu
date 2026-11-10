@@ -193,7 +193,7 @@ test.describe("weekly menu", () => {
     );
 
     const [dish] = world.dishes;
-    const remove = removeLabel("周三午餐", dish!.name);
+    const remove = removeLabel("周三午", dish!.name);
     const tray = page.getByRole("button", { name: /本周已点 \d+ 道/ });
     await expect(tray).toBeVisible();
     await openTray(page);
@@ -203,11 +203,11 @@ test.describe("weekly menu", () => {
     expect(before).toBe(0);
 
     try {
-      await addDish(page, dish!.name, "周三午餐");
+      await addDish(page, dish!.name, "周三午");
       // The tray updates optimistically. Wait for the server toast before
       // reload, or the preview read can land before the write commits.
       await expect(page.locator(".menu-toast[role=status]")).toContainText(
-        "已加到 周三·中",
+        "已加到 周三·午",
       );
       await page.keyboard.press("Escape");
 
@@ -276,7 +276,7 @@ test.describe("weekly menu", () => {
       `/?week=${world.weeks[0]}&category=${encodeURIComponent(world.dishes[0]!.category)}`,
     );
     const picked = world.dishes.slice(0, 3);
-    const slots = ["周一早餐", "周三午餐", "周五晚餐"] as const;
+    const slots = ["周一早餐", "周三午", "周五晚餐"] as const;
     const planned = picked.map((dish, index) => {
       const slot = slots[index]!;
       return { dish: dish.name, slot, remove: removeLabel(slot, dish.name) };

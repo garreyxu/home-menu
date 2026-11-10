@@ -27,7 +27,7 @@ test("long-press sheet buttons fit the 390x660 touch viewport", async ({
     .click();
   const editor = page.getByRole("dialog", { name: "自定义条目", exact: true });
   await editor.getByRole("textbox").fill("寿司外卖");
-  await editor.getByRole("button", { name: "周一午餐", exact: true }).click();
+  await editor.getByRole("button", { name: "周一午", exact: true }).click();
   await persistMenuAction(page, () =>
     editor.getByRole("button", { name: "放进去", exact: true }).click(),
   );

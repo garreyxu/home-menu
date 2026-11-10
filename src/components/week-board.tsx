@@ -43,13 +43,6 @@ const VISIBLE_DISHES = 3;
 const LONG_PRESS_MS = 350;
 const LONG_PRESS_TOLERANCE = 8;
 
-/** Title copy in the touch menu. Lunch is 午, matching the board's 中 column. */
-const PRESS_MEAL: Record<Meal, string> = {
-  breakfast: "早",
-  lunch: "午",
-  dinner: "晚",
-};
-
 type PressTarget = {
   anchor: HTMLElement;
   item: WeekMenuItemView;
@@ -855,7 +848,7 @@ function PressMenu({
           )}
           <span>
             {target.item.dishName} · {dayLabel}
-            {PRESS_MEAL[target.meal]}
+            {MEAL_SHORT[target.meal]}
           </span>
         </div>
         <ChipMenuActions
