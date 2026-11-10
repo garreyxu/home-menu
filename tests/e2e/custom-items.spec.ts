@@ -29,7 +29,8 @@ for (const width of [1440, 390]) {
     test.skip(!credentials, "E2E_USERNAME and E2E_PASSWORD are not set");
     test.setTimeout(90_000);
     const name = `Takeout ${width} ${crypto.randomUUID().slice(0, 8)}`;
-    const renamed = `聚餐 ${crypto.randomUUID().slice(0, 8)}`;
+    const renamed =
+      width === 390 ? "火锅聚餐" : `聚餐 ${crypto.randomUUID().slice(0, 8)}`;
     await page.setViewportSize({ width, height: 900 });
     await login(page, credentials!.username, credentials!.password);
     await page.goto(`/?week=${week}`);
@@ -40,6 +41,8 @@ for (const width of [1440, 390]) {
       .locator(".dish-grid [data-slot-trigger]")
       .allTextContents();
     const before = Number(/已点 (\d+) 道/.exec(await range.innerText())![1]);
+    let ownedId: string | null = null;
+    let renamedSlot = "周三午餐";
     try {
       await shownBoard(page)
         .getByRole("button", { name: "＋ 自定义（外卖、聚餐…）", exact: true })
@@ -91,12 +94,22 @@ for (const width of [1440, 390]) {
         ).toBe(true);
       }
       if (width === 1440) {
-        const fit = await submit.boundingBox();
-        expect(fit!.y + fit!.height).toBeLessThanOrEqual(900);
+        for (const target of [
+          editor,
+          submit,
+          editor.getByText(`${name.length}/40`, { exact: true }),
+          editor.getByRole("button", { name: "周一晚餐", exact: true }),
+        ]) {
+          const fit = (await target.boundingBox())!;
+          expect(fit.x).toBeGreaterThanOrEqual(16);
+          expect(fit.y).toBeGreaterThanOrEqual(16);
+          expect(fit.x + fit.width).toBeLessThanOrEqual(1424);
+          expect(fit.y + fit.height).toBeLessThanOrEqual(884);
+        }
       }
       await mkdir("preview-screenshots", { recursive: true });
       await page.screenshot({
-        path: `preview-screenshots/custom-${width === 390 ? "sheet" : "popover"}-${width}.png`,
+        path: `preview-screenshots/custom-${width === 390 ? "sheet-390" : "popover-1440x900"}.png`,
       });
       await submit.focus();
       await page.keyboard.press("Tab");
@@ -120,10 +133,31 @@ for (const width of [1440, 390]) {
           has: page.getByRole("button", { name: `编辑${name}`, exact: true }),
         });
       await expect(chip.locator(".custom-seal")).toHaveText("外");
+      ownedId = await chip.getAttribute("data-item-id");
       await expect(chip.locator(".week-dish-name")).toHaveAttribute(
         "title",
         name,
       );
+      // Check the live editor data before a reload can repair stale props.
+      await shownBoard(page)
+        .getByRole("button", { name: "＋ 自定义（外卖、聚餐…）", exact: true })
+        .click();
+      const liveEditor = page.getByRole("dialog", {
+        name: "自定义条目",
+        exact: true,
+      });
+      await liveEditor.getByRole("textbox").fill(` ${name.toUpperCase()} `);
+      const liveSlot = liveEditor.getByRole("button", {
+        name: "周一晚餐",
+        exact: true,
+      });
+      await expect(liveSlot).toContainText(name);
+      await liveSlot.click();
+      await expect(liveEditor.getByRole("alert")).toHaveText("这顿已经有了");
+      await expect(
+        liveEditor.getByRole("button", { name: "放进去", exact: true }),
+      ).toBeDisabled();
+      await page.keyboard.press("Escape");
       await page.reload();
       await showBoard(page, width);
       await expect(range).toHaveText(
@@ -142,8 +176,13 @@ for (const width of [1440, 390]) {
       await expect(
         editor.getByRole("button", { name: "放进去", exact: true }),
       ).toBeDisabled();
+      await expect(range).toContainText(`已点 ${before + 1} 道`);
       await page.keyboard.press("Escape");
       await expect(editor).toHaveCount(0);
+      await page.reload();
+      await showBoard(page, width);
+      await expect(chip).toHaveCount(1);
+      await expect(range).toContainText(`已点 ${before + 1} 道`);
       await chip
         .getByRole("button", { name: `编辑${name}`, exact: true })
         .click();
@@ -156,22 +195,35 @@ for (const width of [1440, 390]) {
         editor.getByRole("button", { name: "周一晚餐", exact: true }),
       ).toHaveAttribute("aria-pressed", "true");
       await editor.getByRole("textbox").fill(renamed);
-      await editor
-        .getByRole("button", { name: "周三午餐", exact: true })
-        .click();
+      const renameCell =
+        width === 390
+          ? editor
+              .locator(".add-day-cell")
+              .filter({ hasNotText: renamed })
+              .first()
+          : editor.getByRole("button", { name: "周三午餐", exact: true });
+      renamedSlot = (await renameCell.getAttribute("aria-label"))!;
+      await renameCell.click();
       await editor.getByRole("button", { name: "保存", exact: true }).click();
       await expect(editor).toHaveCount(0);
-      chip = shownBoard(page)
-        .locator(".week-custom-chip")
-        .filter({
-          has: page.getByRole("button", {
-            name: `编辑${renamed}`,
-            exact: true,
-          }),
+      chip = shownBoard(page).locator(`[data-item-id="${ownedId}"]`);
+      if (width === 390) {
+        const label = chip.locator(".week-dish-name");
+        await expect(label).toHaveText("火锅聚餐");
+        const dimensions = await label.evaluate((node) => ({
+          scroll: node.scrollHeight,
+          height: node.clientHeight,
+          nowrap: getComputedStyle(node).whiteSpace,
+        }));
+        expect(dimensions.nowrap).toBe("normal");
+        expect(dimensions.scroll).toBeLessThanOrEqual(dimensions.height);
+        await page.screenshot({
+          path: "preview-screenshots/custom-chip-390.png",
         });
+      }
       await expect(
         chip.getByRole("button", {
-          name: `从周三午餐移除${renamed}`,
+          name: `从${renamedSlot}移除${renamed}`,
           exact: true,
         }),
       ).toHaveCount(1);
@@ -182,16 +234,10 @@ for (const width of [1440, 390]) {
     } finally {
       await page.keyboard.press("Escape");
       await showBoard(page, width);
-      for (const label of [name, renamed]) {
-        const remove = shownBoard(page)
-          .locator(".week-custom-chip")
-          .filter({
-            has: page.getByRole("button", {
-              name: `编辑${label}`,
-              exact: true,
-            }),
-          })
-          .locator(".week-remove");
+      if (ownedId) {
+        const remove = shownBoard(page).locator(
+          `[data-item-id="${ownedId}"] .week-remove`,
+        );
         if (await remove.count()) {
           await remove.evaluate((node: HTMLButtonElement) => node.click());
           await expect(remove).toHaveCount(0);
@@ -279,14 +325,12 @@ test("designer: custom chip with 外 seal at 1440", async ({
     // A populated slot may have collapsed the newly appended chip.
     for (const more of await board.locator(".week-more").all())
       await more.click();
-    const chip = board
-      .locator(".week-custom-chip")
-      .filter({
-        has: page.getByRole("button", {
-          name: `从${slot}移除${name}`,
-          exact: true,
-        }),
-      });
+    const chip = board.locator(".week-custom-chip").filter({
+      has: page.getByRole("button", {
+        name: `从${slot}移除${name}`,
+        exact: true,
+      }),
+    });
     await expect(chip.locator(".custom-seal")).toHaveText("外");
     await chip.scrollIntoViewIfNeeded();
     await page.evaluate(() => document.fonts.ready);

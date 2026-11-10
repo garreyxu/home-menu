@@ -56,6 +56,7 @@ async function drag(
   source: Locator,
   target: Locator,
   shot: string,
+  expectedHint = "放这里",
 ) {
   const from = (await source.boundingBox())!,
     to = (await target.boundingBox())!;
@@ -68,7 +69,18 @@ async function drag(
     steps: 12,
   });
   await expect(target.locator(".move-hint")).toBeVisible();
+  await expect(target.locator(".move-hint")).toHaveText(expectedHint);
   await expect(page.locator(".move-overlay")).toBeVisible();
+  const hintBox = (await target.locator(".move-hint").boundingBox())!;
+  const cellBox = (await target.boundingBox())!;
+  expect(hintBox.y).toBeGreaterThanOrEqual(cellBox.y);
+  expect(hintBox.y + hintBox.height).toBeLessThanOrEqual(
+    cellBox.y + cellBox.height,
+  );
+  if (expectedHint === "这顿已经有了") {
+    const nameBox = (await target.locator(".week-dish-name").boundingBox())!;
+    expect(hintBox.y + hintBox.height).toBeLessThanOrEqual(nameBox.y);
+  }
   await screenshot(page, shot);
   const final = (await target.boundingBox())!;
   await page.mouse.move(final.x + final.width / 2, final.y + final.height / 2);
@@ -143,10 +155,12 @@ for (const width of [1440, 390]) {
               .filter({ hasText: dishName }),
             cell(page, "2:dinner"),
             "drag-duplicate-1440",
+            "这顿已经有了",
           );
           await expect(page.locator(".menu-toast[role=alert]")).toHaveText(
             "这顿已经有了",
           );
+          await screenshot(page, "toast-1440");
           await expect(cell(page, "3:dinner")).toContainText(dishName);
           await drag(
             page,

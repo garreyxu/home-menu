@@ -524,6 +524,25 @@ export async function writeCustomMenuItem(input: {
     week = row;
   } else week = await getOrCreateWeek(input.weekStart ?? "");
   if (!week) throw new MenuInputError("没有这个条目。");
+  const slotItems = await db
+    .select({ id: menuItems.id, customName: menuItems.customName })
+    .from(menuItems)
+    .where(
+      and(
+        eq(menuItems.weeklyMenuId, week.id),
+        eq(menuItems.dayOfWeek, dayOfWeek),
+        eq(menuItems.meal, meal),
+      ),
+    );
+  if (
+    slotItems.some(
+      (item) =>
+        item.id !== input.id &&
+        item.customName !== null &&
+        customNameKey(item.customName) === customNameKey(name),
+    )
+  )
+    return { weekStart: week.weekStart, created: false };
   let created = false;
   try {
     const rows = input.id
@@ -539,8 +558,10 @@ export async function writeCustomMenuItem(input: {
           .returning({ id: menuItems.id });
     created = rows.length > 0;
   } catch (error) {
+    const seen = new Set<unknown>();
     let current: unknown = error;
-    while (current && typeof current === "object") {
+    while (current && typeof current === "object" && !seen.has(current)) {
+      seen.add(current);
       if ("code" in current && current.code === "23505")
         return { weekStart: week.weekStart, created: false };
       current = "cause" in current ? current.cause : null;
@@ -576,10 +597,12 @@ export async function moveStoredMenuItem(
     return;
   }
   try {
-    await getDb()
+    const rows = await getDb()
       .update(menuItems)
       .set({ dayOfWeek, meal })
-      .where(and(eq(menuItems.id, id), eq(menuItems.weeklyMenuId, week.id)));
+      .where(and(eq(menuItems.id, id), eq(menuItems.weeklyMenuId, week.id)))
+      .returning({ id: menuItems.id });
+    if (!rows.length) throw new MenuInputError("没有这个条目。");
   } catch (error) {
     const seen = new Set<unknown>();
     let current: unknown = error;

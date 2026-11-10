@@ -40,6 +40,7 @@ describe("WeekBoard", () => {
     expect(html).toContain("11月8日–11月14日 · 已点 1 道");
     expect(html).toContain("＋ 自定义（外卖、聚餐…）");
     expect(html).toContain('class="week-chip"');
+    expect(html).toMatch(/<li[^>]*role="listitem"[^>]*class="week-chip"/);
     expect(html).toContain('class="week-dish-name"');
     expect(html).not.toContain("week-dish-name font-brush");
     expect(html).toContain('title="番茄炒蛋"');

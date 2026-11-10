@@ -160,9 +160,10 @@
 }
 .move-hint {
   position: absolute;
-  inset: 0;
-  display: grid;
-  place-items: center;
+  top: 2px;
+  left: 4px;
+  right: 4px;
+  text-align: center;
   color: var(--color-shu);
   font-size: 12px;
   pointer-events: none;
@@ -188,4 +189,8 @@
   background: var(--color-paper);
   padding: 3px 5px;
   border-radius: 3px;
+}
+
+.week-slot.move-hover {
+  padding-top: 22px;
 }
