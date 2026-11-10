@@ -879,8 +879,7 @@ iframe[src*="vercel.live"] {
     border-radius: 6px;
   }
 
-  .week-chip > .week-thumb,
-  .week-chip > .illus-thumb-paper {
+  .week-chip > .week-thumb {
     display: none;
   }
 
@@ -1959,10 +1958,10 @@ ol.recipe-list > li + li {
   }
 }
 
-.illus-thumb-paper {
-  display: inline-flex;
-  flex: none;
-  border-radius: 50%;
+/* Keep the illustration as a direct child: phone and drag selectors rely on it. */
+.week-chip:has(> img.illus-blend-thumb),
+.week-press-title:has(> img.illus-blend-thumb),
+.move-overlay:has(> img.illus-blend-thumb) {
   background: var(--color-paper);
   isolation: isolate;
 }

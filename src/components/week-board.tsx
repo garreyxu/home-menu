@@ -399,17 +399,15 @@ function dishInitial(name: string): string {
 
 function WeekThumb({ src, size }: { src: string; size: number }) {
   return (
-    <span className="illus-thumb-paper">
-      {/* Static generated illustration, shared by chips, press menu and drag overlay. */}
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img
-        className="week-thumb illus-blend-thumb"
-        src={src}
-        alt=""
-        width={size}
-        height={size}
-      />
-    </span>
+    // Static generated illustration, shared by chips, press menu and drag overlay.
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      className="week-thumb illus-blend-thumb"
+      src={src}
+      alt=""
+      width={size}
+      height={size}
+    />
   );
 }
 
