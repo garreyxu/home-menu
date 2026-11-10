@@ -1,5 +1,6 @@
 "use client";
 
+import { displayField } from "@/lib/display";
 import { formatCookTime } from "@/lib/cook-time";
 
 import { startTransition, useEffect, useId, useRef, useState } from "react";
@@ -118,6 +119,10 @@ export function RecipeSheet({
   }, [onClose]);
 
   const title = state.status === "ready" ? state.name : dishName;
+  const cookTime =
+    state.status === "ready" ? displayField(state.cookTime) : null;
+  const mainIngredient =
+    state.status === "ready" ? displayField(state.mainIngredient) : null;
   const isTried = state.status === "ready" ? state.tried : tried;
 
   return createPortal(
@@ -171,16 +176,10 @@ export function RecipeSheet({
               </h2>
               <StampButton onClick={onAdd}>＋添加</StampButton>
             </div>
-            {(state.status === "ready" &&
-              (state.cookTime || state.mainIngredient)) ||
-            isTried ? (
+            {cookTime || mainIngredient || isTried ? (
               <div className="recipe-tags">
-                {state.status === "ready" && state.cookTime ? (
-                  <span>⏱ {formatCookTime(state.cookTime)}</span>
-                ) : null}
-                {state.status === "ready" && state.mainIngredient ? (
-                  <span>{state.mainIngredient}</span>
-                ) : null}
+                {cookTime ? <span>⏱ {formatCookTime(cookTime)}</span> : null}
+                {mainIngredient ? <span>{mainIngredient}</span> : null}
                 {isTried ? <span>做过</span> : null}
               </div>
             ) : null}

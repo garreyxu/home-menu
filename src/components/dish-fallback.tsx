@@ -1,19 +1,13 @@
+import { placeholderInitials } from "@/lib/display";
 import { BrushRuns } from "@/components/brush-runs";
 
-/** ≤4 characters on one line, 5 or more split across two. */
-export function fallbackLines(name: string): string[] {
-  const chars = Array.from(name.trim());
-  if (chars.length <= 4) return [chars.join("")];
-  const mid = Math.ceil(chars.length / 2);
-  return [chars.slice(0, mid).join(""), chars.slice(mid).join("")];
-}
-
 export function DishFallback({ name }: { name: string }) {
-  const lines = fallbackLines(name);
+  const initials = placeholderInitials(name);
   return (
     <div
       className="dish-fallback"
       role="img"
+      title={name}
       aria-label={`${name}，还没有插画`}
     >
       <svg
@@ -30,11 +24,7 @@ export function DishFallback({ name }: { name: string }) {
         />
       </svg>
       <p className="dish-fallback-name font-brush">
-        {lines.map((line, index) => (
-          <span key={index} className="block">
-            <BrushRuns text={line} />
-          </span>
-        ))}
+        <BrushRuns text={initials} />
       </p>
     </div>
   );
