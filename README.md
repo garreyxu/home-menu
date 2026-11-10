@@ -202,7 +202,11 @@ run header and all scopes before storage access. Database fixtures use an
 Without a database, fixtures use the committed sample catalog and reserve weeks
 in the existing in-memory menu map.
 
-Existing test `finally` blocks remove their items; fixtures release their weeks.
+Existing test `finally` blocks remove their items and await the server mutation
+response before asserting persistence or reloading. Fixtures drain queued menu
+requests before releasing their weeks. Cleanup explicitly deletes scoped menu
+items before weeks, dishes, and category; run-tagged dish references are followed
+only inside the reserved window, and unowned week rows are never deleted.
 The `e2e-cleanup` teardown project runs after Chromium, including failed tests,
 removes all remaining run-owned weeks, dishes and category, and fails if any
 leftover count is nonzero. Credentials being unset skips authenticated tests and

@@ -6,7 +6,7 @@
 
 ### Internal / Tests
 
-- E2E tests seed run-owned dishes and reserved future weeks, isolate parallel tests, and verify cleanup through a guarded test-only API.
+- E2E tests seed run-owned dishes and reserved future weeks, isolate parallel tests, and verify cleanup through a guarded test-only API. Await persisted mutations before reload/teardown, delete scoped children before parents, and use short fixture dish names.
 
 ### Changed
 

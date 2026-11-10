@@ -1,4 +1,10 @@
-import { test, expect } from "./fixtures";
+import {
+  test,
+  expect,
+  persistMenuAction,
+  waitForMenuActions,
+  cleanupWorldAfterEach,
+} from "./fixtures";
 import { mkdir } from "node:fs/promises";
 import { type Page } from "@playwright/test";
 import { e2eCredentials, login } from "./credentials";
@@ -8,6 +14,7 @@ import { formatWeekRange } from "../../src/server/week";
 test.describe.configure({ mode: "serial" });
 
 const credentials = e2eCredentials();
+cleanupWorldAfterEach();
 
 const shownBoard = (page: Page) =>
   page.locator(
@@ -162,6 +169,7 @@ for (const width of [1440, 390]) {
         liveEditor.getByRole("button", { name: "放进去", exact: true }),
       ).toBeDisabled();
       await page.keyboard.press("Escape");
+      await waitForMenuActions(page);
       await page.reload();
       await showBoard(page, width);
       await expect(range).toHaveText(
@@ -183,6 +191,7 @@ for (const width of [1440, 390]) {
       await expect(range).toContainText(`已点 ${before + 1} 道`);
       await page.keyboard.press("Escape");
       await expect(editor).toHaveCount(0);
+      await waitForMenuActions(page);
       await page.reload();
       await showBoard(page, width);
       await expect(chip).toHaveCount(1);
@@ -243,7 +252,9 @@ for (const width of [1440, 390]) {
           `[data-item-id="${ownedId}"] .week-remove`,
         );
         if (await remove.count()) {
-          await remove.evaluate((node: HTMLButtonElement) => node.click());
+          await persistMenuAction(page, () =>
+            remove.evaluate((node: HTMLButtonElement) => node.click()),
+          );
           await expect(remove).toHaveCount(0);
         }
       }
@@ -366,7 +377,9 @@ test("designer: custom chip with 外 seal at 1440", async ({
         exact: true,
       });
       if (await remove.count()) {
-        await remove.evaluate((node: HTMLButtonElement) => node.click());
+        await persistMenuAction(page, () =>
+          remove.evaluate((node: HTMLButtonElement) => node.click()),
+        );
         await expect(remove).toHaveCount(0);
       }
       await expect(range).toHaveText(

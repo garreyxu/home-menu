@@ -88,3 +88,29 @@ describe("route environment, session, and data scope", () => {
     expect(mocks.seed.mock.calls[0][1]).toHaveLength(2);
   });
 });
+
+it("logs only allowlisted database diagnostics, never error text or connection data", async () => {
+  const log = vi.spyOn(console, "error").mockImplementation(() => {});
+  try {
+    mocks.cleanup.mockRejectedValueOnce(
+      new Error("postgres://DO-NOT-LOG", {
+        cause: {
+          code: "23503",
+          constraint: "menu_items_dish_id_dishes_id_fk",
+          detail: "DO-NOT-LOG",
+        },
+      }),
+    );
+    const response = await POST(
+      request({ action: "cleanup", runId: "run-1234" }),
+    );
+    expect(response.status).toBe(500);
+    expect(log).toHaveBeenCalledExactlyOnceWith(
+      "[e2e] Data operation failed: code=23503 constraint=menu_items_dish_id_dishes_id_fk",
+    );
+    expect(JSON.stringify(log.mock.calls)).not.toContain("DO-NOT-LOG");
+    expect(await response.text()).not.toContain("DO-NOT-LOG");
+  } finally {
+    log.mockRestore();
+  }
+});

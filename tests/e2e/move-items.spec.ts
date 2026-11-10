@@ -1,10 +1,17 @@
-import { test, expect } from "./fixtures";
+import {
+  test,
+  expect,
+  persistMenuAction,
+  waitForMenuActions,
+  cleanupWorldAfterEach,
+} from "./fixtures";
 import { mkdir } from "node:fs/promises";
 import { type Page, type Locator } from "@playwright/test";
 import { e2eCredentials, login } from "./credentials";
 
 test.describe.configure({ mode: "serial" });
 const credentials = e2eCredentials();
+cleanupWorldAfterEach();
 
 const shownBoard = (page: Page) =>
   page.locator(
@@ -86,6 +93,7 @@ async function drag(
   await page.mouse.move(final.x + final.width / 2, final.y + final.height / 2);
   await page.mouse.up();
   await expect(page.locator(".move-overlay")).toHaveCount(0);
+  await waitForMenuActions(page);
 }
 for (const width of [1440, 390]) {
   test.describe(`${width}px`, () => {
@@ -186,6 +194,7 @@ for (const width of [1440, 390]) {
           ).toBeVisible();
           await page.keyboard.press("Space");
           await expect(cell(page, "5:lunch")).toContainText(name);
+          await waitForMenuActions(page);
           await expect(card.locator("[data-slot-trigger]")).toHaveText(stamps);
           await expect(range).toContainText(`已点 ${before + 3} 道`);
         } else {
@@ -239,6 +248,7 @@ for (const width of [1440, 390]) {
           await expect(range).toContainText(`已点 ${before} 道`);
         }
       } finally {
+        await waitForMenuActions(page);
         await page.mouse.up();
         await page.keyboard.press("Escape");
         for (const id of ownedIds) {
@@ -246,7 +256,9 @@ for (const width of [1440, 390]) {
             `[data-item-id="${id}"] .week-remove`,
           );
           if (await remove.count()) {
-            await remove.evaluate((node: HTMLButtonElement) => node.click());
+            await persistMenuAction(page, () =>
+              remove.evaluate((node: HTMLButtonElement) => node.click()),
+            );
             await expect(remove).toHaveCount(0);
           }
         }

@@ -1,6 +1,6 @@
 import "server-only";
 import { createHash } from "node:crypto";
-import { and, eq, gte, lte, lt, sql } from "drizzle-orm";
+import { and, eq, gte, lte, lt, sql, inArray } from "drizzle-orm";
 import { getDb } from "@/server/db";
 import { categories, dishes, menuItems, weeklyMenus } from "@/server/db/schema";
 import { sampleDishCatalog } from "@/server/sample-catalog";
@@ -70,7 +70,41 @@ export async function cleanupE2E(
 ) {
   assertRunId(runId);
   weeks?.forEach(assertE2EWeek);
-  for (const row of await ownedWeeks(runId)) {
+  const owned = await ownedWeeks(runId);
+  if (!ephemeral() && !weeks) {
+    // Run-tagged dish references can outlive the original week UUID (e.g. an
+    // in-flight UI write after fixture teardown). Never follow them outside
+    // the reserved window, and never delete another run's dishes or items.
+    await getDb()
+      .delete(menuItems)
+      .where(
+        and(
+          inArray(
+            menuItems.weeklyMenuId,
+            getDb()
+              .select({ id: weeklyMenus.id })
+              .from(weeklyMenus)
+              .where(
+                and(
+                  gte(weeklyMenus.weekStart, FIRST_E2E_WEEK),
+                  lte(weeklyMenus.weekStart, LAST_E2E_WEEK),
+                ),
+              ),
+          ),
+          inArray(
+            menuItems.dishId,
+            getDb()
+              .select({ id: dishes.id })
+              .from(dishes)
+              .where(
+                sql`${dishes.notionPageId} ~ ${`^e2e:${runId}:[1-9][0-9]*$`}`,
+              ),
+          ),
+          ...(olderThan ? [lt(menuItems.createdAt, olderThan)] : []),
+        ),
+      );
+  }
+  for (const row of owned) {
     if (weeks && !weeks.includes(row.weekStart)) continue;
     if (
       olderThan &&
@@ -83,7 +117,30 @@ export async function cleanupE2E(
     )
       continue;
     if (ephemeral()) ephemeralWeeks().delete(row.weekStart);
-    else
+    else {
+      // Explicit children-first deletion also works with a restrictive FK.
+      // During stale sweeps retain a whole week if it contains young items.
+      const weekScope = and(
+        eq(weeklyMenus.id, row.id),
+        eq(weeklyMenus.weekStart, row.weekStart),
+        ...(olderThan
+          ? [
+              lt(weeklyMenus.createdAt, olderThan),
+              sql`not exists (select 1 from ${menuItems} young where young.weekly_menu_id = ${weeklyMenus.id} and young.created_at >= ${olderThan})`,
+            ]
+          : []),
+      );
+      await getDb()
+        .delete(menuItems)
+        .where(
+          inArray(
+            menuItems.weeklyMenuId,
+            getDb()
+              .select({ id: weeklyMenus.id })
+              .from(weeklyMenus)
+              .where(weekScope),
+          ),
+        );
       await getDb()
         .delete(weeklyMenus)
         .where(
@@ -98,6 +155,7 @@ export async function cleanupE2E(
               : []),
           ),
         );
+    }
   }
   if (weeks || ephemeral()) return;
   const categoryName = `e2e-${runId}`;
@@ -239,7 +297,7 @@ export async function seedE2E(
         .values({
           categoryId: category.id,
           notionPageId,
-          name: `菜${i} ${runId}`,
+          name: seedDishes[i - 1]!.name,
           isActive: true,
           hasBody: true,
           recipeBlocks: [{ type: "paragraph", spans: [{ text: "鸡蛋打散" }] }],

@@ -60,7 +60,7 @@ test.describe("dish wall", () => {
     expect(filtered.every((dish) => dish.category === category)).toBe(true);
     if (outsider) {
       await expect(
-        page.getByRole("heading", { name: outsider.name, exact: true }),
+        page.locator(`[data-recipe-for="${outsider.id}"]`),
       ).toHaveCount(0);
     }
     await expect(wallStamps(wall)).toHaveCount(filtered.length);
@@ -73,7 +73,7 @@ test.describe("dish wall", () => {
     // All of our seeded cards must survive filtering and restoration.
     expect(
       restored.filter((dish) =>
-        world.dishes.some((owned) => owned.name === dish.name),
+        world.dishes.some((owned) => owned.id === dish.id),
       ),
     ).toHaveLength(world.dishes.length);
     await expect(wallStamps(wall)).toHaveCount(restored.length);
@@ -95,7 +95,7 @@ test.describe("dish wall", () => {
     expect(filtered.every((dish) => dish.category === category)).toBe(true);
     if (outsider) {
       await expect(
-        page.getByRole("heading", { name: outsider.name, exact: true }),
+        page.locator(`[data-recipe-for="${outsider.id}"]`),
       ).toHaveCount(0);
     }
 

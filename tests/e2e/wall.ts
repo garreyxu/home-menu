@@ -1,6 +1,7 @@
 import { expect, type Page } from "@playwright/test";
 
 export type WallDish = {
+  id: string;
   name: string;
   category: string;
 };
@@ -26,12 +27,16 @@ export async function readWall(
     expect(await card.locator("p.dish-category").count()).toBe(0);
     expect(name, "菜品卡片没有菜名").not.toBe("");
     expect(category, `${name} 没有分类`).not.toBe("");
-    dishes.push({ name, category });
+    const id = await card
+      .locator("[data-recipe-for]")
+      .getAttribute("data-recipe-for");
+    expect(id).toBeTruthy();
+    dishes.push({ id: id!, name, category });
   }
 
   // The catalog may contain duplicate family names; only fixture names are ours.
   const names = dishes
-    .filter((dish) => owned.some((item) => item.name === dish.name))
+    .filter((dish) => owned.some((item) => item.id === dish.id))
     .map((dish) => dish.name);
   expect(new Set(names).size, "本轮测试菜名必须唯一").toBe(names.length);
   return dishes;

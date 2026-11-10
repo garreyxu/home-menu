@@ -66,7 +66,32 @@ export async function POST(request: Request) {
   } catch (error) {
     if (error instanceof E2EInputError || error instanceof SyntaxError)
       return json({ error: "Invalid test data scope" }, 400);
-    // Database errors may contain connection details or queries. Never echo them.
+    // Only fixed SQLSTATE codes and known schema constraints are safe to log.
+    // Never log an Error object, message, query, parameters, or connection string.
+    const seen = new Set<unknown>();
+    let cause: unknown = error;
+    let code = "unknown";
+    let constraint = "unknown";
+    const constraints = new Set([
+      "menu_items_weekly_menu_id_weekly_menus_id_fk",
+      "menu_items_dish_id_dishes_id_fk",
+      "dishes_category_id_categories_id_fk",
+    ]);
+    while (cause && typeof cause === "object" && !seen.has(cause)) {
+      seen.add(cause);
+      const value = cause as Record<string, unknown>;
+      if (typeof value.code === "string" && /^[0-9A-Z]{5}$/.test(value.code))
+        code = value.code;
+      if (
+        typeof value.constraint === "string" &&
+        constraints.has(value.constraint)
+      )
+        constraint = value.constraint;
+      cause = value.cause;
+    }
+    console.error(
+      `[e2e] Data operation failed: code=${code} constraint=${constraint}`,
+    );
     return json({ error: "Test data operation failed" }, 500);
   }
 }

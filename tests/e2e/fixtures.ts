@@ -1,4 +1,10 @@
-import { test as base, expect, type APIRequestContext } from "@playwright/test";
+import {
+  test as base,
+  expect,
+  type Page,
+  type Request,
+  type APIRequestContext,
+} from "@playwright/test";
 import { e2eCredentials } from "./credentials";
 
 export type World = {
@@ -17,10 +23,81 @@ export async function dataAction(
     data: { action, runId, ...fields },
   });
 }
+
+const mutations = new WeakMap<Page, Set<Request>>();
+const isAction = (request: Request) =>
+  request.method() === "POST" &&
+  !!request.headers()["next-action"] &&
+  (/"meal"\s*:/.test(request.postData() ?? "") ||
+    /"\d{4}-\d{2}-\d{2}"/.test(request.postData() ?? ""));
+
+/** Wait for actual server responses and React's queued menu action work. */
+export async function waitForMenuActions(page: Page) {
+  const active = mutations.get(page);
+  if (!active || page.isClosed()) return;
+  do {
+    await Promise.all(
+      [...active].map(async (request) => {
+        if (request.failure()) {
+          active.delete(request);
+          return;
+        }
+        const response = await request.response();
+        if (response)
+          expect(response.status(), "menu action response").toBe(200);
+        active.delete(request);
+      }),
+    );
+    if (page.isClosed()) return;
+    await page.evaluate(
+      () => new Promise<void>((resolve) => window.setTimeout(resolve, 0)),
+    );
+  } while (active.size);
+}
+
+export async function persistMenuAction(
+  page: Page,
+  trigger: () => Promise<unknown>,
+) {
+  await waitForMenuActions(page);
+  const [response] = await Promise.all([
+    page.waitForResponse((response) => isAction(response.request())),
+    trigger(),
+  ]);
+  expect(response.status(), "menu mutation HTTP status").toBe(200);
+  // Next's action handler awaits the action before generating its response.
+  // Revalidated RSC streams may remain open in dev: await the response, not EOF.
+  await waitForMenuActions(page);
+}
+
 export const test = base.extend<{
   world: World;
   dataRequest: APIRequestContext;
 }>({
+  page: async ({ page }, provide) => {
+    const active = new Set<Request>();
+    mutations.set(page, active);
+    const started = (request: Request) => {
+      if (isAction(request)) active.add(request);
+    };
+    const finished = (request: Request) => active.delete(request);
+    page.on("request", started);
+    const responded = (response: import("@playwright/test").Response) =>
+      finished(response.request());
+    page.on("response", responded);
+    page.on("requestfinished", finished);
+    page.on("requestfailed", finished);
+    try {
+      await provide(page);
+    } finally {
+      await waitForMenuActions(page);
+      page.off("request", started);
+      page.off("response", responded);
+      page.off("requestfinished", finished);
+      page.off("requestfailed", finished);
+      mutations.delete(page);
+    }
+  },
   dataRequest: async ({ browser, playwright, hasTouch }, provide, info) => {
     const credentials = e2eCredentials();
     if (!credentials) {
@@ -49,12 +126,12 @@ export const test = base.extend<{
       await request.dispose();
     }
   },
-  world: async ({ dataRequest }, provide, info) => {
+  world: async ({ dataRequest, page }, provide, info) => {
     test.skip(!e2eCredentials(), "E2E_USERNAME and E2E_PASSWORD are not set");
     let world: World | undefined;
     for (let attempt = 0; attempt < 5; attempt++) {
       const response = await dataAction(dataRequest, "seed", {
-        label: info.testId,
+        label: `${info.testId}:retry-${info.retry}`,
         attempt,
       });
       if (response.status() === 409) continue;
@@ -70,6 +147,7 @@ export const test = base.extend<{
     try {
       await provide(world!);
     } finally {
+      await waitForMenuActions(page);
       const response = await dataAction(dataRequest, "cleanup", {
         weeks: world!.weeks,
       });
@@ -78,3 +156,17 @@ export const test = base.extend<{
   },
 });
 export { expect };
+
+/** Writing specs explicitly release each attempt before Playwright can retry it. */
+export function cleanupWorldAfterEach() {
+  test.afterEach(async ({ world, dataRequest, page }) => {
+    try {
+      await waitForMenuActions(page);
+    } finally {
+      const response = await dataAction(dataRequest, "cleanup", {
+        weeks: world.weeks,
+      });
+      expect(response.status(), "afterEach cleanup status").toBe(200);
+    }
+  });
+}

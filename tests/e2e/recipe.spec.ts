@@ -15,23 +15,18 @@ test.describe("in-site recipe", () => {
     await page.setViewportSize({ width: 390, height: 844 });
     await login(page, username, password);
 
-    const card = page
-      .locator("ul.dish-grid")
-      .getByRole("listitem")
-      .filter({
-        has: page.getByRole("heading", {
-          name: world.dishes.find((dish) => dish.hasRecipe)!.name,
-          exact: true,
-        }),
-      });
+    const dish = world.dishes.find((dish) => dish.hasRecipe)!;
+    const card = page.locator("ul.dish-grid > li").filter({
+      has: page.locator(`[data-recipe-for="${dish.id}"]`),
+    });
 
     await card
       .getByRole("button", {
-        name: `查看${world.dishes.find((dish) => dish.hasRecipe)!.name}的做法`,
+        name: `查看${dish.name}的做法`,
       })
       .click();
     const dialog = page.getByRole("dialog", {
-      name: world.dishes.find((dish) => dish.hasRecipe)!.name,
+      name: dish.name,
     });
     await expect(dialog).toBeVisible();
     await expect(dialog.getByText("正在打开做法")).toHaveCount(0);

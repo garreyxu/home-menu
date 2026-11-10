@@ -72,7 +72,10 @@ test.describe("credential login", () => {
     await expect(page.getByRole("heading", { name: "御膳房" })).toBeVisible();
     const [dish] = world.dishes;
     await expect(
-      page.getByRole("heading", { name: dish!.name, exact: true }),
+      page
+        .locator(".dish-card")
+        .filter({ has: page.locator(`[data-recipe-for="${dish!.id}"]`) })
+        .getByRole("heading", { name: dish!.name, exact: true }),
     ).toBeVisible();
 
     const logoutForm = page.locator('form[action="/logout"]');
@@ -92,13 +95,19 @@ test.describe("credential login", () => {
 
     await page.goBack();
     await expect(
-      page.getByRole("heading", { name: dish!.name, exact: true }),
+      page
+        .locator(".dish-card")
+        .filter({ has: page.locator(`[data-recipe-for="${dish!.id}"]`) })
+        .getByRole("heading", { name: dish!.name, exact: true }),
     ).toHaveCount(0);
 
     await page.goto("/");
     await expect(page).toHaveURL(/\/login/);
     await expect(
-      page.getByRole("heading", { name: dish!.name, exact: true }),
+      page
+        .locator(".dish-card")
+        .filter({ has: page.locator(`[data-recipe-for="${dish!.id}"]`) })
+        .getByRole("heading", { name: dish!.name, exact: true }),
     ).toHaveCount(0);
   });
 });

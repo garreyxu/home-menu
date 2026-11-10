@@ -1,9 +1,16 @@
-import { test, expect } from "./fixtures";
+import {
+  test,
+  expect,
+  persistMenuAction,
+  waitForMenuActions,
+  cleanupWorldAfterEach,
+} from "./fixtures";
 import { type Page } from "@playwright/test";
 import { formatWeekRange } from "../../src/server/week";
 import { e2eCredentials, login } from "./credentials";
 
 const credentials = e2eCredentials();
+cleanupWorldAfterEach();
 
 test.describe("weekly menu", () => {
   test.skip(!credentials, "E2E_USERNAME and E2E_PASSWORD are not set");
@@ -46,11 +53,15 @@ test.describe("weekly menu", () => {
         "已加到 周二·晚",
       );
 
+      await waitForMenuActions(page);
       await page.reload();
       await revealRemove(page, remove);
 
-      await removeButton(page, remove).click({ timeout: 5_000 });
+      await persistMenuAction(page, () =>
+        removeButton(page, remove).click({ timeout: 5_000 }),
+      );
       await expect(removeButton(page, remove)).toHaveCount(0);
+      await waitForMenuActions(page);
       await page.reload();
       await expect(removeButton(page, remove)).toHaveCount(0);
     } finally {
@@ -238,12 +249,15 @@ test.describe("weekly menu", () => {
       expect(trayFit.columns.startsWith("36px")).toBe(true);
       await expect(trayChip).toHaveCount(1);
 
+      await waitForMenuActions(page);
       await page.reload();
       await expect(tray).toHaveText(`本周已点 ${before + 1} 道`);
       await openTray(page);
       await revealRemove(page, remove);
 
-      await removeButton(page, remove).click({ timeout: 5_000 });
+      await persistMenuAction(page, () =>
+        removeButton(page, remove).click({ timeout: 5_000 }),
+      );
       await expect(removeButton(page, remove)).toHaveCount(0);
     } finally {
       await openTray(page);
@@ -453,9 +467,11 @@ async function addDish(page: Page, dishName: string, slotName: string) {
     () => window.matchMedia("(min-width: 1440px)").matches,
   );
   if (desktop) {
-    await shownBoard(page)
-      .getByRole("button", { name: slotName, exact: true })
-      .click();
+    await persistMenuAction(page, () =>
+      shownBoard(page)
+        .getByRole("button", { name: slotName, exact: true })
+        .click(),
+    );
   } else {
     const sheet = page.locator(".add-day-dialog");
     await expect(sheet).toBeVisible();
@@ -464,7 +480,9 @@ async function addDish(page: Page, dishName: string, slotName: string) {
     await expect(cell).toHaveAttribute("aria-pressed", "true");
     const box = await cell.boundingBox();
     expect(box!.height).toBeGreaterThanOrEqual(44);
-    await sheet.getByRole("button", { name: "添加", exact: true }).click();
+    await persistMenuAction(page, () =>
+      sheet.getByRole("button", { name: "添加", exact: true }).click(),
+    );
   }
 }
 
@@ -474,9 +492,11 @@ async function removeIfPresent(page: Page, name: string) {
   if ((await button.count().catch(() => 0)) === 0) return;
   // × stays transparent until hover. A DOM click still runs the handler,
   // including from finally after a failure, without waiting out the test.
-  await button.evaluate((node) => {
-    if (node instanceof HTMLButtonElement) node.click();
-  });
+  await persistMenuAction(page, () =>
+    button.evaluate((node) => {
+      if (node instanceof HTMLButtonElement) node.click();
+    }),
+  );
   await expect(button).toHaveCount(0);
 }
 
