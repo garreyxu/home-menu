@@ -8,7 +8,10 @@ export type WallDish = {
 const EMPTY_WALL = "菜品墙是空的，端到端测试需要至少一道菜。";
 
 /** Dish cards on the wall. Fails immediately when the wall has no dishes. */
-export async function readWall(page: Page): Promise<WallDish[]> {
+export async function readWall(
+  page: Page,
+  owned: readonly WallDish[],
+): Promise<WallDish[]> {
   const cards = page.locator("ul.dish-grid").getByRole("listitem");
   await expect(cards, EMPTY_WALL).not.toHaveCount(0);
   const count = await cards.count();
@@ -26,24 +29,10 @@ export async function readWall(page: Page): Promise<WallDish[]> {
     dishes.push({ name, category });
   }
 
-  const names = dishes.map((dish) => dish.name);
-  expect(new Set(names).size, "菜品墙上的菜名必须唯一").toBe(names.length);
+  // The catalog may contain duplicate family names; only fixture names are ours.
+  const names = dishes
+    .filter((dish) => owned.some((item) => item.name === dish.name))
+    .map((dish) => dish.name);
+  expect(new Set(names).size, "本轮测试菜名必须唯一").toBe(names.length);
   return dishes;
-}
-
-/** Short names first, so the week-board width check is about layout, not a long title. */
-export function shortestDishes(
-  dishes: readonly WallDish[],
-  count: number,
-): WallDish[] {
-  expect(
-    dishes.length,
-    `端到端测试需要至少 ${count} 道菜。`,
-  ).toBeGreaterThanOrEqual(count);
-  return [...dishes]
-    .sort(
-      (a, b) =>
-        a.name.length - b.name.length || a.name.localeCompare(b.name, "zh-CN"),
-    )
-    .slice(0, count);
 }

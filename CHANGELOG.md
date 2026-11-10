@@ -4,6 +4,10 @@
 
 ## [Unreleased]
 
+### Internal / Tests
+
+- E2E tests seed run-owned dishes and reserved future weeks, isolate parallel tests, and verify cleanup through a guarded test-only API.
+
 ### Changed
 
 - 修复同餐自定义名称重复：新增去重与唯一索引修复迁移、服务端检查和只读索引报告；手机印章小牌支持两行，弹层防碰撞并固定提交按钮，修正长按、拖拽提示及通知位置。

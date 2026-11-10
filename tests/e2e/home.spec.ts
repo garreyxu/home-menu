@@ -1,4 +1,5 @@
-import { expect, test, type Locator, type Page } from "@playwright/test";
+import { test, expect } from "./fixtures";
+import { type Locator, type Page } from "@playwright/test";
 import { e2eCredentials, login } from "./credentials";
 import { readWall } from "./wall";
 
@@ -6,8 +7,7 @@ const credentials = e2eCredentials();
 
 /**
  * One stamp per card. Dishes already on the viewed week say "已加 N 次"
- * instead of "＋添加". Preview Neon branches copy production, and the
- * seed never writes week menus, so the current week may already be filled.
+ * instead of "＋添加". Count assertions use a run-owned reserved week.
  */
 function wallStamps(wall: Locator): Locator {
   return wall.getByRole("button", {
@@ -18,16 +18,20 @@ function wallStamps(wall: Locator): Locator {
 test.describe("dish wall", () => {
   test.skip(!credentials, "E2E_USERNAME and E2E_PASSWORD are not set");
 
-  test("renders dishes and filters by category link", async ({ page }) => {
+  test("renders dishes and filters by category link", async ({
+    page,
+    world,
+  }) => {
     const { username, password } = credentials!;
     await login(page, username, password);
+    await page.goto(`/?week=${world.weeks[0]}`);
 
     await expect(page).toHaveTitle("御膳房");
     await expect(page.locator("html")).toHaveAttribute("lang", "zh-CN");
     await expect(
       page.getByRole("heading", { name: "御膳房", level: 1 }),
     ).toBeVisible();
-    const dishes = await readWall(page);
+    const dishes = await readWall(page, world.dishes);
     const wall = page.locator("ul.dish-grid");
     await expect(wallStamps(wall)).toHaveCount(dishes.length);
 
@@ -42,7 +46,7 @@ test.describe("dish wall", () => {
       new Set(dishes.map((dish) => dish.category)),
     );
 
-    const category = navCategories[0] ?? dishes[0]!.category;
+    const category = world.dishes[0]!.category;
     const outsider = dishes.find((dish) => dish.category !== category);
     const categoryLink = nav.getByRole("link", {
       name: category,
@@ -52,7 +56,7 @@ test.describe("dish wall", () => {
     await categoryLink.click();
 
     await expect(page).toHaveURL(/category=/);
-    const filtered = await readWall(page);
+    const filtered = await readWall(page, world.dishes);
     expect(filtered.every((dish) => dish.category === category)).toBe(true);
     if (outsider) {
       await expect(
@@ -63,22 +67,31 @@ test.describe("dish wall", () => {
     await expect(categoryLink).toHaveAttribute("aria-current", "page");
 
     await page.getByRole("link", { name: "全部", exact: true }).click();
-    await expect(page).toHaveURL("/");
-    const restored = await readWall(page);
-    expect(restored).toHaveLength(dishes.length);
-    await expect(wallStamps(wall)).toHaveCount(dishes.length);
+    await expect(page).toHaveURL(`/?week=${world.weeks[0]}`);
+    const restored = await readWall(page, world.dishes);
+    // Other CI runs may add/remove their categories between navigations.
+    // All of our seeded cards must survive filtering and restoration.
+    expect(
+      restored.filter((dish) =>
+        world.dishes.some((owned) => owned.name === dish.name),
+      ),
+    ).toHaveLength(world.dishes.length);
+    await expect(wallStamps(wall)).toHaveCount(restored.length);
   });
 
-  test("category query is linkable", async ({ page }) => {
+  test("category query is linkable", async ({ page, world }) => {
     const { username, password } = credentials!;
     await login(page, username, password);
+    await page.goto(`/?week=${world.weeks[0]}`);
 
-    const dishes = await readWall(page);
-    const category = dishes[0]!.category;
+    const dishes = await readWall(page, world.dishes);
+    const category = world.dishes[0]!.category;
     const outsider = dishes.find((dish) => dish.category !== category);
 
-    await page.goto("/?category=" + encodeURIComponent(category));
-    const filtered = await readWall(page);
+    await page.goto(
+      `/?week=${world.weeks[0]}&category=` + encodeURIComponent(category),
+    );
+    const filtered = await readWall(page, world.dishes);
     expect(filtered.every((dish) => dish.category === category)).toBe(true);
     if (outsider) {
       await expect(
@@ -86,7 +99,9 @@ test.describe("dish wall", () => {
       ).toHaveCount(0);
     }
 
-    await page.goto("/?category=" + encodeURIComponent("没有的分类"));
+    await page.goto(
+      `/?week=${world.weeks[0]}&category=` + encodeURIComponent("没有的分类"),
+    );
     await expect(page.getByText("没有这个分类。")).toBeVisible();
     await expect(
       page.locator("ul.dish-grid").getByRole("listitem"),
@@ -123,13 +138,17 @@ test.describe("dish wall", () => {
   ] as const;
 
   for (const viewport of viewports) {
-    test(`layout stays intentional at ${viewport.name}`, async ({ page }) => {
+    test(`layout stays intentional at ${viewport.name}`, async ({
+      page,
+      world,
+    }) => {
       const { username, password } = credentials!;
       await page.setViewportSize({
         width: viewport.width,
         height: viewport.height,
       });
       await login(page, username, password);
+      await page.goto(`/?week=${world.weeks[0]}`);
 
       await expectNoHorizontalOverflow(page);
 
@@ -239,13 +258,20 @@ test.describe("dish wall", () => {
 
   test("long dish names clamp at 390px without horizontal overflow", async ({
     page,
+    world,
   }) => {
     const { username, password } = credentials!;
     await page.setViewportSize({ width: 390, height: 844 });
     await login(page, username, password);
+    await page.goto(`/?week=${world.weeks[0]}`);
 
     const longName = "红烧糖醋排骨狮子头番茄炒蛋家常大菜";
-    const heading = page.locator("ul.dish-grid h3.dish-name").first();
+    const heading = page
+      .locator("ul.dish-grid > li")
+      .filter({
+        has: page.locator(`[data-recipe-for="${world.dishes[0]!.id}"]`),
+      })
+      .getByRole("heading", { level: 3 });
     await expect(heading).toBeVisible();
     await heading.evaluate((node, name) => {
       node.textContent = name;

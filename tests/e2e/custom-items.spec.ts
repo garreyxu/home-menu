@@ -1,14 +1,14 @@
+import { test, expect } from "./fixtures";
 import { mkdir } from "node:fs/promises";
-import { expect, test, type Page } from "@playwright/test";
+import { type Page } from "@playwright/test";
 import { e2eCredentials, login } from "./credentials";
-import { formatWeekRange, shiftWeek, toWeekStart } from "../../src/server/week";
+import { formatWeekRange } from "../../src/server/week";
 
-// Both viewports use the next week. Keep add/cleanup counts isolated within
-// this file even when the project enables fullyParallel.
+// Keep the interaction sequence serial; every test owns a fresh reserved week.
 test.describe.configure({ mode: "serial" });
 
 const credentials = e2eCredentials();
-const week = shiftWeek(toWeekStart(new Date()), 1);
+
 const shownBoard = (page: Page) =>
   page.locator(
     ".week-panel:visible, .week-drawer-panel:visible, #week-tray-panel:visible",
@@ -25,6 +25,7 @@ async function showBoard(page: Page, width: number) {
 for (const width of [1440, 390]) {
   test(`custom items at ${width}: add, duplicate, rename and move`, async ({
     page,
+    world,
   }) => {
     test.skip(!credentials, "E2E_USERNAME and E2E_PASSWORD are not set");
     test.setTimeout(90_000);
@@ -33,14 +34,17 @@ for (const width of [1440, 390]) {
       width === 390 ? "火锅聚餐" : `聚餐 ${crypto.randomUUID().slice(0, 8)}`;
     await page.setViewportSize({ width, height: 900 });
     await login(page, credentials!.username, credentials!.password);
-    await page.goto(`/?week=${week}`);
+    await page.goto(
+      `/?week=${world.weeks[0]}&category=${encodeURIComponent(world.dishes[0]!.category)}`,
+    );
     await showBoard(page, width);
     const range = shownBoard(page).locator(".week-board-range");
-    await expect(range).toContainText(formatWeekRange(week));
+    await expect(range).toContainText(formatWeekRange(world.weeks[0]!));
     const stampsBefore = await page
       .locator(".dish-grid [data-slot-trigger]")
       .allTextContents();
     const before = Number(/已点 (\d+) 道/.exec(await range.innerText())![1]);
+    expect(before).toBe(0);
     let ownedId: string | null = null;
     let renamedSlot = "周三午餐";
     try {
@@ -121,7 +125,7 @@ for (const width of [1440, 390]) {
       await submit.click();
       await expect(editor).toHaveCount(0);
       await expect(range).toHaveText(
-        `${formatWeekRange(week)} · 已点 ${before + 1} 道`,
+        `${formatWeekRange(world.weeks[0]!)} · 已点 ${before + 1} 道`,
         { timeout: 15_000 },
       );
       expect(
@@ -161,7 +165,7 @@ for (const width of [1440, 390]) {
       await page.reload();
       await showBoard(page, width);
       await expect(range).toHaveText(
-        `${formatWeekRange(week)} · 已点 ${before + 1} 道`,
+        `${formatWeekRange(world.weeks[0]!)} · 已点 ${before + 1} 道`,
         { timeout: 15_000 },
       );
       await shownBoard(page)
@@ -228,7 +232,7 @@ for (const width of [1440, 390]) {
         }),
       ).toHaveCount(1);
       await expect(range).toHaveText(
-        `${formatWeekRange(week)} · 已点 ${before + 1} 道`,
+        `${formatWeekRange(world.weeks[0]!)} · 已点 ${before + 1} 道`,
         { timeout: 15_000 },
       );
     } finally {
@@ -246,20 +250,27 @@ for (const width of [1440, 390]) {
       // Removal is a server action too: settle it before the next viewport
       // reads its baseline from this shared week.
       await expect(range).toHaveText(
-        `${formatWeekRange(week)} · 已点 ${before} 道`,
+        `${formatWeekRange(world.weeks[0]!)} · 已点 ${before} 道`,
         { timeout: 15_000 },
       );
     }
   });
 }
 
-test("§4 selected slot screenshots", async ({ page }) => {
+test("§4 selected slot screenshots", async ({ page, world }) => {
   test.skip(!credentials, "E2E_USERNAME and E2E_PASSWORD are not set");
   test.setTimeout(90_000);
   await page.setViewportSize({ width: 390, height: 900 });
   await login(page, credentials!.username, credentials!.password);
-  await page.goto(`/?week=${week}`);
-  const card = page.locator(".dish-grid > li").first();
+  await page.goto(
+    `/?week=${world.weeks[0]}&category=${encodeURIComponent(world.dishes[0]!.category)}`,
+  );
+  const card = page.locator(".dish-grid > li").filter({
+    has: page.getByRole("heading", {
+      name: world.dishes[0]!.name,
+      exact: true,
+    }),
+  });
   const dishName = await card.getByRole("heading", { level: 3 }).innerText();
   try {
     await card.getByRole("button", { name: /^(＋添加|已加 \d+ 次)$/ }).click();
@@ -288,16 +299,20 @@ test("§4 selected slot screenshots", async ({ page }) => {
 
 test("designer: custom chip with 外 seal at 1440", async ({
   page,
+  world,
 }, testInfo) => {
   test.skip(!credentials, "E2E_USERNAME and E2E_PASSWORD are not set");
   test.setTimeout(90_000);
   await page.setViewportSize({ width: 1440, height: 900 });
   await login(page, credentials!.username, credentials!.password);
-  await page.goto(`/?week=${week}`);
+  await page.goto(
+    `/?week=${world.weeks[0]}&category=${encodeURIComponent(world.dishes[0]!.category)}`,
+  );
   const board = shownBoard(page);
   const range = board.locator(".week-board-range");
-  await expect(range).toContainText(formatWeekRange(week));
+  await expect(range).toContainText(formatWeekRange(world.weeks[0]!));
   const before = Number(/已点 (\d+) 道/.exec(await range.innerText())![1]);
+  expect(before).toBe(0);
   const name = "寿司外卖";
   let slot: string | null = null;
   try {
@@ -319,7 +334,7 @@ test("designer: custom chip with 外 seal at 1440", async ({
     await editor.getByRole("button", { name: "放进去", exact: true }).click();
     await expect(editor).toHaveCount(0);
     await expect(range).toHaveText(
-      `${formatWeekRange(week)} · 已点 ${before + 1} 道`,
+      `${formatWeekRange(world.weeks[0]!)} · 已点 ${before + 1} 道`,
       { timeout: 15_000 },
     );
     // A populated slot may have collapsed the newly appended chip.
@@ -355,7 +370,7 @@ test("designer: custom chip with 外 seal at 1440", async ({
         await expect(remove).toHaveCount(0);
       }
       await expect(range).toHaveText(
-        `${formatWeekRange(week)} · 已点 ${before} 道`,
+        `${formatWeekRange(world.weeks[0]!)} · 已点 ${before} 道`,
         { timeout: 15_000 },
       );
     }

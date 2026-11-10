@@ -1,10 +1,9 @@
-import { expect, test, type Page } from "@playwright/test";
-import { formatWeekRange, shiftWeek } from "../../src/server/week";
+import { test, expect } from "./fixtures";
+import { type Page } from "@playwright/test";
+import { formatWeekRange } from "../../src/server/week";
 import { e2eCredentials, login } from "./credentials";
-import { readWall, shortestDishes } from "./wall";
 
 const credentials = e2eCredentials();
-const week = "2026-12-27";
 
 test.describe("weekly menu", () => {
   test.skip(!credentials, "E2E_USERNAME and E2E_PASSWORD are not set");
@@ -13,22 +12,29 @@ test.describe("weekly menu", () => {
 
   test("adds Tuesday dinner, keeps it after reload, then removes it", async ({
     page,
+    world,
   }) => {
     const { username, password } = credentials!;
     await page.setViewportSize({ width: 1440, height: 900 });
     await login(page, username, password);
-    await page.goto(`/?week=${week}`);
+    await page.goto(
+      `/?week=${world.weeks[0]}&category=${encodeURIComponent(world.dishes[0]!.category)}`,
+    );
 
     const board = page.getByRole("region", { name: "一周菜单" });
     await expect(board).toBeVisible();
-    await expect(board.getByText("12月27日–1月2日")).toBeVisible();
+    await expect(
+      board.getByText(formatWeekRange(world.weeks[0]!)),
+    ).toBeVisible();
     await board.getByRole("link", { name: "上一周", exact: true }).click();
     await expect(board.locator(".week-board-range")).toContainText(
-      formatWeekRange(shiftWeek(week, -1)),
+      formatWeekRange(world.weeks[1]!),
     );
-    await page.goto(`/?week=${week}`);
+    await page.goto(
+      `/?week=${world.weeks[0]}&category=${encodeURIComponent(world.dishes[0]!.category)}`,
+    );
 
-    const [dish] = await readWall(page);
+    const [dish] = world.dishes;
     const remove = removeLabel("周二晚餐", dish!.name);
 
     try {
@@ -36,7 +42,9 @@ test.describe("weekly menu", () => {
       await addDish(page, dish!.name, "周二晚餐");
       await page.keyboard.press("Escape");
       await revealRemove(page, remove);
-      await expect(page.locator(".menu-toast[role=status]")).toContainText("已加到 周二·晚");
+      await expect(page.locator(".menu-toast[role=status]")).toContainText(
+        "已加到 周二·晚",
+      );
 
       await page.reload();
       await revealRemove(page, remove);
@@ -52,11 +60,14 @@ test.describe("weekly menu", () => {
 
   test("slot selection cancels, prevents duplicates, and fits the mobile sheet", async ({
     page,
+    world,
   }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
     await login(page, credentials!.username, credentials!.password);
-    await page.goto(`/?week=${week}`);
-    const [dish] = await readWall(page);
+    await page.goto(
+      `/?week=${world.weeks[0]}&category=${encodeURIComponent(world.dishes[0]!.category)}`,
+    );
+    const [dish] = world.dishes;
     const card = page.locator(".dish-card").filter({
       has: page.getByRole("heading", { name: dish!.name, exact: true }),
     });
@@ -81,7 +92,9 @@ test.describe("weekly menu", () => {
       await page.locator("#dish-wall-heading").click();
       await expect(shownBoard(page).locator(".slot-hint")).toHaveCount(0);
       await addDish(page, dish!.name, "周四早餐");
-      await expect(page.locator(".menu-toast[role=status]")).toContainText("已加到 周四·早");
+      await expect(page.locator(".menu-toast[role=status]")).toContainText(
+        "已加到 周四·早",
+      );
       await stamp.click();
       const duplicate = shownBoard(page).getByRole("button", {
         name: "周四早餐，这顿已经有了",
@@ -136,17 +149,22 @@ test.describe("weekly menu", () => {
 
   test("opens the week board in a drawer between 1024 and 1439", async ({
     page,
+    world,
   }) => {
     const { username, password } = credentials!;
     await page.setViewportSize({ width: 1280, height: 800 });
     await login(page, username, password);
-    await page.goto(`/?week=${week}`);
+    await page.goto(
+      `/?week=${world.weeks[0]}&category=${encodeURIComponent(world.dishes[0]!.category)}`,
+    );
 
     await expect(page.getByRole("region", { name: "一周菜单" })).toHaveCount(0);
     await page.getByRole("button", { name: /^本周 \d+$/ }).click();
     const drawer = page.getByRole("dialog", { name: "一周菜单" });
     await expect(drawer).toBeVisible();
-    await expect(drawer.getByText("12月27日–1月2日")).toBeVisible();
+    await expect(
+      drawer.getByText(formatWeekRange(world.weeks[0]!)),
+    ).toBeVisible();
     const box = await drawer.boundingBox();
     expect(box).not.toBeNull();
     expect(Math.abs(box!.width - 560)).toBeLessThanOrEqual(1);
@@ -154,13 +172,16 @@ test.describe("weekly menu", () => {
 
   test("mobile tray shows the count and the dish after adding", async ({
     page,
+    world,
   }) => {
     const { username, password } = credentials!;
     await page.setViewportSize({ width: 390, height: 844 });
     await login(page, username, password);
-    await page.goto(`/?week=${week}`);
+    await page.goto(
+      `/?week=${world.weeks[0]}&category=${encodeURIComponent(world.dishes[0]!.category)}`,
+    );
 
-    const [dish] = await readWall(page);
+    const [dish] = world.dishes;
     const remove = removeLabel("周三午餐", dish!.name);
     const tray = page.getByRole("button", { name: /本周已点 \d+ 道/ });
     await expect(tray).toBeVisible();
@@ -168,12 +189,15 @@ test.describe("weekly menu", () => {
     await removeIfPresent(page, remove);
     await closeTray(page);
     const before = await plannedCount(page);
+    expect(before).toBe(0);
 
     try {
       await addDish(page, dish!.name, "周三午餐");
       // The tray updates optimistically. Wait for the server toast before
       // reload, or the preview read can land before the write commits.
-      await expect(page.locator(".menu-toast[role=status]")).toContainText("已加到 周三·中");
+      await expect(page.locator(".menu-toast[role=status]")).toContainText(
+        "已加到 周三·中",
+      );
       await page.keyboard.press("Escape");
 
       await expect(tray).toHaveText(`本周已点 ${before + 1} 道`);
@@ -229,12 +253,15 @@ test.describe("weekly menu", () => {
 
   test("keeps dish names readable on the persistent board", async ({
     page,
+    world,
   }) => {
     const { username, password } = credentials!;
     await page.setViewportSize({ width: 1440, height: 900 });
     await login(page, username, password);
-    await page.goto(`/?week=${week}`);
-    const picked = shortestDishes(await readWall(page), 3);
+    await page.goto(
+      `/?week=${world.weeks[0]}&category=${encodeURIComponent(world.dishes[0]!.category)}`,
+    );
+    const picked = world.dishes.slice(0, 3);
     const slots = ["周一早餐", "周三午餐", "周五晚餐"] as const;
     const planned = picked.map((dish, index) => {
       const slot = slots[index]!;
@@ -346,11 +373,14 @@ test.describe("weekly menu", () => {
 
   test("opens the week board from one control at each breakpoint", async ({
     page,
+    world,
   }) => {
     const { username, password } = credentials!;
     await page.setViewportSize({ width: 1280, height: 800 });
     await login(page, username, password);
-    await page.goto(`/?week=${week}`);
+    await page.goto(
+      `/?week=${world.weeks[0]}&category=${encodeURIComponent(world.dishes[0]!.category)}`,
+    );
 
     const tray = page.locator(".week-tray-toggle");
     const drawer = page.locator(".week-drawer-toggle");

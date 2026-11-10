@@ -185,3 +185,27 @@ The workflow is available from the Actions tab after it is on `main`.
 ## License
 
 MIT. See [LICENSE](./LICENSE).
+
+### E2E data
+
+Playwright assigns one `E2E_RUN_ID` before workers start (GitHub run/attempt,
+otherwise a random eight-hex ID). Each test claims its own pair of Sundays in
+2090-01-01 through 2099-12-27. There are 522 Sundays in this reserved window.
+Hashed allocation retries collisions up to five times; week UUIDs persist proof
+of run ownership and distinguish test labels. No real calendar weeks are used.
+
+The session-protected `/api/e2e` POST route is enabled only in Vercel previews
+or recognized local development/test environments. It returns 404 in production,
+on Vercel development deployments, and for unknown environments. It validates the
+run header and all scopes before storage access. Database fixtures use an
+`e2e-<runId>` category and `e2e:<runId>:<n>` dish identifiers, including a recipe.
+Without a database, fixtures use the committed sample catalog and reserve weeks
+in the existing in-memory menu map.
+
+Existing test `finally` blocks remove their items; fixtures release their weeks.
+The `e2e-cleanup` teardown project runs after Chromium, including failed tests,
+removes all remaining run-owned weeks, dishes and category, and fails if any
+leftover count is nonzero. Credentials being unset skips authenticated tests and
+cleanup. Seed also sweeps other runs older than six hours, preserving young runs
+and any old run with young rows. No new environment variables or secrets are
+needed in CI or Vercel. Screenshots remain in gitignored `preview-screenshots/`.

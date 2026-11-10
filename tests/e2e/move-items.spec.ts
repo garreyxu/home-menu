@@ -1,11 +1,11 @@
+import { test, expect } from "./fixtures";
 import { mkdir } from "node:fs/promises";
-import { expect, test, type Page, type Locator } from "@playwright/test";
+import { type Page, type Locator } from "@playwright/test";
 import { e2eCredentials, login } from "./credentials";
-import { shiftWeek, toWeekStart } from "../../src/server/week";
 
 test.describe.configure({ mode: "serial" });
 const credentials = e2eCredentials();
-const week = shiftWeek(toWeekStart(new Date()), 3);
+
 const shownBoard = (page: Page) =>
   page.locator(
     ".week-panel:visible, .week-drawer-panel:visible, #week-tray-panel:visible",
@@ -90,7 +90,7 @@ async function drag(
 for (const width of [1440, 390]) {
   test.describe(`${width}px`, () => {
     test.use({ hasTouch: width === 390 });
-    test(`§6 moves at ${width}`, async ({ page }) => {
+    test(`§6 moves at ${width}`, async ({ page, world }) => {
       test.skip(!credentials, "E2E_USERNAME and E2E_PASSWORD are not set");
       test.setTimeout(120_000);
       const name = `Move ${crypto.randomUUID().slice(0, 8)}`;
@@ -100,11 +100,14 @@ for (const width of [1440, 390]) {
       let dishName = "";
       await page.setViewportSize({ width, height: 1000 });
       await login(page, credentials!.username, credentials!.password);
-      await page.goto(`/?week=${week}`);
+      await page.goto(
+        `/?week=${world.weeks[0]}&category=${encodeURIComponent(world.dishes[0]!.category)}`,
+      );
       if (width === 390)
         await page.getByRole("button", { name: /本周已点 \d+ 道/ }).click();
       const range = shownBoard(page).locator(".week-board-range");
       const before = Number(/已点 (\d+) 道/.exec(await range.innerText())![1]);
+      expect(before).toBe(0);
       try {
         for (const slot of await shownBoard(page).locator(".week-slot").all()) {
           const rect = (await slot.boundingBox())!;
@@ -114,7 +117,12 @@ for (const width of [1440, 390]) {
         await addCustom(page, name);
         ownedIds.add((await chip(page, name).getAttribute("data-item-id"))!);
         if (width === 1440) {
-          const card = page.locator(".dish-grid > li").first();
+          const card = page.locator(".dish-grid > li").filter({
+            has: page.getByRole("heading", {
+              name: world.dishes[0]!.name,
+              exact: true,
+            }),
+          });
           dishName = await card.getByRole("heading", { level: 3 }).innerText();
           for (const slot of ["0:breakfast", "2:dinner"]) {
             await card.locator("[data-slot-trigger]").click();

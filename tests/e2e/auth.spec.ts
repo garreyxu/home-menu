@@ -1,6 +1,5 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./fixtures";
 import { e2eCredentials } from "./credentials";
-import { readWall } from "./wall";
 
 const credentials = e2eCredentials();
 
@@ -60,6 +59,7 @@ test.describe("credential login", () => {
 
   test("correct login reaches / and logout returns to /login", async ({
     page,
+    world,
   }) => {
     const { username, password } = credentials!;
 
@@ -70,7 +70,7 @@ test.describe("credential login", () => {
 
     await expect(page).toHaveURL("/");
     await expect(page.getByRole("heading", { name: "御膳房" })).toBeVisible();
-    const [dish] = await readWall(page);
+    const [dish] = world.dishes;
     await expect(
       page.getByRole("heading", { name: dish!.name, exact: true }),
     ).toBeVisible();
