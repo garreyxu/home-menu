@@ -7,7 +7,14 @@ import { getDishRecipe } from "@/server/menu";
 import { MenuInputError } from "@/server/week";
 
 export type RecipeActionResult =
-  | { ok: true; name: string; blocks: RecipeBlock[] }
+  | {
+      ok: true;
+      name: string;
+      blocks: RecipeBlock[];
+      cookTime?: string | null;
+      mainIngredient?: string | null;
+      tried: boolean;
+    }
   | { ok: false; error: string };
 
 /** Read-only recipe for a signed-in session. The blocks come from the database, not the client. */
@@ -22,7 +29,7 @@ export async function loadDishRecipe(
     }
     const recipe = await getDishRecipe(dishId);
     if (!recipe) return { ok: false, error: "找不到这道菜。" };
-    return { ok: true, name: recipe.name, blocks: recipe.blocks };
+    return { ok: true, ...recipe };
   } catch (error) {
     unstable_rethrow(error);
     if (error instanceof MenuInputError) {

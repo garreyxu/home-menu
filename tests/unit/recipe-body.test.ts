@@ -43,11 +43,26 @@ describe("RecipeBody", () => {
     expect(html).toContain("<ul");
   });
 
+  it("keeps URL-like recipe content as plain text", () => {
+    const html = renderToStaticMarkup(
+      createElement(RecipeBody, {
+        blocks: [
+          {
+            type: "paragraph",
+            spans: [{ text: "https://notion.so/example https://example.com" }],
+          },
+        ],
+      }),
+    );
+    expect(html).toContain("https://notion.so/example");
+    expect(html).not.toContain("<a");
+  });
+
   it("says there is no recipe when the body is empty", () => {
     const html = renderToStaticMarkup(
       createElement(RecipeBody, { blocks: [] }),
     );
-    expect(html).toContain("暂无做法");
+    expect(html).toContain("这道菜还没写做法");
     expect(html).not.toContain("notion.so");
     expect(html).not.toContain("<a ");
   });

@@ -19,6 +19,9 @@ vi.mock("next/navigation", () => ({
   },
 }));
 
+const db = vi.hoisted(() => ({ select: vi.fn() }));
+vi.mock("@/server/db", () => ({ getDb: () => db }));
+
 const SECRET = "unit-test-session-secret-not-for-production";
 const originalDatabaseUrl = process.env.DATABASE_URL;
 const originalVercelEnv = process.env.VERCEL_ENV;
@@ -59,12 +62,61 @@ describe("loadDishRecipe", () => {
     const recipe = await loadDishRecipe("sample-dish:番茄炒蛋");
     expect(recipe.ok).toBe(true);
     if (!recipe.ok) return;
+    expect(recipe).toMatchObject({
+      cookTime: undefined,
+      mainIngredient: undefined,
+      tried: false,
+    });
     expect(recipe.name).toBe("番茄炒蛋");
     expect(JSON.stringify(recipe.blocks)).toContain("鸡蛋打散");
     expect(JSON.stringify(recipe.blocks)).not.toContain("notion.so");
 
     const plain = await loadDishRecipe("sample-dish:米饭");
-    expect(plain).toEqual({ ok: true, name: "米饭", blocks: [] });
+    expect(plain).toEqual({
+      ok: true,
+      name: "米饭",
+      blocks: [],
+      cookTime: undefined,
+      mainIngredient: undefined,
+      tried: false,
+    });
+  });
+
+  it("returns stored recipe metadata through the authenticated action", async () => {
+    process.env.DATABASE_URL = "mock-stored-path";
+    const { dishes } = await import("@/server/db/schema");
+    db.select.mockReturnValue({
+      from: () => ({
+        where: () => ({
+          limit: async () => [
+            {
+              name: "豆腐",
+              recipeBlocks: [],
+              cookTime: "15分钟",
+              mainIngredient: "豆制品",
+              tried: true,
+            },
+          ],
+        }),
+      }),
+    });
+    await expect(
+      loadDishRecipe("00000000-0000-4000-8000-000000000001"),
+    ).resolves.toEqual({
+      ok: true,
+      name: "豆腐",
+      blocks: [],
+      cookTime: "15分钟",
+      mainIngredient: "豆制品",
+      tried: true,
+    });
+    expect(db.select).toHaveBeenCalledWith({
+      name: dishes.name,
+      recipeBlocks: dishes.recipeBlocks,
+      cookTime: dishes.cookTime,
+      mainIngredient: dishes.mainIngredient,
+      tried: dishes.tried,
+    });
   });
 
   it("does not invent a recipe for an unknown dish", async () => {

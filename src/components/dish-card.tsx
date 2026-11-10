@@ -45,7 +45,7 @@ export function DishCard({
         <button
           type="button"
           className="dish-art-open"
-          aria-label={`查看${name}的做法`}
+          aria-label={`打开${name}的做法`}
           aria-haspopup="dialog"
           onClick={onOpenRecipe}
         >
@@ -74,9 +74,20 @@ export function DishCard({
         type="button"
         className="dish-recipe-entry focus-ring"
         data-recipe-for={id}
+        aria-label={`查看${name}的做法`}
         aria-haspopup="dialog"
         onClick={onOpenRecipe}
       >
+        <svg
+          width="12"
+          height="12"
+          viewBox="0 0 12 12"
+          fill="none"
+          stroke="currentColor"
+          aria-hidden="true"
+        >
+          <path d="M3 1.5h7v9H3zM1 3h3M1 6h3M1 9h3M5 4h3M5 6h3" />
+        </svg>
         做法
       </button>
       {action}
@@ -93,7 +104,7 @@ function DishArt({ illustration }: { illustration: DishIllustration }) {
       srcSet={illustration.srcSet}
       sizes={illustration.sizes}
       alt=""
-      className="dish-art absolute inset-0 h-full w-full object-contain"
+      className="illus-blend dish-art absolute inset-0 h-full w-full object-contain"
     />
   );
 }

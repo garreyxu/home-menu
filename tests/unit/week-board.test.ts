@@ -45,7 +45,7 @@ describe("WeekBoard", () => {
     expect(html).not.toContain("week-dish-name font-brush");
     expect(html).toContain('title="番茄炒蛋"');
     expect(html).toContain('aria-label="番茄炒蛋"');
-    expect(html).toContain('class="week-thumb"');
+    expect(html).toContain('class="week-thumb illus-blend-thumb"');
     expect(html).not.toContain("week-thumb-fallback");
     expect(html).toContain('width="24"');
     expect(html).toContain('height="24"');

@@ -4,6 +4,8 @@ import { startTransition, useEffect, useId, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { loadDishRecipe } from "@/app/recipe-actions";
 import { RecipeBody } from "@/components/recipe-body";
+import { StampButton } from "@/components/stamp-button";
+import type { DishIllustration } from "@/lib/illustrations";
 import type { RecipeBlock } from "@/lib/recipe-blocks";
 
 const FOCUSABLE =
@@ -11,17 +13,30 @@ const FOCUSABLE =
 
 type LoadState =
   | { status: "loading" }
-  | { status: "ready"; name: string; blocks: RecipeBlock[] }
+  | {
+      status: "ready";
+      name: string;
+      blocks: RecipeBlock[];
+      cookTime?: string | null;
+      mainIngredient?: string | null;
+      tried: boolean;
+    }
   | { status: "error"; message: string };
 
 export function RecipeSheet({
   dishId,
   dishName,
   onClose,
+  onAdd,
+  illustration,
+  tried = false,
 }: {
   dishId: string;
   dishName: string;
   onClose: () => void;
+  onAdd: () => void;
+  illustration?: DishIllustration | null;
+  tried?: boolean;
 }) {
   const titleId = useId();
   const dialogRef = useRef<HTMLDivElement>(null);
@@ -43,6 +58,9 @@ export function RecipeSheet({
             status: "ready",
             name: result.name,
             blocks: result.blocks,
+            cookTime: result.cookTime,
+            mainIngredient: result.mainIngredient,
+            tried: result.tried,
           });
         },
         () => {
@@ -98,6 +116,7 @@ export function RecipeSheet({
   }, [onClose]);
 
   const title = state.status === "ready" ? state.name : dishName;
+  const isTried = state.status === "ready" ? state.tried : tried;
 
   return createPortal(
     <div
@@ -113,22 +132,58 @@ export function RecipeSheet({
         aria-labelledby={titleId}
         className="recipe-panel frame-panel frame-panel-a"
       >
-        <div className="recipe-toolbar">
-          <div className="min-w-0">
-            <h2 id={titleId} className="recipe-title font-brush text-sumi">
-              {title}
-            </h2>
-            <p className="text-sm text-sumi-soft">做法</p>
+        <header className="recipe-header">
+          <div className="recipe-art">
+            {illustration ? (
+              // Static generated illustration; keep responsive files without an optimizer fetch.
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={illustration.src}
+                srcSet={illustration.srcSet}
+                sizes="(min-width: 640px) 480px, 100vw"
+                alt=""
+                className="illus-blend recipe-header-image"
+              />
+            ) : (
+              <span
+                className="recipe-art-fallback font-brush"
+                aria-hidden="true"
+              >
+                {Array.from(title)[0]}
+              </span>
+            )}
           </div>
           <button
             ref={closeRef}
             type="button"
-            className="week-nav-link frame-tag frame-tag-a focus-ring shrink-0"
+            className="recipe-close focus-ring"
+            aria-label="关闭"
             onClick={onClose}
           >
-            关闭
+            ×
           </button>
-        </div>
+          <div className="recipe-heading-area">
+            <div className="recipe-toolbar">
+              <h2 id={titleId} className="recipe-title font-brush text-sumi">
+                {title}
+              </h2>
+              <StampButton onClick={onAdd}>＋添加</StampButton>
+            </div>
+            {(state.status === "ready" &&
+              (state.cookTime || state.mainIngredient)) ||
+            isTried ? (
+              <div className="recipe-tags">
+                {state.status === "ready" && state.cookTime ? (
+                  <span>⏱ {state.cookTime}</span>
+                ) : null}
+                {state.status === "ready" && state.mainIngredient ? (
+                  <span>{state.mainIngredient}</span>
+                ) : null}
+                {isTried ? <span>做过</span> : null}
+              </div>
+            ) : null}
+          </div>
+        </header>
         <div className="recipe-scroll">
           {state.status === "loading" ? (
             <p className="recipe-empty">正在打开做法</p>

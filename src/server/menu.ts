@@ -153,27 +153,54 @@ function isForeignKeyError(error: unknown): boolean {
 
 export async function getDishRecipe(
   dishId: string,
-): Promise<{ name: string; blocks: RecipeBlock[] } | null> {
+): Promise<{
+  name: string;
+  blocks: RecipeBlock[];
+  cookTime?: string | null;
+  mainIngredient?: string | null;
+  tried: boolean;
+} | null> {
   const id = assertDishId(dishId);
   if (usesEphemeralMenu()) return sampleRecipe(id);
 
   const [row] = await getDb()
-    .select({ name: dishes.name, recipeBlocks: dishes.recipeBlocks })
+    .select({
+      name: dishes.name,
+      recipeBlocks: dishes.recipeBlocks,
+      cookTime: dishes.cookTime,
+      mainIngredient: dishes.mainIngredient,
+      tried: dishes.tried,
+    })
     .from(dishes)
     .where(eq(dishes.id, id))
     .limit(1);
   if (!row) return null;
-  return { name: row.name, blocks: parseRecipeBlocks(row.recipeBlocks) };
+  return {
+    name: row.name,
+    blocks: parseRecipeBlocks(row.recipeBlocks),
+    cookTime: row.cookTime,
+    mainIngredient: row.mainIngredient,
+    tried: row.tried,
+  };
 }
 
 function sampleRecipe(
   dishId: string,
-): { name: string; blocks: RecipeBlock[] } | null {
+): {
+  name: string;
+  blocks: RecipeBlock[];
+  cookTime?: string | null;
+  mainIngredient?: string | null;
+  tried: boolean;
+} | null {
   const dish = seedDishes.find((item) => `sample-dish:${item.name}` === dishId);
   if (!dish) return null;
   return {
     name: dish.name,
     blocks: parseRecipeBlocks(dish.recipeBlocks ?? []),
+    cookTime: undefined,
+    mainIngredient: undefined,
+    tried: false,
   };
 }
 

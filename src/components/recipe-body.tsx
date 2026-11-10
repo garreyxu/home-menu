@@ -3,7 +3,12 @@ import type { RecipeBlock, RecipeSpan } from "@/lib/recipe-blocks";
 
 export function RecipeBody({ blocks }: { blocks: readonly RecipeBlock[] }) {
   if (blocks.length === 0) {
-    return <p className="recipe-empty">暂无做法</p>;
+    return (
+      <div className="recipe-empty">
+        <p className="recipe-empty-mark font-brush">待补</p>
+        <p>这道菜还没写做法</p>
+      </div>
+    );
   }
   return (
     <div className="recipe-body">
@@ -45,7 +50,7 @@ function RecipeNode({ block }: { block: RecipeBlock }) {
       const Heading =
         block.level === 1 ? "h3" : block.level === 2 ? "h4" : "h5";
       return (
-        <Heading className="recipe-heading">
+        <Heading className="recipe-heading font-brush">
           <RecipeText spans={block.spans} />
         </Heading>
       );
