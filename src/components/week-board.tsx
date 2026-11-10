@@ -15,6 +15,7 @@ import {
   DAY_LABELS,
   MEAL_FULL,
   MEAL_SHORT,
+  slotLabel,
   type WeekMenuItemView,
 } from "@/lib/menu-slots";
 import { categoryFilterHref } from "@/lib/category-filter";
@@ -48,7 +49,15 @@ export function WeekBoard({
   categoryParam,
   thumbs = {},
   onRemove,
+  selectingDish,
+  onSelect,
+  onCancel,
+  flash,
 }: {
+  selectingDish?: { id: string; name: string };
+  onSelect?: (day: number, meal: Meal) => void;
+  onCancel?: () => void;
+  flash?: string | null;
   weekStart: string;
   currentWeekStart: string;
   todayIso: string;
@@ -62,10 +71,28 @@ export function WeekBoard({
   const current = categoryFilterHref(categoryParam, null);
   const letter = frameLetter(weekStart);
   const [pressed, setPressed] = useState<PressTarget | null>(null);
+  const hintRef = useRef<HTMLDivElement>(null);
+  const selectingDishId = selectingDish?.id;
+  useEffect(() => {
+    if (selectingDishId) hintRef.current?.focus();
+  }, [selectingDishId]);
   const closeMenu = useCallback(() => setPressed(null), []);
 
   return (
     <div className={cn("frame-panel week-board", `frame-panel-${letter}`)}>
+      {selectingDish ? (
+        <div
+          ref={hintRef}
+          tabIndex={-1}
+          className="slot-hint focus-ring"
+          role="status"
+        >
+          <span>把『{selectingDish.name}』放到哪一顿？</span>
+          <button type="button" className="focus-ring" onClick={onCancel}>
+            取消
+          </button>
+        </div>
+      ) : null}
       <div className="week-board-head">
         <div className="week-board-nav">
           <a
@@ -146,6 +173,9 @@ export function WeekBoard({
                     (item) => item.dayOfWeek === day && item.meal === meal,
                   )}
                   thumbs={thumbs}
+                  selectingDish={selectingDish}
+                  onSelect={onSelect}
+                  flash={flash}
                   onRemove={onRemove}
                   onLongPress={(item) => setPressed({ item, day, meal })}
                 />
@@ -209,7 +239,13 @@ function Slot({
   thumbs,
   onRemove,
   onLongPress,
+  selectingDish,
+  onSelect,
+  flash,
 }: {
+  selectingDish?: { id: string; name: string };
+  onSelect?: (day: number, meal: Meal) => void;
+  flash?: string | null;
   day: number;
   meal: Meal;
   items: readonly WeekMenuItemView[];
@@ -218,22 +254,54 @@ function Slot({
   onLongPress: (item: WeekMenuItemView) => void;
 }) {
   const [expanded, setExpanded] = useState(false);
-  const shown = expanded ? items : items.slice(0, VISIBLE_DISHES);
+  const flashingItem = items.find(
+    (item) => flash === `${item.dishId}:${day}:${meal}`,
+  );
+  const shown = expanded
+    ? items
+    : flashingItem
+      ? [
+          ...items
+            .filter((item) => item !== flashingItem)
+            .slice(0, VISIBLE_DISHES - 1),
+          flashingItem,
+        ]
+      : items.slice(0, VISIBLE_DISHES);
   const extra = items.length - shown.length;
   const mealName = MEAL_FULL[meal];
   const dayLabel = DAY_LABELS[day] ?? "";
 
-  if (items.length === 0) {
-    return (
-      <div className="week-slot week-slot-empty">
-        <span aria-hidden="true">＋</span>
-        <span className="sr-only">空</span>
-      </div>
-    );
-  }
-
+  const disabled = items.some((item) => item.dishId === selectingDish?.id);
   return (
-    <div className="week-slot">
+    <div
+      className={cn(
+        "week-slot",
+        !items.length && "week-slot-empty",
+        selectingDish && "is-selecting",
+        disabled && "is-disabled",
+      )}
+    >
+      {selectingDish ? (
+        <button
+          type="button"
+          className="slot-target focus-ring"
+          aria-label={`${slotLabel(day, meal)}${disabled ? "，这顿已经有了" : ""}`}
+          aria-disabled={disabled}
+          onClick={() => {
+            if (!disabled) onSelect?.(day, meal);
+          }}
+        >
+          {disabled ? (
+            <span className="slot-duplicate">这顿已经有了</span>
+          ) : null}
+        </button>
+      ) : null}
+      {!items.length ? (
+        <>
+          <span aria-hidden="true">＋</span>
+          <span className="sr-only">空</span>
+        </>
+      ) : null}
       <ul className="week-slot-list">
         {shown.map((item) => {
           const thumb = thumbs[item.dishId];
@@ -241,6 +309,7 @@ function Slot({
             <Chip
               key={item.id}
               item={item}
+              flash={flash === `${item.dishId}:${day}:${meal}`}
               thumb={thumb}
               dayLabel={dayLabel}
               mealName={mealName}
@@ -266,12 +335,14 @@ function Slot({
 function Chip({
   item,
   thumb,
+  flash,
   dayLabel,
   mealName,
   onRemove,
   onLongPress,
 }: {
   item: WeekMenuItemView;
+  flash?: boolean;
   thumb: string | undefined;
   dayLabel: string;
   mealName: string;
@@ -281,7 +352,7 @@ function Chip({
   const press = useLongPress(onLongPress);
 
   return (
-    <li className="week-chip" {...press}>
+    <li className={cn("week-chip", flash && "slot-flash")} {...press}>
       <WeekMark name={item.dishName} src={thumb} size={24} />
       <span
         className="week-dish-name"

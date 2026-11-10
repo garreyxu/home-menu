@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { addDishToSlot, removeDishFromSlot } from "@/app/week-actions";
 import { reloadDishWall } from "@/app/wall-actions";
 import { AddToDay } from "@/components/add-to-day";
@@ -32,6 +32,12 @@ function sameSlot(
   return item.dayOfWeek === day && item.meal === meal && item.dishId === dishId;
 }
 
+function subscribeDesktop(notify: () => void) {
+  const media = window.matchMedia("(min-width: 1440px)");
+  media.addEventListener("change", notify);
+  return () => media.removeEventListener("change", notify);
+}
+
 export function MenuPlanner({
   wall: serverWall,
   week,
@@ -47,6 +53,11 @@ export function MenuPlanner({
   categoryParam: string | null;
   weekQuery: string | null;
 }) {
+  const desktop = useSyncExternalStore(
+    subscribeDesktop,
+    () => window.matchMedia("(min-width: 1440px)").matches,
+    () => false,
+  );
   const signature = `${week.weekStart}:${week.items.map((item) => item.id).join("|")}`;
   const [trackedWeek, setTrackedWeek] = useState(week.weekStart);
   const [trackedSignature, setTrackedSignature] = useState(signature);
@@ -54,6 +65,7 @@ export function MenuPlanner({
   const [pending, setPending] = useState(0);
   const [toast, setToast] = useState<Toast | null>(null);
   const [openDishId, setOpenDishId] = useState<string | null>(null);
+  const [flash, setFlash] = useState<string | null>(null);
   const [recipeDishId, setRecipeDishId] = useState<string | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [trayOpen, setTrayOpen] = useState(false);
@@ -87,6 +99,44 @@ export function MenuPlanner({
   } else if (trackedSignature !== signature && pending === 0) {
     setTrackedSignature(signature);
     setItems(week.items);
+  }
+
+  const selectedDish = wall.dishes.find((dish) => dish.id === openDishId);
+  useEffect(() => {
+    if (!openDishId) return;
+    function exit(event: KeyboardEvent) {
+      if (event.key === "Escape") setOpenDishId(null);
+    }
+    function outside(event: PointerEvent) {
+      if (!window.matchMedia("(min-width: 1440px)").matches) return;
+      if (
+        event.target instanceof Element &&
+        !event.target.closest(".week-panel, [data-slot-trigger], .slot-hint")
+      )
+        setOpenDishId(null);
+    }
+    document.addEventListener("keydown", exit);
+    document.addEventListener("pointerdown", outside);
+    return () => {
+      document.removeEventListener("keydown", exit);
+      document.removeEventListener("pointerdown", outside);
+    };
+  }, [openDishId]);
+  function addSelected(
+    day: number,
+    meal: Meal,
+    dishId: string,
+    dishName: string,
+  ) {
+    if (items.some((item) => sameSlot(item, day, meal, dishId))) return;
+    toggle(day, meal, dishId, dishName);
+    setOpenDishId(null);
+    const key = `${dishId}:${day}:${meal}`;
+    setFlash(key);
+    window.setTimeout(
+      () => setFlash((current) => (current === key ? null : current)),
+      600,
+    );
   }
 
   function showToast(next: Toast) {
@@ -175,7 +225,8 @@ export function MenuPlanner({
     if (dish.illustration) thumbs[dish.id] = dish.illustration.thumb;
   }
 
-  function renderBoard() {
+  function renderBoard(persistent = false) {
+    const boardDish = persistent && desktop ? selectedDish : undefined;
     return (
       <WeekBoard
         weekStart={week.weekStart}
@@ -184,6 +235,12 @@ export function MenuPlanner({
         items={items}
         categoryParam={categoryParam}
         thumbs={thumbs}
+        selectingDish={boardDish}
+        flash={flash}
+        onSelect={(day, meal) => {
+          if (boardDish) addSelected(day, meal, boardDish.id, boardDish.name);
+        }}
+        onCancel={() => setOpenDishId(null)}
         onRemove={(item) => {
           const dish = wall.dishes.find((entry) => entry.id === item.dishId);
           toggle(
@@ -283,7 +340,7 @@ export function MenuPlanner({
                             setOpenDishId(open ? dish.id : null)
                           }
                           onToggle={(day, meal) =>
-                            toggle(day, meal, dish.id, dish.name)
+                            addSelected(day, meal, dish.id, dish.name)
                           }
                         />
                       }
@@ -295,7 +352,7 @@ export function MenuPlanner({
           )}
         </main>
         <aside className="week-panel" role="region" aria-label="一周菜单">
-          {renderBoard()}
+          {renderBoard(true)}
         </aside>
       </div>
       {drawerOpen ? (
