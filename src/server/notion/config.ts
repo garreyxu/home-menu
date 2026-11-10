@@ -1,9 +1,5 @@
 import { normalizeNotionId } from "@/server/notion/ids";
 
-export const DEFAULT_NOTION_DATABASE_ID = "ff95d9e83ae144ffaaa461286c9652ad";
-export const DEFAULT_NOTION_DATA_SOURCE_ID =
-  "b8a7d4f9-5bfd-4ed3-bacd-5a5298796038";
-
 export class NotionConfigError extends Error {
   constructor(message: string) {
     super(message);
@@ -22,14 +18,16 @@ export function readNotionConfig(): {
       "还没配置 NOTION_TOKEN。把它放在 Vercel 的 Production 和 Preview 环境里，不要写进仓库。",
     );
   }
+  const databaseId = process.env.NOTION_DATABASE_ID?.trim();
+  const dataSourceId = process.env.NOTION_DATA_SOURCE_ID?.trim();
+  if (!databaseId || !dataSourceId) {
+    throw new NotionConfigError(
+      "同步需要 NOTION_DATABASE_ID 和 NOTION_DATA_SOURCE_ID。请配置缺少的环境变量。",
+    );
+  }
   return {
     token,
-    databaseId: normalizeNotionId(
-      process.env.NOTION_DATABASE_ID?.trim() || DEFAULT_NOTION_DATABASE_ID,
-    ),
-    dataSourceId: normalizeNotionId(
-      process.env.NOTION_DATA_SOURCE_ID?.trim() ||
-        DEFAULT_NOTION_DATA_SOURCE_ID,
-    ),
+    databaseId: normalizeNotionId(databaseId),
+    dataSourceId: normalizeNotionId(dataSourceId),
   };
 }

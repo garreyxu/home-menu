@@ -30,7 +30,6 @@ if [[ $- == *x* ]]; then
 fi
 
 NEON_API_BASE="${NEON_API_BASE:-https://console.neon.tech/api/v2}"
-EXPECTED_PROJECT_ID="steep-voice-67811340"
 
 SQL_SYNC_RUNS="select started_at, status, added, updated, deleted, inactivated, would_remove, removals_skipped, on_wall from notion_sync_runs order by started_at desc limit 10;"
 SQL_DISHES="select is_active, count(*) from dishes where notion_page_id is not null group by 1;"
@@ -147,11 +146,11 @@ api_failure() {
 
 require_neon_auth() {
   refuse_xtrace
+  [[ "${NEON_PROJECT_ID:-}" =~ ^[a-z0-9-]+$ ]] || fail "NEON_PROJECT_ID is not set to a Neon project id (repo variable NEON_PROJECT_ID)"
   require_command curl
   require_command jq
   [ -n "${NEON_API_KEY:-}" ] || fail "NEON_API_KEY is not set for this run"
   mask_secret "$NEON_API_KEY"
-  [ "${NEON_PROJECT_ID:-}" = "$EXPECTED_PROJECT_ID" ] || fail "NEON_PROJECT_ID must be ${EXPECTED_PROJECT_ID}"
   case "$NEON_API_BASE" in
     https://console.neon.tech/api/v2) ;;
     *) fail "unexpected Neon API base" ;;
@@ -849,7 +848,7 @@ assert_workflow_is_manual() {
   local workflow banned
   workflow="${REPO_ROOT}/.github/workflows/neon-ops.yml"
   [ -f "$workflow" ] || fail "neon-ops workflow is missing"
-  grep -q 'NEON_PROJECT_ID: steep-voice-67811340' "$workflow" || fail "workflow project id drifted"
+  grep -Fq 'NEON_PROJECT_ID: ${{ vars.NEON_PROJECT_ID }}' "$workflow" || fail "workflow project id drifted"
   grep -q 'workflow_dispatch:' "$workflow" || fail "workflow is missing workflow_dispatch"
   grep -q 'expires_days:' "$workflow" || fail "workflow is missing expires_days"
   grep -q 'default: "7"' "$workflow" || fail "expires_days default is not 7"
