@@ -2,8 +2,8 @@ import { describe, expect, it } from "vitest";
 
 import { fetchNotionSnapshots, openNotionRead } from "@/server/notion/client";
 
-const DATABASE = "ff95d9e8-3ae1-44ff-aaa4-61286c9652ad";
-const DATA_SOURCE = "b8a7d4f9-5bfd-4ed3-bacd-5a5298796038";
+const DATABASE = "11111111-1111-4111-8111-111111111111";
+const DATA_SOURCE = "22222222-2222-4222-8222-222222222222";
 const TRIED = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa";
 const UNTRIED = "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb";
 const TOKEN = "ntn_supersecretvalue";
