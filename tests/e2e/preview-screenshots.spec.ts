@@ -255,6 +255,7 @@ for (const width of [390, 1440]) {
       (dish) => dish.name === "秘制蜜汁叉烧配手工鸡蛋面条",
     );
     test.skip(!dish, "Long-name fixture requires the preview database world");
+    expect(dish, "Preview world must seed the long-name dish").toBeDefined();
     expect(world.weeks[0]).toMatch(/^209\d-/);
     // Add at desktop size, then measure the persisted item at the target width.
     await page.setViewportSize({ width: 1440, height: 900 });
