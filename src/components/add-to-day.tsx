@@ -1,6 +1,12 @@
 "use client";
 
-import { useEffect, useId, useRef, useState } from "react";
+import {
+  useEffect,
+  useId,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from "react";
 import { createPortal } from "react-dom";
 import { StampButton } from "@/components/stamp-button";
 import {
@@ -30,20 +36,33 @@ export function AddToDay({
   onOpenChange: (open: boolean) => void;
   onToggle: (day: number, meal: Meal) => void;
 }) {
+  const desktop = useSyncExternalStore(
+    (notify) => {
+      const media = window.matchMedia("(min-width: 1440px)");
+      media.addEventListener("change", notify);
+      return () => media.removeEventListener("change", notify);
+    },
+    () => window.matchMedia("(min-width: 1440px)").matches,
+    () => false,
+  );
   const buttonRef = useRef<HTMLButtonElement>(null);
   const dialogRef = useRef<HTMLDivElement>(null);
   const wasOpen = useRef(false);
   const titleId = useId();
-  const [placement, setPlacement] = useState<{
-    top: number;
-    left: number;
-  } | null>(null);
+  const [selected, setSelected] = useState<{ day: number; meal: Meal } | null>(
+    null,
+  );
   const planned = items.filter((item) => item.dishId === dishId).length;
 
   useEffect(() => {
-    if (!open) return;
+    if (!open || desktop) return;
     dialogRef.current?.focus();
-  }, [open]);
+    const previous = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = previous;
+    };
+  }, [open, desktop]);
 
   useEffect(() => {
     if (open) {
@@ -53,32 +72,15 @@ export function AddToDay({
     if (!wasOpen.current) return;
     wasOpen.current = false;
     buttonRef.current?.focus();
-  }, [open]);
+  }, [open, desktop]);
 
-  function openPopover() {
-    const wide = window.matchMedia("(min-width: 1024px)").matches;
-    const rect = buttonRef.current?.getBoundingClientRect();
-    if (!wide || !rect) {
-      setPlacement(null);
-      onOpenChange(true);
-      return;
-    }
-    const width = Math.min(420, window.innerWidth - 16);
-    const left = Math.min(
-      Math.max(8, rect.left),
-      window.innerWidth - width - 8,
-    );
-    const height = 280;
-    let top = rect.bottom + 8;
-    if (top + height > window.innerHeight - 8) {
-      top = Math.max(8, rect.top - height - 8);
-    }
-    setPlacement({ top, left });
+  function openPicker() {
+    setSelected(null);
     onOpenChange(true);
   }
 
   useEffect(() => {
-    if (!open) return;
+    if (!open || desktop) return;
     function onKey(event: KeyboardEvent) {
       if (event.key === "Escape") {
         onOpenChange(false);
@@ -94,7 +96,10 @@ export function AddToDay({
       const first = focusable[0];
       const last = focusable[focusable.length - 1];
       if (!first || !last) return;
-      if (event.shiftKey && document.activeElement === first) {
+      if (
+        event.shiftKey &&
+        (document.activeElement === first || document.activeElement === dialog)
+      ) {
         event.preventDefault();
         last.focus();
       } else if (!event.shiftKey && document.activeElement === last) {
@@ -104,7 +109,7 @@ export function AddToDay({
     }
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
-  }, [open, onOpenChange]);
+  }, [open, desktop, onOpenChange]);
 
   return (
     <>
@@ -112,18 +117,19 @@ export function AddToDay({
         ref={buttonRef}
         type="button"
         addedCount={planned}
+        data-slot-trigger="true"
         className="w-full"
         aria-expanded={open}
-        aria-haspopup="dialog"
+        aria-haspopup={desktop ? undefined : "dialog"}
         onClick={() => {
           if (open) onOpenChange(false);
-          else openPopover();
+          else openPicker();
         }}
       />
-      {open
+      {open && !desktop
         ? createPortal(
             <div
-              className={cn("add-day-layer", placement && "is-popover")}
+              className="add-day-layer"
               onPointerDown={(event) => {
                 if (event.target === event.currentTarget) onOpenChange(false);
               }}
@@ -134,15 +140,7 @@ export function AddToDay({
                 aria-modal="true"
                 aria-labelledby={titleId}
                 tabIndex={-1}
-                className={cn(
-                  "add-day-dialog frame-panel frame-panel-b focus-ring",
-                  placement ? "is-popover" : "is-sheet",
-                )}
-                style={
-                  placement
-                    ? { top: placement.top, left: placement.left }
-                    : undefined
-                }
+                className="add-day-dialog is-sheet frame-panel frame-panel-b focus-ring"
                 onPointerDown={(event) => event.stopPropagation()}
               >
                 <div className="mb-3 flex items-start justify-between gap-3">
@@ -151,10 +149,7 @@ export function AddToDay({
                       id={titleId}
                       className="truncate text-base font-semibold text-sumi"
                     >
-                      {dishName}
-                    </p>
-                    <p className="text-sm text-sumi-soft">
-                      点一格排上，再点一次取消
+                      『{dishName}』加到哪一顿？
                     </p>
                   </div>
                   <button
@@ -162,26 +157,23 @@ export function AddToDay({
                     className="week-nav-link frame-tag frame-tag-a focus-ring shrink-0"
                     onClick={() => onOpenChange(false)}
                   >
-                    关闭
+                    取消
                   </button>
                 </div>
                 <div className="add-day-grid">
                   <span />
-                  {DAY_LABELS.map((label) => (
-                    <span
-                      key={label}
-                      className="add-day-heading text-center font-brush text-sumi"
-                    >
-                      {label.slice(1)}
+                  {MEALS.map((meal) => (
+                    <span key={meal} className="add-day-heading text-center">
+                      {MEAL_SHORT[meal]}
                     </span>
                   ))}
-                  {MEALS.map((meal) => (
-                    <div key={meal} className="contents">
-                      <span className="add-day-heading font-brush text-sumi">
-                        {MEAL_SHORT[meal]}
+                  {DAY_LABELS.map((label, day) => (
+                    <div key={label} className="contents">
+                      <span className="add-day-heading self-center">
+                        {label}
                       </span>
-                      {DAY_LABELS.map((_, day) => {
-                        const selected = items.some(
+                      {MEALS.map((meal) => {
+                        const disabled = items.some(
                           (item) =>
                             item.dishId === dishId &&
                             item.dayOfWeek === day &&
@@ -191,16 +183,31 @@ export function AddToDay({
                           <button
                             key={`${day}-${meal}`}
                             type="button"
-                            className="add-day-cell focus-ring"
-                            aria-pressed={selected}
+                            className={cn(
+                              "add-day-cell focus-ring",
+                              selected?.day === day &&
+                                selected.meal === meal &&
+                                "is-selected",
+                            )}
+                            disabled={disabled}
+                            aria-pressed={
+                              selected?.day === day && selected.meal === meal
+                            }
                             aria-label={slotLabel(day, meal)}
-                            onClick={() => onToggle(day, meal)}
+                            onClick={() => setSelected({ day, meal })}
                           >
-                            {selected ? (
-                              <span
-                                className="add-day-dot"
-                                aria-hidden="true"
-                              />
+                            <span className="slot-dishes">
+                              {items
+                                .filter(
+                                  (item) =>
+                                    item.dayOfWeek === day &&
+                                    item.meal === meal,
+                                )
+                                .map((item) => item.dishName)
+                                .join("、") || "空"}
+                            </span>
+                            {selected?.day === day && selected.meal === meal ? (
+                              <span className="slot-confirm">✓ 加这顿</span>
                             ) : null}
                           </button>
                         );
@@ -208,6 +215,18 @@ export function AddToDay({
                     </div>
                   ))}
                 </div>
+                <button
+                  type="button"
+                  className="slot-add focus-ring"
+                  disabled={!selected}
+                  onClick={() => {
+                    if (!selected) return;
+                    onToggle(selected.day, selected.meal);
+                    onOpenChange(false);
+                  }}
+                >
+                  添加
+                </button>
               </div>
             </div>,
             document.body,

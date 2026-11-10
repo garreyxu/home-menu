@@ -44,6 +44,73 @@ test.describe("weekly menu", () => {
     }
   });
 
+  test("slot selection cancels, prevents duplicates, and fits the mobile sheet", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await login(page, credentials!.username, credentials!.password);
+    await page.goto(`/?week=${week}`);
+    const [dish] = await readWall(page);
+    const card = page
+      .locator(".dish-card")
+      .filter({
+        has: page.getByRole("heading", { name: dish!.name, exact: true }),
+      });
+    const stamp = card.getByRole("button", { name: /^(＋添加|已加 \d+ 次)$/ });
+    const remove = removeLabel("周四早餐", dish!.name);
+    await removeIfPresent(page, remove);
+    try {
+      await stamp.click();
+      await expect(page.locator(".slot-hint")).toContainText(
+        `把『${dish!.name}』放到哪一顿？`,
+      );
+      await page.keyboard.press("Escape");
+      await expect(page.locator(".slot-hint")).toHaveCount(0);
+      await stamp.click();
+      await page
+        .locator(".slot-hint")
+        .getByRole("button", { name: "取消" })
+        .click();
+      await stamp.click();
+      await page.locator("#dish-wall-heading").click();
+      await expect(page.locator(".slot-hint")).toHaveCount(0);
+      await addDish(page, dish!.name, "周四早餐");
+      await expect(page.getByRole("status")).toContainText("已加到 周四·早");
+      await stamp.click();
+      const duplicate = page.getByRole("button", {
+        name: "周四早餐",
+        exact: true,
+      });
+      await expect(duplicate).toHaveAttribute("aria-disabled", "true");
+      await duplicate.hover();
+      await expect(duplicate.getByText("这顿已经有了")).toBeVisible();
+      await page.keyboard.press("Escape");
+      await page.setViewportSize({ width: 390, height: 844 });
+      await stamp.click();
+      const sheet = page.getByRole("dialog");
+      await expect(sheet).toContainText(`『${dish!.name}』加到哪一顿？`);
+      await expect(
+        sheet.getByRole("button", { name: "周四早餐", exact: true }),
+      ).toBeDisabled();
+      await expect(sheet.locator(".add-day-cell")).toHaveCount(21);
+      expect(
+        await sheet.evaluate((node) => node.scrollWidth <= node.clientWidth),
+      ).toBe(true);
+      await sheet
+        .getByRole("button", { name: "周六晚餐", exact: true })
+        .click();
+      await expect(sheet.getByText("✓ 加这顿")).toBeVisible();
+      await expect(
+        sheet.getByRole("button", { name: "添加", exact: true }),
+      ).toHaveCSS("height", "48px");
+      await page.keyboard.press("Escape");
+    } finally {
+      await page.keyboard.press("Escape");
+      await page.setViewportSize({ width: 1440, height: 900 });
+      await removeIfPresent(page, remove);
+    }
+  });
+
   test("opens the week board in a drawer between 1024 and 1439", async ({
     page,
   }) => {
@@ -84,11 +151,6 @@ test.describe("weekly menu", () => {
       // The tray updates optimistically. Wait for the server toast before
       // reload, or the preview read can land before the write commits.
       await expect(page.getByRole("status")).toContainText("已加到 周三·中");
-      const cell = page.getByRole("button", { name: "周三午餐", exact: true });
-      const box = await cell.boundingBox();
-      expect(box).not.toBeNull();
-      expect(box!.width).toBeGreaterThanOrEqual(44);
-      expect(box!.height).toBeGreaterThanOrEqual(44);
       await page.keyboard.press("Escape");
 
       await expect(tray).toHaveText(`本周已点 ${before + 1} 道`);
@@ -333,10 +395,16 @@ async function addDish(page: Page, dishName: string, slotName: string) {
   });
   await expect(card).toHaveCount(1);
   // Already on this week, the stamp says "已加 N 次" and still opens the picker.
-  await card
-    .getByRole("button", { name: /^(＋添加|已加 \d+ 次)$/ })
-    .click();
-  await page.getByRole("button", { name: slotName, exact: true }).click();
+  await card.getByRole("button", { name: /^(＋添加|已加 \d+ 次)$/ }).click();
+  const cell = page.getByRole("button", { name: slotName, exact: true });
+  await cell.click();
+  const sheet = page.locator(".add-day-dialog");
+  if (await sheet.isVisible()) {
+    await expect(cell).toHaveAttribute("aria-pressed", "true");
+    const box = await cell.boundingBox();
+    expect(box!.height).toBeGreaterThanOrEqual(44);
+    await sheet.getByRole("button", { name: "添加", exact: true }).click();
+  }
 }
 
 async function removeIfPresent(page: Page, name: string) {
