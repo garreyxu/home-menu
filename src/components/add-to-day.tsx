@@ -6,6 +6,7 @@ import {
   useRef,
   useState,
   useSyncExternalStore,
+  type ReactNode,
 } from "react";
 import { createPortal } from "react-dom";
 import { StampButton } from "@/components/stamp-button";
@@ -18,8 +19,187 @@ import {
 import { cn } from "@/lib/utils";
 import { MEALS, type Meal } from "@/server/meals";
 
-const FOCUSABLE =
-  'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])';
+/** Shared §4/§5 7×3 slot table. */
+export function SlotTable({
+  selected,
+  onPick,
+  items,
+  disabled = () => false,
+}: {
+  selected: (day: number, meal: Meal) => boolean;
+  onPick: (day: number, meal: Meal) => void;
+  items: readonly WeekMenuItemView[];
+  disabled?: (day: number, meal: Meal) => boolean;
+}) {
+  return (
+    <div className="add-day-grid">
+      <span />
+      {MEALS.map((meal) => (
+        <span key={meal} className="add-day-heading text-center">
+          {MEAL_SHORT[meal]}
+        </span>
+      ))}
+      {DAY_LABELS.map((label, day) => (
+        <div key={label} className="contents">
+          <span className="add-day-heading self-center">{label}</span>
+          {MEALS.map((meal) => (
+            <button
+              key={meal}
+              type="button"
+              className={cn(
+                "add-day-cell focus-ring",
+                selected(day, meal) && "is-selected",
+              )}
+              disabled={disabled(day, meal)}
+              aria-pressed={selected(day, meal)}
+              aria-label={slotLabel(day, meal)}
+              onClick={() => onPick(day, meal)}
+            >
+              <span className="slot-dishes">
+                {items
+                  .filter((i) => i.dayOfWeek === day && i.meal === meal)
+                  .map((i) => i.customName ?? i.dishName)
+                  .join("、") || "空"}
+              </span>
+              {selected(day, meal) ? (
+                <span className="slot-confirm">✓ 加这顿</span>
+              ) : null}
+            </button>
+          ))}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/** Shared sheet shell, with a positioned desktop variant and modal focus handling. */
+export function SlotDialog({
+  title,
+  anchor,
+  breakpoint = 1024,
+  initialInput = false,
+  onClose,
+  children,
+}: {
+  title: string;
+  anchor: HTMLElement | null;
+  breakpoint?: number;
+  initialInput?: boolean;
+  onClose: () => void;
+  children: ReactNode;
+}) {
+  const ref = useRef<HTMLDivElement>(null);
+  const titleId = useId();
+  const [placement] = useState(() => {
+    if (!window.matchMedia(`(min-width: ${breakpoint}px)`).matches || !anchor)
+      return null;
+    const rect = anchor.getBoundingClientRect();
+    return {
+      top:
+        window.innerHeight - rect.bottom >= 580
+          ? rect.bottom + 8
+          : Math.max(8, rect.top - Math.min(570, window.innerHeight - 16) - 8),
+      left: Math.max(8, Math.min(rect.left, window.innerWidth - 428)),
+    };
+  });
+  const closeRef = useRef(onClose);
+  useEffect(() => {
+    closeRef.current = onClose;
+  });
+  useEffect(() => {
+    const previous = document.activeElement;
+    const dialog = ref.current!;
+    (initialInput ? dialog.querySelector("input") : dialog)?.focus();
+    const overflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    function onKey(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        closeRef.current();
+      }
+      if (event.key !== "Tab") return;
+      const nodes = [
+        ...dialog.querySelectorAll<HTMLElement>(
+          'button:not(:disabled), input, [href], [tabindex="0"]',
+        ),
+      ];
+      const first = nodes[0],
+        last = nodes.at(-1);
+      if (
+        event.shiftKey &&
+        (document.activeElement === first || document.activeElement === dialog)
+      ) {
+        event.preventDefault();
+        last?.focus();
+      } else if (
+        !event.shiftKey &&
+        (document.activeElement === last || document.activeElement === dialog)
+      ) {
+        event.preventDefault();
+        first?.focus();
+      }
+    }
+    document.addEventListener("keydown", onKey, true);
+    return () => {
+      document.removeEventListener("keydown", onKey, true);
+      document.body.style.overflow = overflow;
+      if (previous instanceof HTMLElement) previous.focus();
+    };
+  }, [initialInput]);
+  return createPortal(
+    <div
+      className={cn("add-day-layer", placement && "is-popover")}
+      onPointerDown={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+    >
+      <div
+        ref={ref}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+        tabIndex={-1}
+        className={cn(
+          "add-day-dialog frame-panel frame-panel-b focus-ring",
+          placement ? "is-popover" : "is-sheet",
+        )}
+        style={
+          placement
+            ? {
+                ...placement,
+                maxHeight: `calc(100dvh - ${placement.top + 8}px)`,
+              }
+            : undefined
+        }
+      >
+        <div className="mb-3 flex items-center justify-between gap-3">
+          <p
+            id={titleId}
+            className="truncate text-base font-semibold text-sumi"
+          >
+            {title}
+          </p>
+          <button
+            type="button"
+            className="week-nav-link focus-ring shrink-0"
+            onClick={onClose}
+          >
+            {"取消"}
+          </button>
+        </div>
+        {children}
+      </div>
+    </div>,
+    document.body,
+  );
+}
+
+function subscribeDesktop(notify: () => void) {
+  const media = window.matchMedia("(min-width: 1440px)");
+  media.addEventListener("change", notify);
+  return () => media.removeEventListener("change", notify);
+}
 
 export function AddToDay({
   dishId,
@@ -37,201 +217,77 @@ export function AddToDay({
   onToggle: (day: number, meal: Meal) => void;
 }) {
   const desktop = useSyncExternalStore(
-    (notify) => {
-      const media = window.matchMedia("(min-width: 1440px)");
-      media.addEventListener("change", notify);
-      return () => media.removeEventListener("change", notify);
-    },
+    subscribeDesktop,
     () => window.matchMedia("(min-width: 1440px)").matches,
     () => false,
   );
-  const buttonRef = useRef<HTMLButtonElement>(null);
-  const dialogRef = useRef<HTMLDivElement>(null);
-  const wasOpen = useRef(false);
-  const titleId = useId();
+  const [anchor, setAnchor] = useState<HTMLElement | null>(null);
   const [selected, setSelected] = useState<{ day: number; meal: Meal } | null>(
     null,
   );
-  const planned = items.filter((item) => item.dishId === dishId).length;
-
-  useEffect(() => {
-    if (!open || desktop) return;
-    dialogRef.current?.focus();
-    const previous = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    return () => {
-      document.body.style.overflow = previous;
-    };
-  }, [open, desktop]);
-
+  const button = useRef<HTMLButtonElement>(null);
+  const wasOpen = useRef(false);
   useEffect(() => {
     if (open) {
       wasOpen.current = true;
       return;
     }
-    if (!wasOpen.current) return;
-    wasOpen.current = false;
-    buttonRef.current?.focus();
-  }, [open, desktop]);
-
-  function openPicker() {
-    setSelected(null);
-    onOpenChange(true);
-  }
-
-  useEffect(() => {
-    if (!open || desktop) return;
-    function onKey(event: KeyboardEvent) {
-      if (event.key === "Escape") {
-        onOpenChange(false);
-        return;
-      }
-      if (event.key !== "Tab") return;
-      const dialog = dialogRef.current;
-      if (!dialog) return;
-      const focusable = [
-        ...dialog.querySelectorAll<HTMLElement>(FOCUSABLE),
-      ].filter((node) => !node.hasAttribute("disabled"));
-      if (focusable.length === 0) return;
-      const first = focusable[0];
-      const last = focusable[focusable.length - 1];
-      if (!first || !last) return;
-      if (
-        event.shiftKey &&
-        (document.activeElement === first || document.activeElement === dialog)
-      ) {
-        event.preventDefault();
-        last.focus();
-      } else if (!event.shiftKey && document.activeElement === last) {
-        event.preventDefault();
-        first.focus();
-      }
+    if (wasOpen.current) {
+      wasOpen.current = false;
+      button.current?.focus();
     }
-    document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
-  }, [open, desktop, onOpenChange]);
-
+  }, [open]);
   return (
     <>
       <StampButton
-        ref={buttonRef}
+        ref={button}
         type="button"
-        addedCount={planned}
+        addedCount={items.filter((i) => i.dishId === dishId).length}
         data-slot-trigger="true"
         className="w-full"
         aria-expanded={open}
         aria-haspopup={desktop ? undefined : "dialog"}
-        onClick={() => {
-          if (open) onOpenChange(false);
-          else openPicker();
+        onClick={(event) => {
+          setAnchor(event.currentTarget);
+          setSelected(null);
+          onOpenChange(!open);
         }}
       />
-      {open && !desktop
-        ? createPortal(
-            <div
-              className="add-day-layer"
-              onPointerDown={(event) => {
-                if (event.target === event.currentTarget) onOpenChange(false);
-              }}
-            >
-              <div
-                ref={dialogRef}
-                role="dialog"
-                aria-modal="true"
-                aria-labelledby={titleId}
-                tabIndex={-1}
-                className="add-day-dialog is-sheet frame-panel frame-panel-b focus-ring"
-                onPointerDown={(event) => event.stopPropagation()}
-              >
-                <div className="mb-3 flex items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <p
-                      id={titleId}
-                      className="truncate text-base font-semibold text-sumi"
-                    >
-                      『{dishName}』加到哪一顿？
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    className="week-nav-link frame-tag frame-tag-a focus-ring shrink-0"
-                    onClick={() => onOpenChange(false)}
-                  >
-                    取消
-                  </button>
-                </div>
-                <div className="add-day-grid">
-                  <span />
-                  {MEALS.map((meal) => (
-                    <span key={meal} className="add-day-heading text-center">
-                      {MEAL_SHORT[meal]}
-                    </span>
-                  ))}
-                  {DAY_LABELS.map((label, day) => (
-                    <div key={label} className="contents">
-                      <span className="add-day-heading self-center">
-                        {label}
-                      </span>
-                      {MEALS.map((meal) => {
-                        const disabled = items.some(
-                          (item) =>
-                            item.dishId === dishId &&
-                            item.dayOfWeek === day &&
-                            item.meal === meal,
-                        );
-                        return (
-                          <button
-                            key={`${day}-${meal}`}
-                            type="button"
-                            className={cn(
-                              "add-day-cell focus-ring",
-                              selected?.day === day &&
-                                selected.meal === meal &&
-                                "is-selected",
-                            )}
-                            disabled={disabled}
-                            aria-pressed={
-                              selected?.day === day && selected.meal === meal
-                            }
-                            aria-label={slotLabel(day, meal)}
-                            onClick={() => setSelected({ day, meal })}
-                          >
-                            <span className="slot-dishes">
-                              {items
-                                .filter(
-                                  (item) =>
-                                    item.dayOfWeek === day &&
-                                    item.meal === meal,
-                                )
-                                .map((item) => item.dishName)
-                                .join("、") || "空"}
-                            </span>
-                            {selected?.day === day && selected.meal === meal ? (
-                              <span className="slot-confirm">✓ 加这顿</span>
-                            ) : null}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  ))}
-                </div>
-                <button
-                  type="button"
-                  className="slot-add focus-ring"
-                  disabled={!selected}
-                  onClick={() => {
-                    if (!selected) return;
-                    onToggle(selected.day, selected.meal);
-                    onOpenChange(false);
-                  }}
-                >
-                  添加
-                </button>
-              </div>
-            </div>,
-            document.body,
-          )
-        : null}
+      {open && !desktop ? (
+        <SlotDialog
+          title={`『${dishName}』加到哪一顿？`}
+          anchor={anchor}
+          breakpoint={Infinity}
+          onClose={() => onOpenChange(false)}
+        >
+          <SlotTable
+            items={items}
+            selected={(day, meal) =>
+              selected?.day === day && selected.meal === meal
+            }
+            disabled={(day, meal) =>
+              items.some(
+                (i) =>
+                  i.dishId === dishId && i.dayOfWeek === day && i.meal === meal,
+              )
+            }
+            onPick={(day, meal) => setSelected({ day, meal })}
+          />
+          <button
+            type="button"
+            className="slot-add focus-ring"
+            disabled={!selected}
+            onClick={() => {
+              if (selected) {
+                onToggle(selected.day, selected.meal);
+                onOpenChange(false);
+              }
+            }}
+          >
+            添加
+          </button>
+        </SlotDialog>
+      ) : null}
     </>
   );
 }

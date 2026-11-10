@@ -36,7 +36,8 @@ export type MenuItemRecord = {
   weeklyMenuId: string;
   dayOfWeek: number;
   meal: Meal;
-  dishId: string;
+  dishId: string | null;
+  customName?: string | null;
   createdAt: Date;
 };
 

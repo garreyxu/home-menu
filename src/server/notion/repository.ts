@@ -74,7 +74,9 @@ export function createDishRepository(db: Database): DishRepository {
           rows.map((row) => row.id),
         ),
       );
-    const referenced = new Set(links.map((link) => link.dishId));
+    const referenced = new Set(
+      links.flatMap((link) => (link.dishId ? [link.dishId] : [])),
+    );
     return {
       deleteIds: rows
         .filter((row) => !referenced.has(row.id))
@@ -292,7 +294,9 @@ export async function retireSeedDishes(db: Database): Promise<number> {
   const ops = planSeedRetirement({
     seeds: seedRows,
     imported,
-    referencedSeedIds: new Set(links.map((link) => link.dishId)),
+    referencedSeedIds: new Set(
+      links.flatMap((link) => (link.dishId ? [link.dishId] : [])),
+    ),
   });
   if (ops.length === 0) return 0;
 

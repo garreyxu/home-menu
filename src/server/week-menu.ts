@@ -18,6 +18,7 @@ export function toWeekMenuView(
       meal: item.meal,
       dishId: item.dishId,
       dishName: item.dishName,
+      customName: item.customName,
     })),
   };
 }

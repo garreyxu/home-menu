@@ -1,0 +1,4 @@
+ALTER TABLE "menu_items" ALTER COLUMN "dish_id" DROP NOT NULL;--> statement-breakpoint
+ALTER TABLE "menu_items" ADD COLUMN "custom_name" text;--> statement-breakpoint
+CREATE UNIQUE INDEX "menu_items_slot_custom_unique" ON "menu_items" USING btree ("weekly_menu_id","day_of_week","meal",lower(btrim("custom_name"))) WHERE "menu_items"."custom_name" is not null;--> statement-breakpoint
+ALTER TABLE "menu_items" ADD CONSTRAINT "menu_items_kind" CHECK (("menu_items"."dish_id" is not null and "menu_items"."custom_name" is null) or ("menu_items"."dish_id" is null and "menu_items"."custom_name" is not null and "menu_items"."custom_name" = btrim("menu_items"."custom_name") and char_length("menu_items"."custom_name") between 1 and 40));

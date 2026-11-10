@@ -1,4 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
+import { formatWeekRange, shiftWeek } from "../../src/server/week";
 import { e2eCredentials, login } from "./credentials";
 import { readWall, shortestDishes } from "./wall";
 
@@ -21,6 +22,11 @@ test.describe("weekly menu", () => {
     const board = page.getByRole("region", { name: "一周菜单" });
     await expect(board).toBeVisible();
     await expect(board.getByText("12月27日–1月2日")).toBeVisible();
+    await board.getByRole("link", { name: "上一周", exact: true }).click();
+    await expect(board.locator(".week-board-range")).toContainText(
+      formatWeekRange(shiftWeek(week, -1)),
+    );
+    await page.goto(`/?week=${week}`);
 
     const [dish] = await readWall(page);
     const remove = removeLabel("周二晚餐", dish!.name);

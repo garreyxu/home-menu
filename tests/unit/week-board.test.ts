@@ -25,6 +25,7 @@ function render(items: WeekMenuItemView[], thumbs?: Record<string, string>) {
       items,
       categoryParam: null,
       thumbs,
+      onCustom: () => {},
       onRemove: () => {},
     }),
   );

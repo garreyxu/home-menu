@@ -1,8 +1,14 @@
 "use client";
 
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
-import { addDishToSlot, removeDishFromSlot } from "@/app/week-actions";
+import {
+  addCustomItem,
+  renameCustomItem,
+  addDishToSlot,
+  removeDishFromSlot,
+} from "@/app/week-actions";
 import { reloadDishWall } from "@/app/wall-actions";
+import { CustomItemEditor } from "@/components/custom-item-editor";
 import { AddToDay } from "@/components/add-to-day";
 import { CategoryNav } from "@/components/category-nav";
 import { DishCard } from "@/components/dish-card";
@@ -62,6 +68,10 @@ export function MenuPlanner({
   const [trackedWeek, setTrackedWeek] = useState(week.weekStart);
   const [trackedSignature, setTrackedSignature] = useState(signature);
   const [items, setItems] = useState(week.items);
+  const [customEditor, setCustomEditor] = useState<{
+    anchor: HTMLElement;
+    item: WeekMenuItemView | null;
+  } | null>(null);
   const [pending, setPending] = useState(0);
   const [toast, setToast] = useState<Toast | null>(null);
   const [openDishId, setOpenDishId] = useState<string | null>(null);
@@ -220,6 +230,33 @@ export function MenuPlanner({
     });
   }
 
+  async function saveCustom(
+    action: () => Promise<import("@/lib/menu-slots").MenuActionResult>,
+  ) {
+    const start = week.weekStart;
+    setPending((n) => n + 1);
+    const result = queueRef.current.then(action);
+    queueRef.current = result.then(
+      () => {},
+      () => {},
+    );
+    try {
+      const value = await result;
+      if (weekStartRef.current === start) {
+        if (value.ok) setItems(value.week.items);
+        else showToast({ tone: "err", text: value.error });
+      }
+      return value;
+    } catch {
+      const result = { ok: false as const, error: "没能改菜单，请再试一次。" };
+      if (weekStartRef.current === start)
+        showToast({ tone: "err", text: result.error });
+      return result;
+    } finally {
+      setPending((n) => n - 1);
+    }
+  }
+
   const thumbs: Record<string, string | undefined> = {};
   for (const dish of wall.dishes) {
     if (dish.illustration) thumbs[dish.id] = dish.illustration.thumb;
@@ -241,7 +278,22 @@ export function MenuPlanner({
           if (boardDish) addSelected(day, meal, boardDish.id, boardDish.name);
         }}
         onCancel={() => setOpenDishId(null)}
+        onCustom={(anchor, item) => {
+          setOpenDishId(null);
+          setCustomEditor({ anchor, item });
+        }}
         onRemove={(item) => {
+          if (!item.dishId) {
+            void saveCustom(() =>
+              removeDishFromSlot({
+                weekStart: week.weekStart,
+                dayOfWeek: item.dayOfWeek,
+                meal: item.meal,
+                id: item.id,
+              }),
+            );
+            return;
+          }
           const dish = wall.dishes.find((entry) => entry.id === item.dishId);
           toggle(
             item.dayOfWeek,
@@ -394,6 +446,21 @@ export function MenuPlanner({
           本周已点 {items.length} 道
         </button>
       </div>
+      {customEditor ? (
+        <CustomItemEditor
+          key={`${week.weekStart}:${customEditor.item?.id ?? "new"}`}
+          {...customEditor}
+          items={items}
+          onClose={() => setCustomEditor(null)}
+          onSave={(value) =>
+            saveCustom(() =>
+              value.id
+                ? renameCustomItem(value)
+                : addCustomItem({ ...value, weekStart: week.weekStart }),
+            )
+          }
+        />
+      ) : null}
       {recipeDishId ? (
         <RecipeSheet
           key={recipeDishId}

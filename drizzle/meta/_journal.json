@@ -50,6 +50,13 @@
       "when": 1794262905938,
       "tag": "0006_sync_partial_status",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1794292680023,
+      "tag": "0007_custom_week_items",
+      "breakpoints": true
     }
   ]
 }
