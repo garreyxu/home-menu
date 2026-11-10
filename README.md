@@ -4,7 +4,11 @@
 
 Changes are listed in [CHANGELOG.md](CHANGELOG.md). Design notes are in [docs/](docs/).
 
-## Local setup
+## Screenshots
+
+Screenshots will be added here; no screenshots are included in this cleanup.
+
+## Quick start with sample data
 
 - Node.js 22.23.4 (see `.nvmrc`). `package.json` `engines` requires Node.js `>=22.23.4`.
 - pnpm 10.33.4 (see the `packageManager` field in `package.json`).
@@ -41,6 +45,22 @@ pnpm test:e2e
 | `test`       | `pnpm test`       | Unit tests (Vitest). They do not connect to a database                                                                                                      |
 | `test:e2e`   | `pnpm test:e2e`   | End-to-end smoke test (Playwright, Chromium)                                                                                                                |
 | `auth:hash`  | `pnpm auth:hash`  | Read a password from stdin (no echo, never from argv) and print a bcrypt hash for `AUTH_PASSWORD_HASH`                                                      |
+
+## Workflow and design documentation
+
+See [the reusable team workflow](docs/workflow.md) and [design documentation](docs/design/README.md).
+
+## Timezone
+
+Calendar weeks use `WEEK_TIME_ZONE` in `src/server/week.ts`, currently `America/Los_Angeles`. There is no timezone environment variable. Sync timestamps use the same zone in `src/lib/sync-note.ts`; seasonal display defaults to it in `src/lib/season.ts`. Configure these constants together if adapting the app to another timezone.
+
+## Deploy (Vercel + Neon free tier)
+
+Import your fork into Vercel Hobby and connect a Neon free-tier Postgres project. Set `DATABASE_URL` (pooled) and `DATABASE_URL_UNPOOLED` (direct), plus the auth variables below, for Production and Preview. Use `pnpm build`; it runs migrations when a database is configured and seeds only preview deployments. Production is never seeded automatically. Configure your Neon project id (repo variable `NEON_PROJECT_ID`) in GitHub Actions, and `NEON_API_KEY` as a repository secret for Neon operations. Keep preview and production credentials separate.
+
+## Tests
+
+Run `pnpm lint`, `pnpm typecheck`, and `pnpm test`. Run `pnpm build` to verify a production build. For browser tests, install Chromium with `pnpm exec playwright install chromium`, then run `pnpm test:e2e`. Authenticated tests need the environment described under Family login; database-backed tests also require an isolated test database. CI gates are `checks` and `preview-e2e`.
 
 ## Design
 
@@ -120,7 +140,9 @@ Migrations are generated with `pnpm exec drizzle-kit generate` and committed und
 
 Scripts read `.env*` files the same way Next.js does and never print connection strings. On Vercel, the Neon integration's environment variables are already set and take precedence.
 
-## Notion import
+## Notion import setup
+
+Create a read-only Notion integration and share your recipe database with it. Set `NOTION_TOKEN`, `NOTION_DATABASE_ID`, and `NOTION_DATA_SOURCE_ID` in local or deployment environment settings. These are required when syncing, with no identifier defaults. The app can boot and build without them using local sample data. Set `CRON_SECRET` for the scheduled import. Use `pnpm notion:import` for a manual import or the authenticated sync button.
 
 The Recipe database is read-only. The integration never writes to Notion. Every recipe page that has cooking steps is imported, whether or not 「已尝试?」 is checked. The checkbox is stored on the dish as `tried` and shown on the card as 「做过」 when it is true.
 
@@ -138,15 +160,15 @@ Each imported page's blocks are stored on `dishes.recipe_blocks` as headings, pa
 
 `recipe_blocks` stays null until a sync reads that page's blocks. A sync does not look at `last_edited_time`. It reads bodies for dishes whose `recipe_blocks` is null first, then refreshes the others if time remains. The sync route and the daily cron both set `maxDuration` to 300 seconds. The run itself stops after 240 seconds, which is enough for the current 43 pages at about 2.8 seconds each, and marks anything left as `partial` so the next sync continues. Nothing writes those blocks back to Notion. Preview seeding also stores a short body on 番茄炒蛋, and updates that seed row when it is already present and has no Notion page id. Production builds do not seed.
 
-The sync is one-way: Notion wins. The home page has a 「从 Notion 同步」 button. It stays disabled while a sync is running and then shows how many were imported, how many are marked tried, how many were skipped for having no steps, and the added, updated, deleted, inactivated, and on-wall counts. A daily Vercel Cron calls `GET /api/cron/notion-sync` at 12:00 UTC. That is about 4:00am Pacific Standard Time and 5:00am Pacific Daylight Time. On the Hobby plan the run can land any time during that hour, so it finishes in the early morning in Irvine. Hobby cron runs once a day and the function is limited to 300 seconds.
+The sync is one-way: Notion wins. The home page has a 「从 Notion 同步」 button. It stays disabled while a sync is running and then shows how many were imported, how many are marked tried, how many were skipped for having no steps, and the added, updated, deleted, inactivated, and on-wall counts. A daily Vercel Cron calls `GET /api/cron/notion-sync` at 12:00 UTC. That is about 4:00am Pacific Standard Time and 5:00am Pacific Daylight Time. On the Hobby plan the run can land any time during that hour, with timing controlled by the UTC schedule. Hobby cron runs once a day and the function is limited to 300 seconds.
 
 ### What to set
 
 | Variable                | Where                                                                                 | Secret? |
 | ----------------------- | ------------------------------------------------------------------------------------- | ------- |
 | `NOTION_TOKEN`          | Vercel Production and Preview. Optional in `.env.local` for a local import            | Yes     |
-| `NOTION_DATABASE_ID`    | Optional. Defaults to `ff95d9e83ae144ffaaa461286c9652ad`                              | No      |
-| `NOTION_DATA_SOURCE_ID` | Optional. Defaults to `b8a7d4f9-5bfd-4ed3-bacd-5a5298796038`                          | No      |
+| `NOTION_DATABASE_ID`    | Required for sync. Your recipe database id                                            | No      |
+| `NOTION_DATA_SOURCE_ID` | Required for sync. Your recipe data-source id                                         | No      |
 | `CRON_SECRET`           | Vercel Production. At least 16 characters. Vercel sends it as `Authorization: Bearer` | Yes     |
 | `DATABASE_URL`          | Already required for the app                                                          | Yes     |
 
@@ -170,7 +192,7 @@ The daily cron starts after that. Clicking the button again is safe: dishes are 
 
 ## Neon operations
 
-Backups and the Notion sync report run from GitHub Actions. The workflow is [`.github/workflows/neon-ops.yml`](.github/workflows/neon-ops.yml). It is manual: open Actions, choose neon-ops, and run the workflow. The default action is `sync-report`. `snapshot` creates a Neon branch and must be chosen explicitly. The run reads the `NEON_API_KEY` secret and uses Neon project `steep-voice-67811340`. It checks out the repo with `contents: read`. The API key, the connection string, and the database password are masked and are not printed.
+Backups and the Notion sync report run from GitHub Actions. The workflow is [`.github/workflows/neon-ops.yml`](.github/workflows/neon-ops.yml). It is manual: open Actions, choose neon-ops, and run the workflow. The default action is `sync-report`. `snapshot` creates a Neon branch and must be chosen explicitly. The run reads the `NEON_API_KEY` secret and uses your Neon project id (repo variable `NEON_PROJECT_ID`). It checks out the repo with `contents: read`. The API key, the connection string, and the database password are masked and are not printed.
 
 `snapshot` finds the project's default/primary branch through the Neon API and creates a child branch named `backup-YYYYMMDD-HHMM` (UTC). It does not create a compute endpoint. `expires_days` is used only by this action. The default is 7. `0` omits `expires_at`, so the branch does not expire. An integer from 1 to 30 sends `expires_at` as UTC now plus that many days. Any other value fails before the script calls Neon. The job summary still prints the `expires_at` value from the create response.
 
@@ -213,3 +235,7 @@ leftover count is nonzero. Credentials being unset skips authenticated tests and
 cleanup. Seed also sweeps other runs older than six hours, preserving young runs
 and any old run with young rows. No new environment variables or secrets are
 needed in CI or Vercel. Screenshots remain in gitignored `preview-screenshots/`.
+
+## License
+
+[MIT](LICENSE), copyright (c) 2026 garreyxu.

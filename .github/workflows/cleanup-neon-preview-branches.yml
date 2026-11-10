@@ -34,7 +34,7 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  NEON_PROJECT_ID: steep-voice-67811340
+  NEON_PROJECT_ID: ${{ vars.NEON_PROJECT_ID }}
   NEON_API_BASE: https://console.neon.tech/api/v2
   # Exact Neon branch names that are never deleted. The script also refuses
   # Neon default, primary, and protected branches, and any name that does
