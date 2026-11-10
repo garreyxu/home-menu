@@ -4,7 +4,6 @@ import { describe, expect, it } from "vitest";
 
 import { brushRuns } from "@/components/brush-runs";
 import { DishCard } from "@/components/dish-card";
-import { fallbackLines } from "@/components/dish-fallback";
 
 describe("brushRuns", () => {
   it("puts ASCII letters and Roman numerals in the sans run", () => {
@@ -76,13 +75,5 @@ describe("DishCard", () => {
     expect(html).toContain("960w");
     expect(html).toContain("object-contain");
     expect(html).not.toContain("还没有插画");
-  });
-});
-
-describe("fallbackLines", () => {
-  it("keeps four characters on one line and splits longer names", () => {
-    expect(fallbackLines("红烧肉")).toEqual(["红烧肉"]);
-    expect(fallbackLines("番茄炒蛋")).toEqual(["番茄炒蛋"]);
-    expect(fallbackLines("清炒西兰花")).toEqual(["清炒西", "兰花"]);
   });
 });

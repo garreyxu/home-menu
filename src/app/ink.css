@@ -314,8 +314,9 @@ summary:focus-visible,
 
 .dish-fallback-name {
   z-index: 1;
-  max-width: 86%;
+  max-width: 45%;
   margin: 0;
+  white-space: nowrap;
   font-size: clamp(24px, 12cqw, 56px);
   text-align: center;
 }

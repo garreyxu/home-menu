@@ -311,3 +311,85 @@ for (const width of [390, 1440]) {
     }
   });
 }
+
+for (const width of [390, 1440]) {
+  test(`no-illustration placeholder stays inside its circle at ${width}`, async ({
+    page,
+    world,
+  }) => {
+    const credentials = e2eCredentials()!;
+    const dish = world.dishes.find(
+      (dish) => Array.from(dish.name).length >= 12,
+    );
+    test.skip(
+      !process.env.PLAYWRIGHT_BASE_URL && !dish,
+      "Long-name fixture requires the preview database world",
+    );
+    expect(dish, "own-data seed includes a long-name dish").toBeDefined();
+    expect(Number(world.weeks[0].slice(0, 4))).toBeGreaterThanOrEqual(2090);
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await login(page, credentials.username, credentials.password);
+    await page.goto(
+      `/?week=${world.weeks[0]}&category=${encodeURIComponent(dish!.category)}`,
+    );
+    const card = page.locator(".dish-card").filter({
+      has: page.getByRole("heading", { name: dish!.name, exact: true }),
+    });
+    await expect(card.locator("img.dish-art")).toHaveCount(0);
+    await card.getByRole("button", { name: /^(＋添加|已加 \d+ 次)$/ }).click();
+    await persistMenuAction(page, () =>
+      page
+        .getByRole("region", { name: "一周菜单" })
+        .getByRole("button", { name: "周二晚餐", exact: true })
+        .click(),
+    );
+    await page.keyboard.press("Escape");
+    await page.setViewportSize({ width, height: 900 });
+    await page.reload();
+    const fallback = card.locator(".dish-fallback");
+    await expect(fallback).toHaveAttribute("title", dish!.name);
+    await expect(fallback).toHaveAttribute(
+      "aria-label",
+      `${dish!.name}，还没有插画`,
+    );
+    await expect(card.locator(".dish-fallback-name")).toHaveText("秘制");
+    await expect(card.locator(".planned-tag")).toHaveText("已点×1");
+    await page.evaluate(() => document.fonts.ready);
+    await card.scrollIntoViewIfNeeded();
+    const geometry = await card.evaluate((card) => {
+      const name = card.querySelector(".dish-fallback-name")!;
+      const range = document.createRange();
+      range.selectNodeContents(name);
+      const text = range.getBoundingClientRect();
+      const circle = card
+        .querySelector(".dish-fallback-enso")!
+        .getBoundingClientRect();
+      const badge = card.querySelector(".planned-tag")!.getBoundingClientRect();
+      // The visible ring occupies the SVG's central area (path bounds 2–84, 16–86).
+      return {
+        inside:
+          text.left >= circle.left + circle.width * 0.1 &&
+          text.right <= circle.left + circle.width * 0.8 &&
+          text.top >= circle.top + circle.height * 0.25 &&
+          text.bottom <= circle.top + circle.height * 0.8,
+        intersects:
+          text.left < badge.right &&
+          text.right > badge.left &&
+          text.top < badge.bottom &&
+          text.bottom > badge.top,
+        overflow: name.scrollWidth > name.clientWidth + 1,
+      };
+    });
+    expect(geometry.inside).toBe(true);
+    expect(geometry.intersects).toBe(false);
+    expect(geometry.overflow).toBe(false);
+    if (process.env.PREVIEW_SCREENSHOTS) {
+      await mkdir("preview-screenshots", { recursive: true });
+      await page.screenshot({
+        path: `preview-screenshots/placeholder-${width}.png`,
+        fullPage: true,
+      });
+    }
+    // The world fixture deletes this reserved week and its owned seed data in finally.
+  });
+}
