@@ -587,6 +587,12 @@ function Chip({
   });
   const { active } = useDndContext();
   const moved = useRef(false);
+  const actions = chipMenuActions({
+    item,
+    onMove: onLongPress,
+    onRename: (anchor) => onCustom(anchor, item),
+    onRemove: () => onRemove(item),
+  });
   const press = useLongPress(() => {
     if (!moved.current && !item.id.startsWith("pending:") && chipRef.current)
       onLongPress(chipRef.current);
@@ -638,7 +644,11 @@ function Chip({
           className="custom-chip-edit focus-ring"
           title={item.customName}
           aria-label={`编辑${item.customName}`}
-          onClick={(e) => onCustom(e.currentTarget, item)}
+          onClick={(e) =>
+            actions
+              .find((action) => action.id === "rename")
+              ?.run(e.currentTarget)
+          }
         >
           <span className="custom-seal font-brush">外</span>
           <span className="week-dish-name" title={item.customName}>
@@ -662,7 +672,9 @@ function Chip({
         className="week-remove focus-ring"
         aria-label={`从${dayLabel}${mealName}移除${item.dishName}`}
         onPointerDown={(event) => event.stopPropagation()}
-        onClick={() => onRemove(item)}
+        onClick={(e) =>
+          actions.find((action) => action.id === "remove")!.run(e.currentTarget)
+        }
       >
         ×
       </button>
@@ -744,6 +756,42 @@ function useIsClient() {
   );
 }
 
+export function chipMenuActions({
+  item,
+  onMove,
+  onRename,
+  onRemove,
+}: {
+  item: WeekMenuItemView;
+  onMove: (anchor: HTMLElement) => void;
+  onRename: (anchor: HTMLElement) => void;
+  onRemove: (anchor: HTMLElement) => void;
+}) {
+  return [
+    { id: "move", label: "移到…", run: onMove },
+    ...(item.customName
+      ? [{ id: "rename", label: "改名", run: onRename }]
+      : []),
+    { id: "remove", label: "从这顿删掉", run: onRemove },
+  ];
+}
+
+export function ChipMenuActions(props: Parameters<typeof chipMenuActions>[0]) {
+  return chipMenuActions(props).map((action) => (
+    <button
+      key={action.id}
+      type="button"
+      className={cn(
+        "week-press-action focus-ring",
+        action.id === "remove" && "week-press-delete",
+      )}
+      onClick={(event) => action.run(event.currentTarget)}
+    >
+      {action.label}
+    </button>
+  ));
+}
+
 function PressMenu({
   target,
   thumb,
@@ -810,29 +858,12 @@ function PressMenu({
             {PRESS_MEAL[target.meal]}
           </span>
         </div>
-        <button
-          type="button"
-          className="week-press-action focus-ring"
-          onClick={onMove}
-        >
-          移到…
-        </button>
-        {target.item.customName ? (
-          <button
-            type="button"
-            className="week-press-action focus-ring"
-            onClick={() => onRename(target.anchor)}
-          >
-            改名
-          </button>
-        ) : null}
-        <button
-          type="button"
-          className="week-press-action week-press-delete focus-ring"
-          onClick={onRemove}
-        >
-          从这顿删掉
-        </button>
+        <ChipMenuActions
+          item={target.item}
+          onMove={onMove}
+          onRename={() => onRename(target.anchor)}
+          onRemove={onRemove}
+        />
         <button
           type="button"
           className="week-press-action week-press-cancel focus-ring"

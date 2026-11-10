@@ -1,8 +1,12 @@
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
-import { WeekBoard } from "@/components/week-board";
+import {
+  ChipMenuActions,
+  chipMenuActions,
+  WeekBoard,
+} from "@/components/week-board";
 import type { WeekMenuItemView } from "@/lib/menu-slots";
 
 const weekStart = "2026-11-08";
@@ -89,4 +93,32 @@ describe("WeekBoard", () => {
     expect(mark?.[1]?.trim()).toBe("香");
     expect(html).not.toContain("<img");
   });
+});
+
+describe("shared desktop and touch chip actions", () => {
+  for (const customName of [undefined, "寿司外卖"]) {
+    it(`exposes the same ordered actions for ${customName ? "custom" : "normal"} items`, () => {
+      const value = { ...item("a", 1, "lunch", "午餐"), customName };
+      const props = {
+        item: value,
+        onMove: vi.fn(),
+        onRename: vi.fn(),
+        onRemove: vi.fn(),
+      };
+      // Desktop chip controls and the touch sheet consume one action definition.
+      const actions = ChipMenuActions(props);
+      expect(actions.map((action) => action.props.children)).toEqual(
+        customName ? ["移到…", "改名", "从这顿删掉"] : ["移到…", "从这顿删掉"],
+      );
+      expect(chipMenuActions(props).map((action) => action.label)).toEqual(
+        actions.map((action) => action.props.children),
+      );
+      for (const action of chipMenuActions(props))
+        action.run({} as HTMLElement);
+      expect(props.onMove).toHaveBeenCalledOnce();
+      expect(props.onRename).toHaveBeenCalledTimes(customName ? 1 : 0);
+      expect(props.onRemove).toHaveBeenCalledOnce();
+      expect(actions.at(-1)!.props.className).toContain("week-press-delete");
+    });
+  }
 });

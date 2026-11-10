@@ -208,7 +208,7 @@ for (const width of [1440, 390]) {
             expect((await row.boundingBox())!.height).toBeGreaterThanOrEqual(
               48,
             );
-          await screenshot(page, "longpress-menu-390");
+          await screenshot(page, "longpress-move-menu-390");
           await menu
             .getByRole("button", { name: "移到…", exact: true })
             .click();
