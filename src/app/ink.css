@@ -879,7 +879,8 @@ iframe[src*="vercel.live"] {
     border-radius: 6px;
   }
 
-  .week-chip > .week-thumb {
+  .week-chip > .week-thumb,
+  .week-chip > .illus-thumb-paper {
     display: none;
   }
 
