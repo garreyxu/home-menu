@@ -598,6 +598,7 @@ function Chip({
         chipRef.current = node;
         setNodeRef(node);
       }}
+      title={item.customName ?? item.dishName}
       data-item-id={item.id}
       {...attributes}
       {...listeners}

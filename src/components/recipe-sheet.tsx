@@ -1,5 +1,7 @@
 "use client";
 
+import { formatCookTime } from "@/lib/cook-time";
+
 import { startTransition, useEffect, useId, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { loadDishRecipe } from "@/app/recipe-actions";
@@ -174,7 +176,7 @@ export function RecipeSheet({
             isTried ? (
               <div className="recipe-tags">
                 {state.status === "ready" && state.cookTime ? (
-                  <span>⏱ {state.cookTime}</span>
+                  <span>⏱ {formatCookTime(state.cookTime)}</span>
                 ) : null}
                 {state.status === "ready" && state.mainIngredient ? (
                   <span>{state.mainIngredient}</span>
