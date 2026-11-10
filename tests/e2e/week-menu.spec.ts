@@ -36,7 +36,7 @@ test.describe("weekly menu", () => {
       await addDish(page, dish!.name, "周二晚餐");
       await page.keyboard.press("Escape");
       await revealRemove(page, remove);
-      await expect(page.getByRole("status")).toContainText("已加到 周二·晚");
+      await expect(page.locator(".menu-toast[role=status]")).toContainText("已加到 周二·晚");
 
       await page.reload();
       await revealRemove(page, remove);
@@ -81,7 +81,7 @@ test.describe("weekly menu", () => {
       await page.locator("#dish-wall-heading").click();
       await expect(shownBoard(page).locator(".slot-hint")).toHaveCount(0);
       await addDish(page, dish!.name, "周四早餐");
-      await expect(page.getByRole("status")).toContainText("已加到 周四·早");
+      await expect(page.locator(".menu-toast[role=status]")).toContainText("已加到 周四·早");
       await stamp.click();
       const duplicate = shownBoard(page).getByRole("button", {
         name: "周四早餐，这顿已经有了",
@@ -173,7 +173,7 @@ test.describe("weekly menu", () => {
       await addDish(page, dish!.name, "周三午餐");
       // The tray updates optimistically. Wait for the server toast before
       // reload, or the preview read can land before the write commits.
-      await expect(page.getByRole("status")).toContainText("已加到 周三·中");
+      await expect(page.locator(".menu-toast[role=status]")).toContainText("已加到 周三·中");
       await page.keyboard.press("Escape");
 
       await expect(tray).toHaveText(`本周已点 ${before + 1} 道`);

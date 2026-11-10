@@ -25,11 +25,15 @@ export function SlotTable({
   onPick,
   items,
   disabled = () => false,
+  cellNote,
+  confirmText = "✓ 加这顿",
 }: {
   selected: (day: number, meal: Meal) => boolean;
   onPick: (day: number, meal: Meal) => void;
   items: readonly WeekMenuItemView[];
   disabled?: (day: number, meal: Meal) => boolean;
+  cellNote?: (day: number, meal: Meal) => string | undefined;
+  confirmText?: string;
 }) {
   return (
     <div className="add-day-grid">
@@ -49,6 +53,7 @@ export function SlotTable({
               className={cn(
                 "add-day-cell focus-ring",
                 selected(day, meal) && "is-selected",
+                cellNote?.(day, meal) === "现在在这" && "is-current",
               )}
               disabled={disabled(day, meal)}
               aria-pressed={selected(day, meal)}
@@ -61,8 +66,11 @@ export function SlotTable({
                   .map((i) => i.customName ?? i.dishName)
                   .join("、") || "空"}
               </span>
+              {cellNote?.(day, meal) ? (
+                <span className="slot-confirm">{cellNote(day, meal)}</span>
+              ) : null}
               {selected(day, meal) ? (
-                <span className="slot-confirm">✓ 加这顿</span>
+                <span className="slot-confirm">{confirmText}</span>
               ) : null}
             </button>
           ))}
