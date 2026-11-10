@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { addDishToSlot, removeDishFromSlot } from "@/app/week-actions";
 import { reloadDishWall } from "@/app/wall-actions";
 import { AddToDay } from "@/components/add-to-day";
@@ -32,6 +32,12 @@ function sameSlot(
   return item.dayOfWeek === day && item.meal === meal && item.dishId === dishId;
 }
 
+function subscribeDesktop(notify: () => void) {
+  const media = window.matchMedia("(min-width: 1440px)");
+  media.addEventListener("change", notify);
+  return () => media.removeEventListener("change", notify);
+}
+
 export function MenuPlanner({
   wall: serverWall,
   week,
@@ -47,6 +53,11 @@ export function MenuPlanner({
   categoryParam: string | null;
   weekQuery: string | null;
 }) {
+  const desktop = useSyncExternalStore(
+    subscribeDesktop,
+    () => window.matchMedia("(min-width: 1440px)").matches,
+    () => false,
+  );
   const signature = `${week.weekStart}:${week.items.map((item) => item.id).join("|")}`;
   const [trackedWeek, setTrackedWeek] = useState(week.weekStart);
   const [trackedSignature, setTrackedSignature] = useState(signature);
@@ -214,7 +225,8 @@ export function MenuPlanner({
     if (dish.illustration) thumbs[dish.id] = dish.illustration.thumb;
   }
 
-  function renderBoard() {
+  function renderBoard(persistent = false) {
+    const boardDish = persistent && desktop ? selectedDish : undefined;
     return (
       <WeekBoard
         weekStart={week.weekStart}
@@ -223,11 +235,10 @@ export function MenuPlanner({
         items={items}
         categoryParam={categoryParam}
         thumbs={thumbs}
-        selectingDish={selectedDish}
+        selectingDish={boardDish}
         flash={flash}
         onSelect={(day, meal) => {
-          if (selectedDish)
-            addSelected(day, meal, selectedDish.id, selectedDish.name);
+          if (boardDish) addSelected(day, meal, boardDish.id, boardDish.name);
         }}
         onCancel={() => setOpenDishId(null)}
         onRemove={(item) => {
@@ -341,7 +352,7 @@ export function MenuPlanner({
           )}
         </main>
         <aside className="week-panel" role="region" aria-label="一周菜单">
-          {renderBoard()}
+          {renderBoard(true)}
         </aside>
       </div>
       {drawerOpen ? (

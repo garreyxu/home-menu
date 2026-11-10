@@ -71,12 +71,22 @@ export function WeekBoard({
   const current = categoryFilterHref(categoryParam, null);
   const letter = frameLetter(weekStart);
   const [pressed, setPressed] = useState<PressTarget | null>(null);
+  const hintRef = useRef<HTMLDivElement>(null);
+  const selectingDishId = selectingDish?.id;
+  useEffect(() => {
+    if (selectingDishId) hintRef.current?.focus();
+  }, [selectingDishId]);
   const closeMenu = useCallback(() => setPressed(null), []);
 
   return (
     <div className={cn("frame-panel week-board", `frame-panel-${letter}`)}>
       {selectingDish ? (
-        <div className="slot-hint" role="status">
+        <div
+          ref={hintRef}
+          tabIndex={-1}
+          className="slot-hint focus-ring"
+          role="status"
+        >
           <span>把『{selectingDish.name}』放到哪一顿？</span>
           <button type="button" className="focus-ring" onClick={onCancel}>
             取消
@@ -275,7 +285,7 @@ function Slot({
         <button
           type="button"
           className="slot-target focus-ring"
-          aria-label={slotLabel(day, meal)}
+          aria-label={`${slotLabel(day, meal)}${disabled ? "，这顿已经有了" : ""}`}
           aria-disabled={disabled}
           onClick={() => {
             if (!disabled) onSelect?.(day, meal);

@@ -51,34 +51,34 @@ test.describe("weekly menu", () => {
     await login(page, credentials!.username, credentials!.password);
     await page.goto(`/?week=${week}`);
     const [dish] = await readWall(page);
-    const card = page
-      .locator(".dish-card")
-      .filter({
-        has: page.getByRole("heading", { name: dish!.name, exact: true }),
-      });
+    const card = page.locator(".dish-card").filter({
+      has: page.getByRole("heading", { name: dish!.name, exact: true }),
+    });
     const stamp = card.getByRole("button", { name: /^(＋添加|已加 \d+ 次)$/ });
     const remove = removeLabel("周四早餐", dish!.name);
     await removeIfPresent(page, remove);
     try {
       await stamp.click();
-      await expect(page.locator(".slot-hint")).toContainText(
+      await expect(shownBoard(page).locator(".slot-hint")).toContainText(
         `把『${dish!.name}』放到哪一顿？`,
       );
+      await expect(shownBoard(page).locator(".slot-hint")).toBeFocused();
       await page.keyboard.press("Escape");
-      await expect(page.locator(".slot-hint")).toHaveCount(0);
+      await expect(shownBoard(page).locator(".slot-hint")).toHaveCount(0);
       await stamp.click();
-      await page
+      await shownBoard(page)
         .locator(".slot-hint")
         .getByRole("button", { name: "取消" })
         .click();
+      await expect(shownBoard(page).locator(".slot-hint")).toHaveCount(0);
       await stamp.click();
       await page.locator("#dish-wall-heading").click();
-      await expect(page.locator(".slot-hint")).toHaveCount(0);
+      await expect(shownBoard(page).locator(".slot-hint")).toHaveCount(0);
       await addDish(page, dish!.name, "周四早餐");
       await expect(page.getByRole("status")).toContainText("已加到 周四·早");
       await stamp.click();
-      const duplicate = page.getByRole("button", {
-        name: "周四早餐",
+      const duplicate = shownBoard(page).getByRole("button", {
+        name: "周四早餐，这顿已经有了",
         exact: true,
       });
       await expect(duplicate).toHaveAttribute("aria-disabled", "true");
@@ -86,7 +86,22 @@ test.describe("weekly menu", () => {
       await expect(duplicate.getByText("这顿已经有了")).toBeVisible();
       await page.keyboard.press("Escape");
       await page.setViewportSize({ width: 390, height: 844 });
+      await openTray(page);
+      // Keep the card above the fixed tray while exercising the real trigger.
+      await stamp.evaluate((node) =>
+        window.scrollTo(
+          0,
+          window.scrollY + node.getBoundingClientRect().top - 120,
+        ),
+      );
       await stamp.click();
+      await expect(shownBoard(page).locator(".slot-hint")).toHaveCount(0);
+      await expect(
+        shownBoard(page).locator(".slot-target, .is-selecting, .is-disabled"),
+      ).toHaveCount(0);
+      await expect(
+        page.locator(".week-panel .slot-target, #week-tray-panel .slot-target"),
+      ).toHaveCount(0);
       const sheet = page.getByRole("dialog");
       await expect(sheet).toContainText(`『${dish!.name}』加到哪一顿？`);
       await expect(
@@ -96,9 +111,7 @@ test.describe("weekly menu", () => {
       expect(
         await sheet.evaluate((node) => node.scrollWidth <= node.clientWidth),
       ).toBe(true);
-      await sheet
-        .getByRole("button", { name: "周六晚餐", exact: true })
-        .click();
+      await sheet.locator(".add-day-cell:enabled").first().click();
       await expect(sheet.getByText("✓ 加这顿")).toBeVisible();
       await expect(
         sheet.getByRole("button", { name: "添加", exact: true }),
@@ -396,10 +409,18 @@ async function addDish(page: Page, dishName: string, slotName: string) {
   await expect(card).toHaveCount(1);
   // Already on this week, the stamp says "已加 N 次" and still opens the picker.
   await card.getByRole("button", { name: /^(＋添加|已加 \d+ 次)$/ }).click();
-  const cell = page.getByRole("button", { name: slotName, exact: true });
-  await cell.click();
-  const sheet = page.locator(".add-day-dialog");
-  if (await sheet.isVisible()) {
+  const desktop = await page.evaluate(
+    () => window.matchMedia("(min-width: 1440px)").matches,
+  );
+  if (desktop) {
+    await shownBoard(page)
+      .getByRole("button", { name: slotName, exact: true })
+      .click();
+  } else {
+    const sheet = page.locator(".add-day-dialog");
+    await expect(sheet).toBeVisible();
+    const cell = sheet.getByRole("button", { name: slotName, exact: true });
+    await cell.click();
     await expect(cell).toHaveAttribute("aria-pressed", "true");
     const box = await cell.boundingBox();
     expect(box!.height).toBeGreaterThanOrEqual(44);
