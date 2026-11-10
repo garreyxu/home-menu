@@ -367,6 +367,8 @@ for (const width of [390, 1440]) {
       const badge = card.querySelector(".planned-tag")!.getBoundingClientRect();
       // The visible ring occupies the SVG's central area (path bounds 2–84, 16–86).
       return {
+        text: text.toJSON(),
+        circle: circle.toJSON(),
         inside:
           text.left >= circle.left + circle.width * 0.1 &&
           text.right <= circle.left + circle.width * 0.8 &&
@@ -380,7 +382,7 @@ for (const width of [390, 1440]) {
         overflow: name.scrollWidth > name.clientWidth + 1,
       };
     });
-    expect(geometry.inside).toBe(true);
+    expect(geometry.inside, JSON.stringify(geometry)).toBe(true);
     expect(geometry.intersects).toBe(false);
     expect(geometry.overflow).toBe(false);
     if (process.env.PREVIEW_SCREENSHOTS) {
