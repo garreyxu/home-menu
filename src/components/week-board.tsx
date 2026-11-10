@@ -399,9 +399,15 @@ function dishInitial(name: string): string {
 
 function WeekThumb({ src, size }: { src: string; size: number }) {
   return (
-    // Static illustration file. Not a remote photo.
+    // Static generated illustration, shared by chips, press menu and drag overlay.
     // eslint-disable-next-line @next/next/no-img-element
-    <img className="week-thumb" src={src} alt="" width={size} height={size} />
+    <img
+      className="week-thumb illus-blend-thumb"
+      src={src}
+      alt=""
+      width={size}
+      height={size}
+    />
   );
 }
 

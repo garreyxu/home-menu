@@ -42,9 +42,9 @@ test.describe("in-site recipe", () => {
 
     if (text.includes("鸡蛋打散")) {
       await expect(dialog.getByText("鸡蛋打散")).toBeVisible();
-      await expect(dialog.getByText("暂无做法")).toHaveCount(0);
-    } else if (text.includes("暂无做法")) {
-      await expect(dialog.getByText("暂无做法")).toBeVisible();
+      await expect(dialog.getByText("这道菜还没写做法")).toHaveCount(0);
+    } else if (text.includes("这道菜还没写做法")) {
+      await expect(dialog.getByText("这道菜还没写做法")).toBeVisible();
     } else {
       await expect(dialog.locator(".recipe-body")).not.toHaveText("");
     }

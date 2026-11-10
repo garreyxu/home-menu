@@ -525,6 +525,14 @@ export function MenuPlanner({
           dishName={
             wall.dishes.find((dish) => dish.id === recipeDishId)?.name ?? ""
           }
+          illustration={
+            wall.dishes.find((dish) => dish.id === recipeDishId)?.illustration
+          }
+          tried={wall.dishes.find((dish) => dish.id === recipeDishId)?.tried}
+          onAdd={() => {
+            setRecipeDishId(null);
+            setOpenDishId(recipeDishId);
+          }}
           onClose={() => {
             const id = recipeDishId;
             setRecipeDishId(null);
