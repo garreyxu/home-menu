@@ -254,7 +254,10 @@ for (const width of [390, 1440]) {
     const dish = world.dishes.find(
       (dish) => dish.name === "秘制蜜汁叉烧配手工鸡蛋面条",
     );
-    test.skip(!dish, "Long-name fixture requires the preview database world");
+    test.skip(
+      !process.env.PLAYWRIGHT_BASE_URL && !dish,
+      "Long-name fixture requires the preview database world",
+    );
     expect(dish, "Preview world must seed the long-name dish").toBeDefined();
     expect(world.weeks[0]).toMatch(/^209\d-/);
     // Add at desktop size, then measure the persisted item at the target width.
