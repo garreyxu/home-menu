@@ -8,7 +8,7 @@ import {
   useState,
   useSyncExternalStore,
   type PointerEvent as ReactPointerEvent,
-  type SyntheticEvent,
+  type MouseEvent as ReactMouseEvent,
 } from "react";
 import {
   DndContext,
@@ -51,6 +51,7 @@ const PRESS_MEAL: Record<Meal, string> = {
 };
 
 type PressTarget = {
+  anchor: HTMLElement;
   item: WeekMenuItemView;
   day: number;
   meal: Meal;
@@ -275,7 +276,9 @@ export function WeekBoard({
                     flash={flash}
                     onCustom={onCustom}
                     onRemove={onRemove}
-                    onLongPress={(item) => setPressed({ item, day, meal })}
+                    onLongPress={(item, anchor) =>
+                      setPressed({ item, day, meal, anchor })
+                    }
                   />
                 ))}
               </div>
@@ -449,7 +452,7 @@ function Slot({
   thumbs: Record<string, string | undefined>;
   onRemove: (item: WeekMenuItemView) => void;
   onCustom: (anchor: HTMLElement, item: WeekMenuItemView | null) => void;
-  onLongPress: (item: WeekMenuItemView) => void;
+  onLongPress: (item: WeekMenuItemView, anchor: HTMLElement) => void;
 }) {
   const { setNodeRef, isOver } = useDroppable({
     id: `cell:${day}:${meal}`,
@@ -531,7 +534,7 @@ function Slot({
               mealName={mealName}
               onCustom={onCustom}
               onRemove={onRemove}
-              onLongPress={() => onLongPress(item)}
+              onLongPress={(anchor) => onLongPress(item, anchor)}
             />
           );
         })}
@@ -568,8 +571,9 @@ function Chip({
   mealName: string;
   onRemove: (item: WeekMenuItemView) => void;
   onCustom: (anchor: HTMLElement, item: WeekMenuItemView | null) => void;
-  onLongPress: () => void;
+  onLongPress: (anchor: HTMLElement) => void;
 }) {
+  const chipRef = useRef<HTMLLIElement | null>(null);
   const { setNodeRef, listeners, attributes, isDragging } = useDraggable({
     id: item.id,
     disabled: !interactive || item.id.startsWith("pending:"),
@@ -578,15 +582,20 @@ function Chip({
   const { active } = useDndContext();
   const moved = useRef(false);
   const press = useLongPress(() => {
-    if (!moved.current) onLongPress();
+    if (!moved.current && !item.id.startsWith("pending:") && chipRef.current)
+      onLongPress(chipRef.current);
   });
 
   return (
     <li
-      ref={setNodeRef}
+      ref={(node) => {
+        chipRef.current = node;
+        setNodeRef(node);
+      }}
       data-item-id={item.id}
       {...attributes}
       {...listeners}
+      role="listitem"
       style={
         isDragging
           ? { opacity: 0.3, border: "1px dashed var(--color-shu)" }
@@ -594,7 +603,7 @@ function Chip({
       }
       onPointerDown={(e) => {
         moved.current = false;
-        press.onPointerDown(e);
+        if (!item.id.startsWith("pending:")) press.onPointerDown(e);
         if (e.pointerType === "mouse") listeners?.onPointerDown?.(e);
       }}
       onPointerMove={(e) => {
@@ -682,9 +691,11 @@ function useLongPress(onLongPress: () => void) {
   }
 
   const suppressClick = useRef(false);
+  const touchPointer = useRef(false);
   return {
     wasHeld: () => suppressClick.current,
     onPointerDown(event: ReactPointerEvent<HTMLLIElement>) {
+      touchPointer.current = event.pointerType === "touch";
       suppressClick.current = false;
       if (event.pointerType === "mouse" || event.button !== 0) return;
       held.current = false;
@@ -712,8 +723,8 @@ function useLongPress(onLongPress: () => void) {
       }
     },
     onPointerCancel: reset,
-    onContextMenu(event: SyntheticEvent) {
-      event.preventDefault();
+    onContextMenu(event: ReactMouseEvent) {
+      if (touchPointer.current) event.preventDefault();
     },
   };
 }
@@ -803,7 +814,7 @@ function PressMenu({
           <button
             type="button"
             className="week-press-action focus-ring"
-            onClick={(e) => onRename(e.currentTarget)}
+            onClick={() => onRename(target.anchor)}
           >
             改名
           </button>

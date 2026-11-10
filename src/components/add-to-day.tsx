@@ -102,12 +102,19 @@ export function SlotDialog({
     if (!window.matchMedia(`(min-width: ${breakpoint}px)`).matches || !anchor)
       return null;
     const rect = anchor.getBoundingClientRect();
+    const width = Math.min(420, window.innerWidth - 32);
+    const height = Math.min(570, window.innerHeight - 32);
+    const left =
+      rect.left + width <= window.innerWidth - 16
+        ? rect.left
+        : rect.right - width;
+    const top =
+      rect.bottom + 8 + height <= window.innerHeight - 16
+        ? rect.bottom + 8
+        : rect.top - height - 8;
     return {
-      top:
-        window.innerHeight - rect.bottom >= 580
-          ? rect.bottom + 8
-          : Math.max(8, rect.top - Math.min(570, window.innerHeight - 16) - 8),
-      left: Math.max(8, Math.min(rect.left, window.innerWidth - 428)),
+      top: Math.max(16, Math.min(top, window.innerHeight - height - 16)),
+      left: Math.max(16, Math.min(left, window.innerWidth - width - 16)),
     };
   });
   const closeRef = useRef(onClose);
@@ -176,7 +183,7 @@ export function SlotDialog({
           placement
             ? {
                 ...placement,
-                maxHeight: `calc(100dvh - ${placement.top + 8}px)`,
+                maxHeight: `calc(100dvh - ${placement.top + 16}px)`,
               }
             : undefined
         }

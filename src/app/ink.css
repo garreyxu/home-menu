@@ -1177,15 +1177,14 @@ iframe[src*="vercel.live"] {
 
 .menu-toast {
   position: fixed;
-  top: 12px;
-  left: 50%;
+  bottom: 24px;
+  right: 24px;
   z-index: 60;
   display: flex;
   width: max-content;
   max-width: min(24rem, calc(100vw - 24px));
   align-items: center;
   gap: 8px;
-  transform: translateX(-50%);
   background: var(--color-paper);
   color: var(--color-sumi);
   padding: 10px 14px;
@@ -1677,14 +1676,39 @@ iframe[src*="vercel.live"] {
   font-size: 15px;
   transform: rotate(-6deg);
 }
+.week-custom-chip .custom-seal {
+  position: absolute;
+  top: -3px;
+  left: -3px;
+  width: 16px;
+  height: 16px;
+  font-size: 12px;
+  transform: rotate(-10deg);
+}
 .week-custom-chip .week-dish-name {
-  display: block;
+  display: -webkit-box;
   font-size: 13px;
   font-weight: 500;
-  white-space: nowrap;
+  white-space: normal;
   overflow: hidden;
-  text-overflow: ellipsis;
+  overflow-wrap: anywhere;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
 }
+.week-custom-chip .custom-chip-edit {
+  position: relative;
+  padding: 4px 2px 2px 8px;
+}
+.week-chip {
+  -webkit-touch-callout: none;
+}
+.custom-submit {
+  position: sticky;
+  bottom: 0;
+  z-index: 4;
+}
+
 .week-custom-chip > .week-remove {
   position: static;
 }
@@ -1702,7 +1726,7 @@ iframe[src*="vercel.live"] {
   overflow-y: auto;
   position: fixed;
   z-index: 41;
-  width: min(420px, calc(100vw - 16px));
+  width: min(420px, calc(100vw - 32px));
   padding: 12px;
   background: var(--color-paper);
 }
@@ -1720,4 +1744,16 @@ iframe[src*="vercel.live"] {
 }
 .add-day-dialog.is-popover .slot-dishes {
   -webkit-line-clamp: 1;
+}
+
+@media (max-width: 639px) {
+  .week-chip.week-custom-chip {
+    height: auto;
+    min-height: 28px;
+    border-radius: 6px;
+  }
+  .week-custom-chip .week-dish-name {
+    font-size: 12px;
+    line-height: 1.5;
+  }
 }

@@ -77,7 +77,7 @@ export function MenuPlanner({
     () => window.matchMedia("(min-width: 1440px)").matches,
     () => false,
   );
-  const signature = `${week.weekStart}:${week.items.map((item) => item.id).join("|")}`;
+  const signature = `${week.weekStart}:${JSON.stringify(week.items.map(({ id, dayOfWeek, meal, customName }) => [id, dayOfWeek, meal, customName]))}`;
   const [trackedWeek, setTrackedWeek] = useState(week.weekStart);
   const [trackedSignature, setTrackedSignature] = useState(signature);
   const [items, setItems] = useState(week.items);

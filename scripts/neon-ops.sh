@@ -13,7 +13,7 @@
 #
 # sync-report
 #   Fetch the production connection URI from the Neon API, mask the URI and
-#   the password, and run two hard-coded queries in a read-only transaction.
+#   the password, and run hard-coded queries in a read-only transaction.
 #
 # The workflow input is only the action name. This script does not accept
 # SQL, a branch id, or a connection string from the environment.
@@ -34,6 +34,8 @@ EXPECTED_PROJECT_ID="steep-voice-67811340"
 
 SQL_SYNC_RUNS="select started_at, status, added, updated, deleted, inactivated, would_remove, removals_skipped, on_wall from notion_sync_runs order by started_at desc limit 10;"
 SQL_DISHES="select is_active, count(*) from dishes where notion_page_id is not null group by 1;"
+SQL_MENU_INDEXES="select i.indexname, i.indexdef, x.indisvalid from pg_indexes i join pg_namespace n on n.nspname = i.schemaname join pg_class c on c.relnamespace = n.oid and c.relname = i.indexname join pg_index x on x.indexrelid = c.oid where i.schemaname = 'public' and i.tablename = 'menu_items' order by i.indexname;"
+SQL_CUSTOM_DUPLICATES="select count(*) as duplicate_groups, coalesce(sum(copies - 1), 0) as duplicate_custom_rows from (select count(*) as copies from menu_items where custom_name is not null group by weekly_menu_id, day_of_week, meal, lower(btrim(custom_name)) having count(*) > 1) duplicates;"
 
 workdir=""
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -342,7 +344,7 @@ confirm_branch_create_body() {
 query_is_allowed() {
   local sql="$1"
   case "$sql" in
-    "$SQL_SYNC_RUNS" | "$SQL_DISHES") return 0 ;;
+    "$SQL_SYNC_RUNS" | "$SQL_DISHES" | "$SQL_MENU_INDEXES" | "$SQL_CUSTOM_DUPLICATES") return 0 ;;
     *) return 1 ;;
   esac
 }
@@ -718,6 +720,8 @@ assert_queries_are_fixed() {
   [ "$SQL_DISHES" = "$expected_dishes" ] || fail "dish count query changed"
   query_is_allowed "$SQL_SYNC_RUNS" || fail "notion sync query is not allowed"
   query_is_allowed "$SQL_DISHES" || fail "dish count query is not allowed"
+  query_is_allowed "$SQL_MENU_INDEXES" || fail "menu indexes query is not allowed"
+  query_is_allowed "$SQL_CUSTOM_DUPLICATES" || fail "custom duplicate query is not allowed"
   if query_is_allowed "select 1;"; then
     fail "query allowlist accepted SQL from outside the script"
   fi
@@ -1204,6 +1208,8 @@ sync_report() {
   emit "- Transaction: read only (\`default_transaction_read_only=on\`, then BEGIN / SET TRANSACTION READ ONLY / COMMIT)"
   run_report_query "notion_sync_runs" "$SQL_SYNC_RUNS"
   run_report_query "imported dishes" "$SQL_DISHES"
+  run_report_query "menu_items indexes" "$SQL_MENU_INDEXES"
+  run_report_query "duplicate custom rows" "$SQL_CUSTOM_DUPLICATES"
   rm -rf "$parsed"
   rm -f "$branches" "$database_file"
 }
