@@ -32,6 +32,15 @@ function render(items: WeekMenuItemView[], thumbs?: Record<string, string>) {
 }
 
 describe("WeekBoard", () => {
+  it("keeps long dish names complete in chip titles and accessible labels", () => {
+    const name = "秘制蜜汁叉烧配手工鸡蛋面条";
+    const html = render([item("long-name", 2, "lunch", name)]);
+    expect(html).toMatch(new RegExp(`<li[^>]*title="${name}"`));
+    expect(html).toContain(
+      `class="week-dish-name" title="${name}" aria-label="${name}">${name}</span>`,
+    );
+  });
+
   it("shows the range, the count, and a Noto chip with a round thumb", () => {
     const html = render([item("egg", 1, "breakfast", "番茄炒蛋")], {
       egg: "/illustrations/egg-thumb.webp",

@@ -1,4 +1,4 @@
-import { test, expect } from "./fixtures";
+import { test, expect, persistMenuAction } from "./fixtures";
 import { mkdir } from "node:fs/promises";
 
 import { e2eCredentials, login } from "./credentials";
@@ -243,3 +243,71 @@ test("recipe sheet and illustration review screenshots", async ({
     await context.close();
   }
 });
+
+for (const width of [390, 1440]) {
+  test(`long dish name stays within two lines at ${width}px`, async ({
+    page,
+    world,
+  }) => {
+    const credentials = e2eCredentials();
+    test.skip(!credentials, "E2E_USERNAME and E2E_PASSWORD are not set");
+    const dish = world.dishes.find(
+      (dish) => dish.name === "秘制蜜汁叉烧配手工鸡蛋面条",
+    );
+    test.skip(
+      !process.env.PLAYWRIGHT_BASE_URL && !dish,
+      "Long-name fixture requires the preview database world",
+    );
+    expect(dish, "Preview world must seed the long-name dish").toBeDefined();
+    expect(world.weeks[0]).toMatch(/^209\d-/);
+    // Add at desktop size, then measure the persisted item at the target width.
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await login(page, credentials!.username, credentials!.password);
+    await page.goto(
+      `/?week=${world.weeks[0]}&category=${encodeURIComponent(dish!.category)}`,
+    );
+    const board = page.getByRole("region", { name: "一周菜单" });
+    const card = page.locator(".dish-card").filter({
+      has: page.getByRole("heading", { name: dish!.name, exact: true }),
+    });
+    await card.getByRole("button", { name: /^(＋添加|已加 \d+ 次)$/ }).click();
+    await persistMenuAction(page, () =>
+      board.getByRole("button", { name: "周二晚餐", exact: true }).click(),
+    );
+    await page.keyboard.press("Escape");
+    await page.setViewportSize({ width, height: 900 });
+    await page.reload();
+    if (width < 1024) {
+      const tray = page.getByRole("button", { name: /本周已点 \d+ 道/ });
+      if ((await tray.getAttribute("aria-expanded")) !== "true")
+        await tray.click();
+    }
+    await expect(board).toBeVisible();
+    const chip = board.locator(".week-chip").filter({ hasText: dish!.name });
+    const name = chip.locator(".week-dish-name");
+    await expect(name).toBeVisible();
+    await expect(chip).toHaveAttribute("title", dish!.name);
+    await expect(name).toHaveAttribute("title", dish!.name);
+    await expect(name).toHaveAttribute("aria-label", dish!.name);
+    await page.evaluate(() => document.fonts.ready);
+    const size = await name.evaluate((element) => ({
+      height: element.getBoundingClientRect().height,
+      lineHeight: parseFloat(getComputedStyle(element).lineHeight),
+    }));
+    expect(size.height).toBeLessThanOrEqual(2 * size.lineHeight + 1);
+    for (const element of [chip, board]) {
+      expect(
+        await element.evaluate(
+          (node) => node.scrollWidth <= node.clientWidth + 1,
+        ),
+      ).toBe(true);
+    }
+    if (process.env.PREVIEW_SCREENSHOTS) {
+      await mkdir("preview-screenshots", { recursive: true });
+      await page.screenshot({
+        path: `preview-screenshots/week-board-longname-${width}.png`,
+        fullPage: true,
+      });
+    }
+  });
+}

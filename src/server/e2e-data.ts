@@ -297,7 +297,8 @@ export async function seedE2E(
         .values({
           categoryId: category.id,
           notionPageId,
-          name: seedDishes[i - 1]!.name,
+          name:
+            i === 6 ? "秘制蜜汁叉烧配手工鸡蛋面条" : seedDishes[i - 1]!.name,
           isActive: true,
           hasBody: true,
           recipeBlocks: [{ type: "paragraph", spans: [{ text: "鸡蛋打散" }] }],

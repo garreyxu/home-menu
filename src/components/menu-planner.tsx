@@ -22,6 +22,7 @@ import { reconcileWall, wallKey, type HomeWall } from "@/lib/home-wall";
 import {
   DAY_LABELS,
   MEAL_SHORT,
+  slotLabel,
   type WeekMenuItemView,
   type WeekMenuView,
 } from "@/lib/menu-slots";
@@ -297,7 +298,7 @@ export function MenuPlanner({
         if (token === latestRef.current) setItems(result.week.items);
         showToast({
           tone: "ok",
-          text: `已移到${DAY_LABELS[day]}${meal === "dinner" ? "晚饭" : meal === "lunch" ? "午饭" : "早饭"}`,
+          text: `已移到${slotLabel(day, meal)}`,
         });
       } catch (error) {
         if (weekStartRef.current !== start) return;
