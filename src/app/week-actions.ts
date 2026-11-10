@@ -7,6 +7,7 @@ import { MENU_ACTION_ERROR, type MenuActionResult } from "@/lib/menu-slots";
 import { requireSession } from "@/lib/auth/require-session";
 import { DishNotFoundError } from "@/server/menu-errors";
 import {
+  moveStoredMenuItem,
   addMenuItem,
   getWeek,
   removeMenuItem,
@@ -126,4 +127,36 @@ export async function renameCustomItem(
   input: unknown,
 ): Promise<MenuActionResult> {
   return customAction(input, true);
+}
+
+export async function moveMenuItem(
+  itemId: string,
+  targetDay: number,
+  targetMeal: string,
+  weekStart: string,
+): Promise<MenuActionResult> {
+  await requireSession();
+  try {
+    await moveStoredMenuItem(
+      assertItemId(itemId),
+      weekStart,
+      targetDay,
+      targetMeal,
+    );
+    revalidatePath("/");
+    return {
+      ok: true,
+      added: false,
+      week: toWeekMenuView(await getWeek(weekStart), weekStart),
+    };
+  } catch (error) {
+    unstable_rethrow(error);
+    return {
+      ok: false,
+      error:
+        error instanceof MenuInputError && error.message === "这顿已经有了"
+          ? error.message
+          : "没挪成，再试一次",
+    };
+  }
 }

@@ -2,6 +2,7 @@ import { cookies } from "next/headers";
 import { revalidatePath } from "next/cache";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
+  moveMenuItem,
   addCustomItem,
   renameCustomItem,
   addDishToSlot,
@@ -262,4 +263,33 @@ describe("custom item actions", () => {
       ).toBe(false);
     },
   );
+});
+
+describe("move actions", () => {
+  it("requires a session before moving", async () => {
+    mockCookie(undefined);
+    await expect(
+      moveMenuItem(crypto.randomUUID(), 1, "lunch", slot.weekStart),
+    ).rejects.toThrow("REDIRECT /login");
+  });
+  it("validates id and destination and returns a moved week", async () => {
+    expect(await moveMenuItem("invalid", 1, "lunch", slot.weekStart)).toEqual({
+      ok: false,
+      error: "没挪成，再试一次",
+    });
+    const added = await addDishToSlot(slot);
+    if (!added.ok) throw new Error("setup failed");
+    const id = added.week.items[0].id;
+    expect(await moveMenuItem(id, 8, "lunch", slot.weekStart)).toEqual({
+      ok: false,
+      error: "没挪成，再试一次",
+    });
+    const moved = await moveMenuItem(id, 3, "lunch", slot.weekStart);
+    expect(moved.ok && moved.week.items[0]).toMatchObject({
+      id,
+      dayOfWeek: 3,
+      meal: "lunch",
+    });
+    expect(moved.ok && moved.added).toBe(false);
+  });
 });

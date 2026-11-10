@@ -1,3 +1,4 @@
+import { moveDuplicate } from "@/lib/move-item";
 import "server-only";
 import { validateCustomName, customNameKey } from "@/lib/custom-name";
 import { MenuInputError } from "@/server/week";
@@ -547,4 +548,47 @@ export async function writeCustomMenuItem(input: {
     throw error;
   }
   return { weekStart: week.weekStart, created };
+}
+
+/** The authenticated household shares one menu; constrain the item to its week. */
+export async function moveStoredMenuItem(
+  id: string,
+  weekStart: string,
+  targetDay: number,
+  targetMeal: string,
+): Promise<void> {
+  const sunday = assertSundayWeekStart(weekStart);
+  const dayOfWeek = assertDayOfWeek(targetDay);
+  const meal = assertMeal(targetMeal);
+  const week = await getWeek(sunday);
+  const item = week?.items.find((i) => i.id === id);
+  if (!week || !item) throw new MenuInputError("没有这个条目。");
+  if (item.dayOfWeek === dayOfWeek && item.meal === meal) return;
+  if (moveDuplicate(week.items, item, dayOfWeek, meal))
+    throw new MenuInputError("这顿已经有了");
+  if (usesEphemeralMenu()) {
+    Object.assign(
+      ephemeralWeeks()
+        .get(sunday)!
+        .items.find((i) => i.id === id)!,
+      { dayOfWeek, meal },
+    );
+    return;
+  }
+  try {
+    await getDb()
+      .update(menuItems)
+      .set({ dayOfWeek, meal })
+      .where(and(eq(menuItems.id, id), eq(menuItems.weeklyMenuId, week.id)));
+  } catch (error) {
+    const seen = new Set<unknown>();
+    let current: unknown = error;
+    while (current && typeof current === "object" && !seen.has(current)) {
+      seen.add(current);
+      if ("code" in current && current.code === "23505")
+        throw new MenuInputError("这顿已经有了");
+      current = "cause" in current ? current.cause : null;
+    }
+    throw error;
+  }
 }

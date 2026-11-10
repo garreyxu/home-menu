@@ -5,7 +5,7 @@ import { formatWeekRange, shiftWeek, toWeekStart } from "../../src/server/week";
 
 // Both viewports use the next week. Keep add/cleanup counts isolated within
 // this file even when the project enables fullyParallel.
-test.describe.configure({ mode: "default" });
+test.describe.configure({ mode: "serial" });
 
 const credentials = e2eCredentials();
 const week = shiftWeek(toWeekStart(new Date()), 1);

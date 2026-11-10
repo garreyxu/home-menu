@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import {
+  moveMenuItem,
   addCustomItem,
   renameCustomItem,
   addDishToSlot,
@@ -24,6 +25,7 @@ import {
   type WeekMenuItemView,
   type WeekMenuView,
 } from "@/lib/menu-slots";
+import { moveDuplicate } from "@/lib/move-item";
 import { cn } from "@/lib/utils";
 import type { Meal } from "@/server/meals";
 
@@ -36,6 +38,12 @@ function sameSlot(
   dishId: string,
 ) {
   return item.dayOfWeek === day && item.meal === meal && item.dishId === dishId;
+}
+
+function subscribeCompact(notify: () => void) {
+  const media = window.matchMedia("(max-width: 1023px)");
+  media.addEventListener("change", notify);
+  return () => media.removeEventListener("change", notify);
 }
 
 function subscribeDesktop(notify: () => void) {
@@ -59,6 +67,11 @@ export function MenuPlanner({
   categoryParam: string | null;
   weekQuery: string | null;
 }) {
+  const compact = useSyncExternalStore(
+    subscribeCompact,
+    () => window.matchMedia("(max-width: 1023px)").matches,
+    () => false,
+  );
   const desktop = useSyncExternalStore(
     subscribeDesktop,
     () => window.matchMedia("(min-width: 1440px)").matches,
@@ -262,49 +275,93 @@ export function MenuPlanner({
     if (dish.illustration) thumbs[dish.id] = dish.illustration.thumb;
   }
 
-  function renderBoard(persistent = false) {
-    const boardDish = persistent && desktop ? selectedDish : undefined;
-    return (
-      <WeekBoard
-        weekStart={week.weekStart}
-        currentWeekStart={currentWeekStart}
-        todayIso={todayIso}
-        items={items}
-        categoryParam={categoryParam}
-        thumbs={thumbs}
-        selectingDish={boardDish}
-        flash={flash}
-        onSelect={(day, meal) => {
-          if (boardDish) addSelected(day, meal, boardDish.id, boardDish.name);
-        }}
-        onCancel={() => setOpenDishId(null)}
-        onCustom={(anchor, item) => {
-          setOpenDishId(null);
-          setCustomEditor({ anchor, item });
-        }}
-        onRemove={(item) => {
-          if (!item.dishId) {
-            void saveCustom(() =>
-              removeDishFromSlot({
-                weekStart: week.weekStart,
-                dayOfWeek: item.dayOfWeek,
-                meal: item.meal,
-                id: item.id,
-              }),
-            );
-            return;
-          }
-          const dish = wall.dishes.find((entry) => entry.id === item.dishId);
-          toggle(
-            item.dayOfWeek,
-            item.meal,
-            item.dishId,
-            dish?.name ?? item.dishName,
-          );
-        }}
-      />
+  function move(item: WeekMenuItemView, day: number, meal: Meal) {
+    if (item.dayOfWeek === day && item.meal === meal) return;
+    if (moveDuplicate(items, item, day, meal)) {
+      showToast({ tone: "err", text: "这顿已经有了" });
+      return;
+    }
+    const start = week.weekStart;
+    const token = ++latestRef.current;
+    setItems((current) =>
+      current.map((i) =>
+        i.id === item.id ? { ...i, dayOfWeek: day, meal } : i,
+      ),
     );
+    setPending((n) => n + 1);
+    queueRef.current = queueRef.current.then(async () => {
+      try {
+        const result = await moveMenuItem(item.id, day, meal, start);
+        if (weekStartRef.current !== start) return;
+        if (!result.ok) throw new Error(result.error);
+        if (token === latestRef.current) setItems(result.week.items);
+        showToast({
+          tone: "ok",
+          text: `已移到${DAY_LABELS[day]}${meal === "dinner" ? "晚饭" : meal === "lunch" ? "午饭" : "早饭"}`,
+        });
+      } catch (error) {
+        if (weekStartRef.current !== start) return;
+        setItems((current) =>
+          current.map((i) =>
+            i.id === item.id
+              ? { ...i, dayOfWeek: item.dayOfWeek, meal: item.meal }
+              : i,
+          ),
+        );
+        showToast({
+          tone: "err",
+          text:
+            error instanceof Error && error.message === "这顿已经有了"
+              ? error.message
+              : "没挪成，再试一次",
+        });
+      } finally {
+        setPending((n) => n - 1);
+      }
+    });
   }
+
+  function remove(item: WeekMenuItemView) {
+    if (!item.dishId) {
+      void saveCustom(() =>
+        removeDishFromSlot({
+          weekStart: week.weekStart,
+          dayOfWeek: item.dayOfWeek,
+          meal: item.meal,
+          id: item.id,
+        }),
+      );
+      return;
+    }
+    const dish = wall.dishes.find((entry) => entry.id === item.dishId);
+    toggle(item.dayOfWeek, item.meal, item.dishId, dish?.name ?? item.dishName);
+  }
+
+  const boardDish = desktop ? selectedDish : undefined;
+  const board = (
+    <WeekBoard
+      interactive={true}
+      onMove={move}
+      onToast={(text) => showToast({ tone: "err", text })}
+      weekStart={week.weekStart}
+      currentWeekStart={currentWeekStart}
+      todayIso={todayIso}
+      items={items}
+      categoryParam={categoryParam}
+      thumbs={thumbs}
+      selectingDish={boardDish}
+      flash={flash}
+      onSelect={(day, meal) => {
+        if (boardDish) addSelected(day, meal, boardDish.id, boardDish.name);
+      }}
+      onCancel={() => setOpenDishId(null)}
+      onCustom={(anchor, item) => {
+        setOpenDishId(null);
+        setCustomEditor({ anchor, item });
+      }}
+      onRemove={remove}
+    />
+  );
 
   return (
     <>
@@ -404,10 +461,10 @@ export function MenuPlanner({
           )}
         </main>
         <aside className="week-panel" role="region" aria-label="一周菜单">
-          {renderBoard(true)}
+          {desktop ? board : null}
         </aside>
       </div>
-      {drawerOpen ? (
+      {drawerOpen && !desktop && !compact ? (
         <div className="week-drawer-layer">
           <button
             type="button"
@@ -422,7 +479,7 @@ export function MenuPlanner({
             aria-label="一周菜单"
             className="week-drawer-panel"
           >
-            {renderBoard()}
+            {board}
           </div>
         </div>
       ) : null}
@@ -433,7 +490,7 @@ export function MenuPlanner({
           className="week-tray-panel"
         >
           <div role="region" aria-label="一周菜单">
-            {renderBoard()}
+            {trayOpen && compact ? board : null}
           </div>
         </div>
         <button
