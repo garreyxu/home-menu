@@ -1123,26 +1123,6 @@ iframe[src*="vercel.live"] {
   margin-top: 4px;
 }
 
-.recipe-todo {
-  display: flex;
-  align-items: flex-start;
-  gap: 8px;
-}
-
-.recipe-check {
-  display: inline-grid;
-  width: 1.1rem;
-  height: 1.1rem;
-  flex: none;
-  place-items: center;
-  margin-top: 0.2rem;
-  border: 1.5px solid var(--color-sumi);
-  background: var(--color-paper);
-  color: var(--color-sumi);
-  font-size: 12px;
-  line-height: 1;
-}
-
 .recipe-quote {
   padding-left: 12px;
   border-left: 2px solid var(--color-rule);

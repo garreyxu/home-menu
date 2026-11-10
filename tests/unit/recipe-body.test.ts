@@ -37,10 +37,123 @@ describe("RecipeBody", () => {
     expect(html).not.toContain("<script>");
     expect(html).not.toContain("notion.so");
     expect(html).not.toContain("<a ");
-    expect(html).toContain("图片");
-    expect(html).toContain('aria-checked="true"');
+    expect(html).not.toContain("图片");
+    expect(html).not.toContain("aria-checked");
     expect(html).toContain("<ol");
     expect(html).toContain("<ul");
+  });
+
+  it.each([
+    ["Prep Time", "准备时间"],
+    ["  cOoK tImE  ", "烹饪时间"],
+    ["Shopping List", "需要食材"],
+    ["INGREDIENTS", "需要食材"],
+    ["Tips", "小贴士"],
+    [" Steps ", "步骤"],
+    ["instructions", "步骤"],
+  ])("translates known heading %s", (text, expected) => {
+    const html = renderToStaticMarkup(
+      createElement(RecipeBody, {
+        blocks: [{ type: "heading", level: 2, spans: [{ text }] }],
+      }),
+    );
+    expect(html).toContain(`>${expected}</span>`);
+    expect(html).not.toContain(`>${text}</span>`);
+  });
+
+  it("matches headings across rich-text spans and preserves unknown headings and paragraph text", () => {
+    const html = renderToStaticMarkup(
+      createElement(RecipeBody, {
+        blocks: [
+          {
+            type: "heading",
+            level: 1,
+            spans: [{ text: " Shopping ", bold: true }, { text: "List " }],
+          },
+          {
+            type: "heading",
+            level: 3,
+            spans: [{ text: " Chef's notes ", italic: true }],
+          },
+          { type: "paragraph", spans: [{ text: "Ingredients" }] },
+        ],
+      }),
+    );
+    expect(html).toContain("需要食材");
+    expect(html).toContain("<em> Chef&#x27;s notes </em>");
+    expect(html).toContain(">Ingredients</span>");
+    expect(html).toContain("<h3");
+    expect(html).toContain("<h5");
+  });
+
+  it("skips URL-less image blocks at every depth without breaking numbered lists", () => {
+    const html = renderToStaticMarkup(
+      createElement(RecipeBody, {
+        blocks: [
+          {
+            type: "numbered_list_item",
+            spans: [{ text: "第一步" }],
+            children: [{ type: "placeholder", label: "图片" }],
+          },
+          { type: "placeholder", label: "图片" },
+          {
+            type: "numbered_list_item",
+            spans: [{ text: "第二步" }],
+            children: [],
+          },
+          { type: "placeholder", label: "嵌入内容" },
+          { type: "placeholder", label: "未支持的内容" },
+        ],
+      }),
+    );
+    expect(html).not.toContain("图片");
+    expect(html).not.toContain("<img");
+    expect(html.match(/<ol /g)).toHaveLength(1);
+    expect(html).toContain("嵌入内容");
+    expect(html).toContain("未支持的内容");
+  });
+
+  it("renders checked and unchecked ingredients as plain bullet list items, including children", () => {
+    const html = renderToStaticMarkup(
+      createElement(RecipeBody, {
+        blocks: [
+          { type: "heading", level: 2, spans: [{ text: "Ingredients" }] },
+          {
+            type: "to_do",
+            spans: [{ text: "鸡蛋", bold: true }],
+            checked: true,
+            children: [
+              {
+                type: "to_do",
+                spans: [{ text: "两个" }],
+                checked: false,
+                children: [],
+              },
+            ],
+          },
+          {
+            type: "bulleted_list_item",
+            spans: [{ text: "番茄" }],
+            children: [],
+          },
+          {
+            type: "to_do",
+            spans: [{ text: "盐" }],
+            checked: false,
+            children: [],
+          },
+        ],
+      }),
+    );
+    expect(html.match(/<ul class="recipe-list">/g)).toHaveLength(2);
+    expect(html.match(/<li>/g)).toHaveLength(4);
+    expect(html).toContain("<strong>鸡蛋</strong>");
+    expect(html).toContain("番茄");
+    expect(html).toContain("两个");
+    expect(html).toContain("盐");
+    expect(html).not.toMatch(
+      /checkbox|aria-checked|recipe-check|recipe-todo|<input|✓/,
+    );
   });
 
   it("keeps URL-like recipe content as plain text", () => {
