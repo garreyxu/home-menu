@@ -82,7 +82,7 @@ export function CustomItemEditor({
           className="custom-name-input focus-ring"
         />
         <p className="mb-3 text-right text-xs text-sumi-soft">
-          {name.length}/40
+          {name.trim().length}/40
         </p>
         <SlotTable
           items={items}
