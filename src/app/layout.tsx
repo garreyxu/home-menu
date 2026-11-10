@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Ma_Shan_Zheng, Noto_Sans_SC } from "next/font/google";
 import "./globals.css";
 import "./ink.css";
@@ -22,6 +22,8 @@ const brush = Ma_Shan_Zheng({
   adjustFontFallback: false,
   fallback: ["Noto Sans SC", "sans-serif"],
 });
+
+export const viewport: Viewport = { viewportFit: "cover" };
 
 export const metadata: Metadata = {
   title: siteName,

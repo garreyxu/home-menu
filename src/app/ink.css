@@ -397,7 +397,9 @@ iframe[src*="vercel.live"] {
   z-index: 20;
   margin-inline: -1rem;
   background: var(--color-washi);
-  padding: 12px 16px 8px;
+  padding: calc(12px + env(safe-area-inset-top))
+    max(16px, env(safe-area-inset-right)) 8px
+    max(16px, env(safe-area-inset-left));
 }
 
 @media (min-width: 640px) and (max-width: 1023px) {
@@ -783,11 +785,17 @@ iframe[src*="vercel.live"] {
 .week-press-sheet {
   position: fixed;
   z-index: 51;
-  bottom: calc(16px + env(safe-area-inset-bottom));
+  bottom: 0;
   left: 50%;
-  width: min(440px, calc(100vw - 32px));
+  width: min(
+    440px,
+    calc(100vw - 32px - env(safe-area-inset-left) - env(safe-area-inset-right))
+  );
   transform: translateX(-50%);
-  overflow: hidden;
+  max-height: calc(100svh - 16px - env(safe-area-inset-top));
+  max-height: calc(100dvh - 16px - env(safe-area-inset-top));
+  overflow-y: auto;
+  padding-bottom: calc(16px + env(safe-area-inset-bottom));
   border: 2px solid var(--color-sumi);
   border-radius: 10px;
   background: var(--color-paper);
@@ -923,7 +931,9 @@ iframe[src*="vercel.live"] {
   right: 0;
   max-height: 90dvh;
   overflow-y: auto;
-  padding: 20px 16px calc(16px + env(safe-area-inset-bottom));
+  padding: 20px max(16px, env(safe-area-inset-right))
+    calc(16px + env(safe-area-inset-bottom))
+    max(16px, env(safe-area-inset-left));
   background: var(--color-paper);
 }
 .add-day-grid {
@@ -1067,7 +1077,8 @@ iframe[src*="vercel.live"] {
   overflow: hidden;
   background: var(--color-paper);
   color: var(--color-sumi);
-  padding: 0;
+  padding: env(safe-area-inset-top) env(safe-area-inset-right) 0
+    env(safe-area-inset-left);
 }
 
 .recipe-toolbar {
@@ -1167,8 +1178,8 @@ iframe[src*="vercel.live"] {
 
 .menu-toast {
   position: fixed;
-  bottom: 24px;
-  right: 24px;
+  bottom: calc(24px + env(safe-area-inset-bottom));
+  right: max(24px, env(safe-area-inset-right));
   z-index: 60;
   display: flex;
   width: max-content;
@@ -1360,7 +1371,9 @@ iframe[src*="vercel.live"] {
 
   .week-tray-toggle {
     width: 100%;
-    min-height: 52px;
+    min-height: calc(52px + env(safe-area-inset-bottom));
+    padding: 0 env(safe-area-inset-right) env(safe-area-inset-bottom)
+      env(safe-area-inset-left);
     border: 0;
     border-top: 3px solid var(--color-sumi);
     background: var(--color-shu);
@@ -1373,10 +1386,17 @@ iframe[src*="vercel.live"] {
   }
 
   .week-tray-panel {
-    max-height: min(70vh, 640px);
+    max-height: min(
+      70dvh,
+      calc(
+        100dvh - 52px - env(safe-area-inset-top) - env(safe-area-inset-bottom)
+      ),
+      640px
+    );
     overflow: auto;
     background: var(--color-washi);
-    padding: 8px;
+    padding: 8px max(8px, env(safe-area-inset-right)) 8px
+      max(8px, env(safe-area-inset-left));
   }
 }
 
@@ -1421,7 +1441,10 @@ iframe[src*="vercel.live"] {
     height: 100svh;
     overflow: auto;
     background: var(--color-washi);
-    padding: 16px;
+    padding: calc(16px + env(safe-area-inset-top))
+      max(16px, env(safe-area-inset-right))
+      calc(16px + env(safe-area-inset-bottom))
+      max(16px, env(safe-area-inset-left));
   }
 }
 
