@@ -32,7 +32,8 @@ export type WeekMenuItemView = {
   id: string;
   dayOfWeek: number;
   meal: Meal;
-  dishId: string;
+  dishId: string | null;
+  customName?: string | null;
   dishName: string;
 };
 

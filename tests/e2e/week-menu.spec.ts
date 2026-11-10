@@ -1,4 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
+import { formatWeekRange, shiftWeek } from "../../src/server/week";
 import { e2eCredentials, login } from "./credentials";
 import { readWall, shortestDishes } from "./wall";
 
@@ -21,6 +22,11 @@ test.describe("weekly menu", () => {
     const board = page.getByRole("region", { name: "一周菜单" });
     await expect(board).toBeVisible();
     await expect(board.getByText("12月27日–1月2日")).toBeVisible();
+    await board.getByRole("link", { name: "上一周", exact: true }).click();
+    await expect(board.locator(".week-board-range")).toContainText(
+      formatWeekRange(shiftWeek(week, -1)),
+    );
+    await page.goto(`/?week=${week}`);
 
     const [dish] = await readWall(page);
     const remove = removeLabel("周二晚餐", dish!.name);
@@ -87,13 +93,11 @@ test.describe("weekly menu", () => {
       await page.keyboard.press("Escape");
       await page.setViewportSize({ width: 390, height: 844 });
       await openTray(page);
-      // Keep the card above the fixed tray while exercising the real trigger.
-      await stamp.evaluate((node) =>
-        window.scrollTo(
-          0,
-          window.scrollY + node.getBoundingClientRect().top - 120,
-        ),
-      );
+      // A populated tray can cover the card after fonts/images finish loading.
+      // Use the reachable tray toggle instead of relying on a fixed scroll offset.
+      await expect(shownBoard(page).locator(".slot-hint")).toHaveCount(0);
+      await closeTray(page);
+      await expect(page.locator("#week-tray-panel")).toBeHidden();
       await stamp.click();
       await expect(shownBoard(page).locator(".slot-hint")).toHaveCount(0);
       await expect(
@@ -103,6 +107,7 @@ test.describe("weekly menu", () => {
         page.locator(".week-panel .slot-target, #week-tray-panel .slot-target"),
       ).toHaveCount(0);
       const sheet = page.getByRole("dialog");
+      await expect(sheet).toHaveCount(1);
       await expect(sheet).toContainText(`『${dish!.name}』加到哪一顿？`);
       await expect(
         sheet.getByRole("button", { name: "周四早餐", exact: true }),
@@ -117,6 +122,11 @@ test.describe("weekly menu", () => {
         sheet.getByRole("button", { name: "添加", exact: true }),
       ).toHaveCSS("height", "48px");
       await page.keyboard.press("Escape");
+      await expect(sheet).toHaveCount(0);
+      await openTray(page);
+      await expect(
+        shownBoard(page).locator(".slot-hint, .slot-target"),
+      ).toHaveCount(0);
     } finally {
       await page.keyboard.press("Escape");
       await page.setViewportSize({ width: 1440, height: 900 });

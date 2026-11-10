@@ -1,7 +1,12 @@
 import { cookies } from "next/headers";
 import { revalidatePath } from "next/cache";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { addDishToSlot, removeDishFromSlot } from "@/app/week-actions";
+import {
+  addCustomItem,
+  renameCustomItem,
+  addDishToSlot,
+  removeDishFromSlot,
+} from "@/app/week-actions";
 import { MENU_ACTION_ERROR } from "@/lib/menu-slots";
 import { signSession } from "@/lib/auth/session";
 import { clearEphemeralWeeklyMenu } from "@/server/menu";
@@ -77,6 +82,22 @@ describe("weekly menu actions", () => {
   it("requires a session before add, remove, or load", async () => {
     mockCookie(undefined);
 
+    await expect(
+      addCustomItem({
+        weekStart: slot.weekStart,
+        day: 1,
+        meal: "dinner",
+        name: "外卖",
+      }),
+    ).rejects.toThrow("REDIRECT /login");
+    await expect(
+      renameCustomItem({
+        id: crypto.randomUUID(),
+        day: 1,
+        meal: "dinner",
+        name: "外卖",
+      }),
+    ).rejects.toThrow("REDIRECT /login");
     await expect(addDishToSlot(slot)).rejects.toThrow("REDIRECT /login");
     await expect(removeDishFromSlot(slot)).rejects.toThrow("REDIRECT /login");
     await expect(loadWeekMenu(slot.weekStart)).rejects.toThrow(
@@ -174,4 +195,71 @@ describe("weekly menu actions", () => {
     expect(logged).not.toContain("postgres://");
     expect(logged).not.toContain("DATABASE_URL=");
   });
+});
+
+describe("custom item actions", () => {
+  it("trims, deduplicates case-insensitively, renames/moves and removes custom items", async () => {
+    const input = {
+      weekStart: slot.weekStart,
+      day: 1,
+      meal: "dinner",
+      name: "  Takeout  ",
+    };
+    const added = await addCustomItem(input);
+    expect(added.ok).toBe(true);
+    if (!added.ok) return;
+    const item = added.week.items[0]!;
+    expect(item).toMatchObject({ dishId: null, customName: "Takeout" });
+    expect(await addCustomItem({ ...input, name: " takeOUT " })).toEqual({
+      ok: false,
+      error: "这顿已经有了",
+    });
+    const other = await addCustomItem({ ...input, day: 2 });
+    expect(other.ok).toBe(true);
+    expect(
+      await renameCustomItem({
+        id: item.id,
+        name: "TAKEOUT",
+        day: 2,
+        meal: "dinner",
+      }),
+    ).toEqual({ ok: false, error: "这顿已经有了" });
+    const moved = await renameCustomItem({
+      id: item.id,
+      name: " 聚餐 ",
+      day: 3,
+      meal: "lunch",
+    });
+    expect(moved.ok).toBe(true);
+    if (!moved.ok) return;
+    expect(moved.week.items.find((i) => i.id === item.id)).toMatchObject({
+      customName: "聚餐",
+      dayOfWeek: 3,
+      meal: "lunch",
+    });
+    const removed = await removeDishFromSlot({
+      weekStart: slot.weekStart,
+      id: item.id,
+      dayOfWeek: 3,
+      meal: "lunch",
+    });
+    expect(removed.ok && removed.week.items.some((i) => i.id === item.id)).toBe(
+      false,
+    );
+  });
+  it.each(["", " ", "外".repeat(41)])(
+    "rejects invalid custom names on the server",
+    async (name) => {
+      expect(
+        (
+          await addCustomItem({
+            weekStart: slot.weekStart,
+            day: 1,
+            meal: "dinner",
+            name,
+          })
+        ).ok,
+      ).toBe(false);
+    },
+  );
 });

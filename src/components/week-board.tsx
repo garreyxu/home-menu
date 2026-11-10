@@ -49,6 +49,7 @@ export function WeekBoard({
   categoryParam,
   thumbs = {},
   onRemove,
+  onCustom,
   selectingDish,
   onSelect,
   onCancel,
@@ -64,6 +65,7 @@ export function WeekBoard({
   items: readonly WeekMenuItemView[];
   categoryParam: string | null;
   thumbs?: Record<string, string | undefined>;
+  onCustom: (anchor: HTMLElement, item: WeekMenuItemView | null) => void;
   onRemove: (item: WeekMenuItemView) => void;
 }) {
   const previous = categoryFilterHref(categoryParam, shiftWeek(weekStart, -1));
@@ -119,7 +121,11 @@ export function WeekBoard({
           {formatWeekRange(weekStart)} · 已点 {items.length} 道
         </p>
       </div>
-      <button type="button" className="week-custom focus-ring">
+      <button
+        type="button"
+        className="week-custom focus-ring"
+        onClick={(e) => onCustom(e.currentTarget, null)}
+      >
         ＋ 自定义（外卖、聚餐…）
       </button>
       {items.length === 0 ? (
@@ -176,6 +182,7 @@ export function WeekBoard({
                   selectingDish={selectingDish}
                   onSelect={onSelect}
                   flash={flash}
+                  onCustom={onCustom}
                   onRemove={onRemove}
                   onLongPress={(item) => setPressed({ item, day, meal })}
                 />
@@ -187,7 +194,7 @@ export function WeekBoard({
       {pressed ? (
         <PressMenu
           target={pressed}
-          thumb={thumbs[pressed.item.dishId]}
+          thumb={thumbs[pressed.item.dishId ?? ""]}
           onRemove={() => {
             const item = pressed.item;
             setPressed(null);
@@ -239,6 +246,7 @@ function Slot({
   thumbs,
   onRemove,
   onLongPress,
+  onCustom,
   selectingDish,
   onSelect,
   flash,
@@ -251,6 +259,7 @@ function Slot({
   items: readonly WeekMenuItemView[];
   thumbs: Record<string, string | undefined>;
   onRemove: (item: WeekMenuItemView) => void;
+  onCustom: (anchor: HTMLElement, item: WeekMenuItemView | null) => void;
   onLongPress: (item: WeekMenuItemView) => void;
 }) {
   const [expanded, setExpanded] = useState(false);
@@ -304,7 +313,7 @@ function Slot({
       ) : null}
       <ul className="week-slot-list">
         {shown.map((item) => {
-          const thumb = thumbs[item.dishId];
+          const thumb = thumbs[item.dishId ?? ""];
           return (
             <Chip
               key={item.id}
@@ -313,6 +322,7 @@ function Slot({
               thumb={thumb}
               dayLabel={dayLabel}
               mealName={mealName}
+              onCustom={onCustom}
               onRemove={onRemove}
               onLongPress={() => onLongPress(item)}
             />
@@ -340,6 +350,7 @@ function Chip({
   mealName,
   onRemove,
   onLongPress,
+  onCustom,
 }: {
   item: WeekMenuItemView;
   flash?: boolean;
@@ -347,20 +358,45 @@ function Chip({
   dayLabel: string;
   mealName: string;
   onRemove: (item: WeekMenuItemView) => void;
+  onCustom: (anchor: HTMLElement, item: WeekMenuItemView | null) => void;
   onLongPress: () => void;
 }) {
   const press = useLongPress(onLongPress);
 
   return (
-    <li className={cn("week-chip", flash && "slot-flash")} {...press}>
-      <WeekMark name={item.dishName} src={thumb} size={24} />
-      <span
-        className="week-dish-name"
-        title={item.dishName}
-        aria-label={item.dishName}
-      >
-        {item.dishName}
-      </span>
+    <li
+      className={cn(
+        "week-chip",
+        flash && "slot-flash",
+        item.customName && "week-custom-chip",
+      )}
+      {...(item.customName ? {} : press)}
+    >
+      {item.customName ? (
+        <button
+          type="button"
+          className="custom-chip-edit focus-ring"
+          title={item.customName}
+          aria-label={`编辑${item.customName}`}
+          onClick={(e) => onCustom(e.currentTarget, item)}
+        >
+          <span className="custom-seal font-brush">外</span>
+          <span className="week-dish-name" title={item.customName}>
+            {item.customName}
+          </span>
+        </button>
+      ) : (
+        <WeekMark name={item.dishName} src={thumb} size={24} />
+      )}
+      {!item.customName ? (
+        <span
+          className="week-dish-name"
+          title={item.dishName}
+          aria-label={item.dishName}
+        >
+          {item.dishName}
+        </span>
+      ) : null}
       <button
         type="button"
         className="week-remove focus-ring"

@@ -160,9 +160,8 @@ export const menuItems = pgTable(
       .references(() => weeklyMenus.id, { onDelete: "cascade" }),
     dayOfWeek: smallint("day_of_week").notNull(),
     meal: mealEnum("meal").notNull(),
-    dishId: uuid("dish_id")
-      .notNull()
-      .references(() => dishes.id),
+    dishId: uuid("dish_id").references(() => dishes.id),
+    customName: text("custom_name"),
     createdAt: timestamp("created_at", { withTimezone: true, mode: "date" })
       .notNull()
       .defaultNow(),
@@ -179,6 +178,18 @@ export const menuItems = pgTable(
       sql`${table.dayOfWeek} >= 0 and ${table.dayOfWeek} <= 6`,
     ),
     index("menu_items_dish_id_idx").on(table.dishId),
+    check(
+      "menu_items_kind",
+      sql`(${table.dishId} is not null and ${table.customName} is null) or (${table.dishId} is null and ${table.customName} is not null and ${table.customName} = btrim(${table.customName}) and char_length(${table.customName}) between 1 and 40)`,
+    ),
+    uniqueIndex("menu_items_slot_custom_unique")
+      .on(
+        table.weeklyMenuId,
+        table.dayOfWeek,
+        table.meal,
+        sql`lower(btrim(${table.customName}))`,
+      )
+      .where(sql`${table.customName} is not null`),
   ],
 );
 

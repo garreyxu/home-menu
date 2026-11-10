@@ -1,6 +1,8 @@
 import "server-only";
+import { validateCustomName, customNameKey } from "@/lib/custom-name";
+import { MenuInputError } from "@/server/week";
 
-import { and, asc, eq } from "drizzle-orm";
+import { and, asc, eq, sql, isNull } from "drizzle-orm";
 
 import { parseRecipeBlocks, type RecipeBlock } from "@/lib/recipe-blocks";
 import { getDb } from "@/server/db";
@@ -340,16 +342,17 @@ export async function addMenuItem(input: {
 }
 
 export async function removeMenuItem(input: {
+  id?: string;
   weekStart: string;
   dayOfWeek: number;
   meal: string;
-  dishId: string;
+  dishId?: string;
 }): Promise<{ removed: boolean }> {
   const sunday = assertSundayWeekStart(input.weekStart);
   const dayOfWeek = assertDayOfWeek(input.dayOfWeek);
   const meal = assertMeal(input.meal);
-  const dishId = assertDishId(input.dishId);
-  await requireDish(dishId);
+  const dishId = input.id ? null : assertDishId(input.dishId ?? "");
+  if (dishId) await requireDish(dishId);
 
   if (usesEphemeralMenu()) {
     const week = ephemeralWeeks().get(sunday);
@@ -360,7 +363,9 @@ export async function removeMenuItem(input: {
         !(
           item.dayOfWeek === dayOfWeek &&
           item.meal === meal &&
-          item.dishId === dishId
+          (input.id
+            ? item.id === input.id && item.dishId === null
+            : item.dishId === dishId)
         ),
     );
     return { removed: week.items.length < before };
@@ -383,7 +388,9 @@ export async function removeMenuItem(input: {
         eq(menuItems.weeklyMenuId, week.id),
         eq(menuItems.dayOfWeek, dayOfWeek),
         eq(menuItems.meal, meal),
-        eq(menuItems.dishId, dishId),
+        input.id
+          ? and(eq(menuItems.id, input.id), isNull(menuItems.dishId))
+          : eq(menuItems.dishId, dishId!),
       ),
     )
     .returning({ id: menuItems.id });
@@ -421,11 +428,12 @@ export async function getWeek(weekStart: string): Promise<WeekMenu | null> {
       dayOfWeek: menuItems.dayOfWeek,
       meal: menuItems.meal,
       dishId: menuItems.dishId,
-      dishName: dishes.name,
+      dishName: sql<string>`coalesce(${dishes.name}, ${menuItems.customName})`,
+      customName: menuItems.customName,
       createdAt: menuItems.createdAt,
     })
     .from(menuItems)
-    .innerJoin(dishes, eq(menuItems.dishId, dishes.id))
+    .leftJoin(dishes, eq(menuItems.dishId, dishes.id))
     .where(eq(menuItems.weeklyMenuId, week.id));
 
   return {
@@ -441,7 +449,7 @@ function toMenuItem(row: {
   weeklyMenuId: string;
   dayOfWeek: number;
   meal: Meal;
-  dishId: string;
+  dishId: string | null;
   createdAt: Date;
 }): MenuItemRecord {
   return {
@@ -452,4 +460,91 @@ function toMenuItem(row: {
     dishId: row.dishId,
     createdAt: row.createdAt,
   };
+}
+
+/** Custom rows share the same weekly menu and removal path as dishes. */
+export async function writeCustomMenuItem(input: {
+  weekStart?: string;
+  id?: string;
+  name: string;
+  day: number;
+  meal: Meal;
+}): Promise<{ weekStart: string; created: boolean }> {
+  const name = validateCustomName(input.name);
+  const dayOfWeek = assertDayOfWeek(input.day);
+  const meal = assertMeal(input.meal);
+  if (usesEphemeralMenu()) {
+    const week = input.id
+      ? [...ephemeralWeeks().values()].find((w) =>
+          w.items.some((i) => i.id === input.id && i.dishId === null),
+        )
+      : ephemeralGetOrCreate(assertSundayWeekStart(input.weekStart ?? ""));
+    if (!week) throw new MenuInputError("没有这个条目。");
+    const duplicate = week.items.some(
+      (i) =>
+        i.id !== input.id &&
+        i.dayOfWeek === dayOfWeek &&
+        i.meal === meal &&
+        i.customName &&
+        customNameKey(i.customName) === customNameKey(name),
+    );
+    if (duplicate) return { weekStart: week.weekStart, created: false };
+    if (input.id) {
+      const item = week.items.find((i) => i.id === input.id)!;
+      Object.assign(item, {
+        dayOfWeek,
+        meal,
+        customName: name,
+        dishName: name,
+      });
+    } else {
+      week.items.push({
+        id: crypto.randomUUID(),
+        weeklyMenuId: week.id,
+        dayOfWeek,
+        meal,
+        dishId: null,
+        customName: name,
+        dishName: name,
+        createdAt: new Date(),
+      });
+    }
+    return { weekStart: week.weekStart, created: true };
+  }
+  const db = getDb();
+  let week;
+  if (input.id) {
+    const [row] = await db
+      .select({ weekStart: weeklyMenus.weekStart, id: weeklyMenus.id })
+      .from(menuItems)
+      .innerJoin(weeklyMenus, eq(menuItems.weeklyMenuId, weeklyMenus.id))
+      .where(and(eq(menuItems.id, input.id), isNull(menuItems.dishId)))
+      .limit(1);
+    week = row;
+  } else week = await getOrCreateWeek(input.weekStart ?? "");
+  if (!week) throw new MenuInputError("没有这个条目。");
+  let created = false;
+  try {
+    const rows = input.id
+      ? await db
+          .update(menuItems)
+          .set({ customName: name, dayOfWeek, meal })
+          .where(and(eq(menuItems.id, input.id), isNull(menuItems.dishId)))
+          .returning({ id: menuItems.id })
+      : await db
+          .insert(menuItems)
+          .values({ weeklyMenuId: week.id, dayOfWeek, meal, customName: name })
+          .onConflictDoNothing()
+          .returning({ id: menuItems.id });
+    created = rows.length > 0;
+  } catch (error) {
+    let current: unknown = error;
+    while (current && typeof current === "object") {
+      if ("code" in current && current.code === "23505")
+        return { weekStart: week.weekStart, created: false };
+      current = "cause" in current ? current.cause : null;
+    }
+    throw error;
+  }
+  return { weekStart: week.weekStart, created };
 }
