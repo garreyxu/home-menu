@@ -331,6 +331,9 @@ test.describe("weekly menu", () => {
               fontWeight: style.fontWeight,
               fontFamily: style.fontFamily,
               whiteSpace: style.whiteSpace,
+              lineClamp: style.webkitLineClamp,
+              height: node.getBoundingClientRect().height,
+              lineHeight: Number.parseFloat(style.lineHeight),
               // A CJK glyph is about one em wide.
               chars: Math.floor((node.clientWidth + 1) / fontSize),
               text,
@@ -341,7 +344,9 @@ test.describe("weekly menu", () => {
           });
           expect(fit.fontSize).toBe(width >= 2560 ? "15px" : "13px");
           expect(Number(fit.fontWeight)).toBe(500);
-          expect(fit.whiteSpace).toBe("nowrap");
+          expect(fit.whiteSpace).toBe("normal");
+          expect(fit.lineClamp).toBe("2");
+          expect(fit.height).toBeLessThanOrEqual(2 * fit.lineHeight + 1);
           expect(fit.fontFamily).not.toMatch(/Ma Shan Zheng|MaShanZheng/i);
           expect(fit.text).toBe(item.dish);
           expect(fit.singleGlyph).toBe(false);
