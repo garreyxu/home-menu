@@ -1,4 +1,5 @@
-import { expect, test } from "@playwright/test";
+import { test, expect } from "./fixtures";
+
 import { e2eCredentials, login } from "./credentials";
 
 const credentials = e2eCredentials();
@@ -8,21 +9,25 @@ test.describe("in-site recipe", () => {
 
   test("opens a recipe in the site and does not link to Notion", async ({
     page,
+    world,
   }) => {
     const { username, password } = credentials!;
     await page.setViewportSize({ width: 390, height: 844 });
     await login(page, username, password);
 
-    const card = page
-      .locator("ul.dish-grid")
-      .getByRole("listitem")
-      .filter({
-        has: page.getByRole("heading", { name: "番茄炒蛋", exact: true }),
-      });
-    test.skip((await card.count()) === 0, "番茄炒蛋 is not on this wall");
+    const dish = world.dishes.find((dish) => dish.hasRecipe)!;
+    const card = page.locator("ul.dish-grid > li").filter({
+      has: page.locator(`[data-recipe-for="${dish.id}"]`),
+    });
 
-    await card.getByRole("button", { name: "查看番茄炒蛋的做法" }).click();
-    const dialog = page.getByRole("dialog", { name: "番茄炒蛋" });
+    await card
+      .getByRole("button", {
+        name: `查看${dish.name}的做法`,
+      })
+      .click();
+    const dialog = page.getByRole("dialog", {
+      name: dish.name,
+    });
     await expect(dialog).toBeVisible();
     await expect(dialog.getByText("正在打开做法")).toHaveCount(0);
 

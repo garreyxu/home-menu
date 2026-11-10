@@ -1,6 +1,5 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./fixtures";
 import { e2eCredentials } from "./credentials";
-import { readWall } from "./wall";
 
 const credentials = e2eCredentials();
 
@@ -60,6 +59,7 @@ test.describe("credential login", () => {
 
   test("correct login reaches / and logout returns to /login", async ({
     page,
+    world,
   }) => {
     const { username, password } = credentials!;
 
@@ -70,9 +70,12 @@ test.describe("credential login", () => {
 
     await expect(page).toHaveURL("/");
     await expect(page.getByRole("heading", { name: "御膳房" })).toBeVisible();
-    const [dish] = await readWall(page);
+    const [dish] = world.dishes;
     await expect(
-      page.getByRole("heading", { name: dish!.name, exact: true }),
+      page
+        .locator(".dish-card")
+        .filter({ has: page.locator(`[data-recipe-for="${dish!.id}"]`) })
+        .getByRole("heading", { name: dish!.name, exact: true }),
     ).toBeVisible();
 
     const logoutForm = page.locator('form[action="/logout"]');
@@ -92,13 +95,19 @@ test.describe("credential login", () => {
 
     await page.goBack();
     await expect(
-      page.getByRole("heading", { name: dish!.name, exact: true }),
+      page
+        .locator(".dish-card")
+        .filter({ has: page.locator(`[data-recipe-for="${dish!.id}"]`) })
+        .getByRole("heading", { name: dish!.name, exact: true }),
     ).toHaveCount(0);
 
     await page.goto("/");
     await expect(page).toHaveURL(/\/login/);
     await expect(
-      page.getByRole("heading", { name: dish!.name, exact: true }),
+      page
+        .locator(".dish-card")
+        .filter({ has: page.locator(`[data-recipe-for="${dish!.id}"]`) })
+        .getByRole("heading", { name: dish!.name, exact: true }),
     ).toHaveCount(0);
   });
 });

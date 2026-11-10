@@ -1,5 +1,6 @@
+import { test, expect } from "./fixtures";
 import { mkdir } from "node:fs/promises";
-import { expect, test } from "@playwright/test";
+
 import { e2eCredentials, login } from "./credentials";
 
 const credentials = e2eCredentials();
@@ -10,7 +11,7 @@ const widths = [
   { width: 3440, height: 1440 },
 ] as const;
 
-test("signed-in dish wall screenshots", async ({ page }) => {
+test("signed-in dish wall screenshots", async ({ page, world }) => {
   test.skip(
     !process.env.PREVIEW_SCREENSHOTS,
     "preview screenshots run only in preview-e2e",
@@ -19,11 +20,16 @@ test("signed-in dish wall screenshots", async ({ page }) => {
   const { username, password } = credentials!;
 
   await login(page, username, password);
+  await page.goto(
+    `/?week=${world.weeks[0]}&category=${encodeURIComponent(world.dishes[0]!.category)}`,
+  );
   await mkdir("preview-screenshots", { recursive: true });
 
   for (const viewport of widths) {
     await page.setViewportSize(viewport);
-    await page.goto("/");
+    await page.goto(
+      `/?week=${world.weeks[0]}&category=${encodeURIComponent(world.dishes[0]!.category)}`,
+    );
     await page.evaluate(() => document.fonts.ready);
     const cardName = page
       .locator("ul.dish-grid")

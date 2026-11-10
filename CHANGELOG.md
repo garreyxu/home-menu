@@ -4,6 +4,10 @@
 
 ## [Unreleased]
 
+### Internal / Tests
+
+- E2E tests seed run-owned dishes and reserved future weeks, isolate parallel tests, and verify cleanup through a guarded test-only API. Await persisted mutations before reload/teardown, delete scoped children before parents, and use short fixture dish names.
+
 ### Changed
 
 - 做法章节标题统一常用中文，食材清单改为朱红圆点并隐藏无地址的图片占位。

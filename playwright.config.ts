@@ -1,4 +1,10 @@
+import { randomBytes } from "node:crypto";
 import { defineConfig, devices } from "@playwright/test";
+
+process.env.E2E_RUN_ID ??=
+  process.env.GITHUB_RUN_ID && process.env.GITHUB_RUN_ATTEMPT
+    ? `${process.env.GITHUB_RUN_ID}-${process.env.GITHUB_RUN_ATTEMPT}`
+    : randomBytes(4).toString("hex");
 
 const baseURL = process.env.PLAYWRIGHT_BASE_URL ?? "http://127.0.0.1:3000";
 
@@ -9,6 +15,7 @@ const vercelProtectionBypass = process.env.VERCEL_AUTOMATION_BYPASS_SECRET;
 const suppressCapture = process.env.PLAYWRIGHT_TRACE === "off";
 
 export default defineConfig({
+  outputDir: "preview-screenshots/test-results",
   testDir: "tests/e2e",
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
@@ -32,6 +39,13 @@ export default defineConfig({
   projects: [
     {
       name: "chromium",
+      testIgnore: /cleanup\.ts$/,
+      teardown: "e2e-cleanup",
+      use: { ...devices["Desktop Chrome"] },
+    },
+    {
+      name: "e2e-cleanup",
+      testMatch: /cleanup\.ts$/,
       use: { ...devices["Desktop Chrome"] },
     },
   ],
