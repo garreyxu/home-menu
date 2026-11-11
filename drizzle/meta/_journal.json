@@ -64,6 +64,13 @@
       "when": 1794300626354,
       "tag": "0008_repair_custom_week_items",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1794364172785,
+      "tag": "0009_shopping_checks",
+      "breakpoints": true
     }
   ]
 }

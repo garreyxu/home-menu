@@ -10,6 +10,7 @@ export type SeedDish = {
   categoryName: string;
   description: string;
   recipeBlocks?: RecipeBlock[];
+  ingredients?: string;
 };
 
 const tomatoEggRecipe: RecipeBlock[] = [
@@ -62,12 +63,14 @@ export const seedCategories: readonly SeedCategory[] = [
 export const seedDishes: readonly SeedDish[] = [
   {
     name: "番茄炒蛋",
+    ingredients: "番茄，鸡蛋，葱（optional），盐，糖",
     categoryName: "家常菜",
     description: "番茄和鸡蛋一起炒，酸甜家常。",
     recipeBlocks: tomatoEggRecipe,
   },
   {
     name: "红烧肉",
+    ingredients: "五花肉，鸡蛋，八角，生抽，老抽，糖",
     categoryName: "家常菜",
     description: "五花肉慢炖，酱香软烂。",
   },

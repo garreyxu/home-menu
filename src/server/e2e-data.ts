@@ -1,4 +1,5 @@
 import "server-only";
+import { clearLocalShoppingWeek } from "@/server/shopping-list";
 import { createHash } from "node:crypto";
 import { and, eq, gte, lte, lt, sql, inArray } from "drizzle-orm";
 import { getDb } from "@/server/db";
@@ -116,8 +117,10 @@ export async function cleanupE2E(
           )))
     )
       continue;
-    if (ephemeral()) ephemeralWeeks().delete(row.weekStart);
-    else {
+    if (ephemeral()) {
+      clearLocalShoppingWeek(row.id);
+      ephemeralWeeks().delete(row.weekStart);
+    } else {
       // Explicit children-first deletion also works with a restrictive FK.
       // During stale sweeps retain a whole week if it contains young items.
       const weekScope = and(
@@ -299,6 +302,7 @@ export async function seedE2E(
           notionPageId,
           name:
             i === 6 ? "秘制蜜汁叉烧配手工鸡蛋面条" : seedDishes[i - 1]!.name,
+          ingredients: seedDishes[i - 1]!.ingredients ?? null,
           isActive: true,
           hasBody: true,
           recipeBlocks: [

@@ -42,6 +42,7 @@ export type MenuItemRecord = {
 };
 
 export type WeekMenuItem = MenuItemRecord & {
+  ingredients?: string | null;
   dishName: string;
 };
 

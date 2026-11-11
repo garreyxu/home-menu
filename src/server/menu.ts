@@ -151,9 +151,7 @@ function isForeignKeyError(error: unknown): boolean {
   return false;
 }
 
-export async function getDishRecipe(
-  dishId: string,
-): Promise<{
+export async function getDishRecipe(dishId: string): Promise<{
   name: string;
   blocks: RecipeBlock[];
   cookTime?: string | null;
@@ -184,9 +182,7 @@ export async function getDishRecipe(
   };
 }
 
-function sampleRecipe(
-  dishId: string,
-): {
+function sampleRecipe(dishId: string): {
   name: string;
   blocks: RecipeBlock[];
   cookTime?: string | null;
@@ -435,7 +431,14 @@ export async function getWeek(weekStart: string): Promise<WeekMenu | null> {
       id: week.id,
       weekStart: week.weekStart,
       createdAt: week.createdAt,
-      items: orderMenuItems(week.items).map(toStoredItem),
+      items: orderMenuItems(week.items).map((item) => ({
+        ...toStoredItem(item),
+        ingredients: item.dishId
+          ? seedDishes.find(
+              (dish) => `sample-dish:${dish.name}` === item.dishId,
+            )?.ingredients
+          : null,
+      })),
     };
   }
 
@@ -457,6 +460,7 @@ export async function getWeek(weekStart: string): Promise<WeekMenu | null> {
       meal: menuItems.meal,
       dishId: menuItems.dishId,
       dishName: sql<string>`coalesce(${dishes.name}, ${menuItems.customName})`,
+      ingredients: dishes.ingredients,
       customName: menuItems.customName,
       createdAt: menuItems.createdAt,
     })
