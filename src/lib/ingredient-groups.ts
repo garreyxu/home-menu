@@ -117,6 +117,7 @@ export const GROUP_WORDS: Record<IngredientGroup, readonly string[]> = {
     "饭",
     "面",
     "粉丝",
+    "红薯粉丝",
     "土豆粉",
     "魔芋丝",
     "油条",
@@ -127,6 +128,7 @@ export const GROUP_WORDS: Record<IngredientGroup, readonly string[]> = {
     "桂皮",
     "香叶",
     "干辣椒",
+    "干红辣椒",
     "花椒",
     "花生",
     "芝麻",
@@ -162,6 +164,7 @@ export const GROUP_EXCEPTIONS: { name: string; group: IngredientGroup }[] = [
   { name: "番茄酱", group: "调料干货" },
   { name: "辣椒面", group: "调料干货" },
   { name: "干辣椒", group: "调料干货" },
+  { name: "干红辣椒", group: "调料干货" },
 ];
 
 /** Matching only: display names and deduplication keys stay unchanged. */
@@ -197,6 +200,7 @@ export const PANTRY_WORDS = [
   "油",
   "香油",
   "芝麻油",
+  "麻油",
   "胡椒粉",
   "白胡椒粉",
   "黑胡椒",

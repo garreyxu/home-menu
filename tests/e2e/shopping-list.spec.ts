@@ -53,19 +53,13 @@ test("shopping checks are shared, week-isolated, and survive removing and re-add
   await persistMenuAction(page, () => egg.check());
   await expect(eggName).toHaveCSS("text-decoration-line", "line-through");
   await expect(eggName).toHaveCSS("animation-duration", "0.18s");
-  await expect(eggName).toHaveCSS(
-    "text-decoration-color",
-    "rgba(28, 22, 19, 0.4)",
-  );
+  await expect(eggName).toHaveCSS("text-decoration-color", "rgb(28, 22, 19)");
   await expect(names).toHaveText(originalOrder);
   expect(await eggName.boundingBox()).toEqual(originalPosition);
   await page.emulateMedia({ reducedMotion: "reduce" });
   await expect(eggName).toHaveCSS("animation-name", "none");
   await expect(eggName).toHaveCSS("text-decoration-line", "line-through");
-  await expect(eggName).toHaveCSS(
-    "text-decoration-color",
-    "rgba(28, 22, 19, 0.4)",
-  );
+  await expect(eggName).toHaveCSS("text-decoration-color", "rgb(28, 22, 19)");
   await page.emulateMedia({ reducedMotion: "no-preference" });
   await persistMenuAction(page, () =>
     list.getByRole("checkbox", { name: /^番茄，/ }).check(),
@@ -203,6 +197,62 @@ test("missing ingredient properties remain visible without overflowing the shopp
         () => document.documentElement.scrollWidth <= innerWidth,
       ),
     ).toBe(true);
+    await list.getByRole("button", { name: "关闭买菜单" }).click();
+  }
+});
+
+test("checked names stay struck and stamps cover the centered box at every shopping width", async ({
+  page,
+  world,
+}) => {
+  test.setTimeout(90_000);
+  const credentials = e2eCredentials()!;
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await login(page, credentials.username, credentials.password);
+  await addShoppingDish(page, world, world.weeks[0], "番茄炒蛋");
+  for (const width of [390, 1440, 3440]) {
+    await page.setViewportSize({ width, height: 900 });
+    await page.reload();
+    const list = await openShoppingList(page);
+    const checkbox = list.getByRole("checkbox", { name: /^鸡蛋，/ });
+    const row = checkbox.locator("..");
+    const name = row.locator(".shopping-name");
+    await row.scrollIntoViewIfNeeded();
+    const position = await row.boundingBox();
+    await expect(name).not.toHaveCSS("text-decoration-line", /line-through/);
+    await persistMenuAction(page, () => checkbox.check());
+    await expect(name).toHaveCSS("text-decoration-line", /line-through/);
+    await expect(name).toHaveCSS("text-decoration-color", "rgb(28, 22, 19)");
+    await expect(checkbox).toHaveAttribute(
+      "aria-label",
+      "鸡蛋，番茄炒蛋要用，已买",
+    );
+    await row.evaluate(async (node) => {
+      await Promise.all(
+        node
+          .getAnimations({ subtree: true })
+          .map((animation) => animation.finished),
+      );
+    });
+    const box = await row.locator(".shopping-box").boundingBox();
+    const stamp = await row.locator(".shopping-box > span").boundingBox();
+    expect(
+      Math.abs(box!.x + box!.width / 2 - (stamp!.x + stamp!.width / 2)),
+    ).toBeLessThan(0.25);
+    expect(
+      Math.abs(box!.y + box!.height / 2 - (stamp!.y + stamp!.height / 2)),
+    ).toBeLessThan(0.25);
+    await expect(row.locator(".shopping-box")).toHaveCSS(
+      "border-top-color",
+      "rgba(0, 0, 0, 0)",
+    );
+    expect(await row.boundingBox()).toEqual(position);
+    await persistMenuAction(page, () => checkbox.uncheck());
+    await expect(name).not.toHaveCSS("text-decoration-line", /line-through/);
+    await expect(checkbox).toHaveAttribute(
+      "aria-label",
+      "鸡蛋，番茄炒蛋要用，未买",
+    );
     await list.getByRole("button", { name: "关闭买菜单" }).click();
   }
 });

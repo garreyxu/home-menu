@@ -23,11 +23,13 @@ it.each([
   ["红黄甜椒", "蔬菜菌菇"],
   ["海鲜菇", "蔬菜菌菇"],
   ["粉丝", "主食面粉"],
+  ["红薯粉丝", "主食面粉"],
   ["土豆粉", "主食面粉"],
   ["鸡蛋面", "主食面粉"],
   ["番茄酱", "调料干货"],
   ["辣椒面", "调料干货"],
   ["干辣椒", "调料干货"],
+  ["干红辣椒", "调料干货"],
   ["花生米", "调料干货"],
   ["高度白酒", "调料干货"],
   ["神秘食材", "其他"],
@@ -62,4 +64,9 @@ it("matches pantry exactly after normalization, without swallowing shopped sauce
   }
   for (const name of ["番茄酱", "黄油", "蜂蜜", "油豆腐", "花生米", "蒸鱼豉油"])
     expect(isPantryIngredient(name)).toBe(false);
+});
+
+it("keeps sesame oil in pantry, including normalized alternatives", () => {
+  expect(isPantryIngredient("麻油")).toBe(true);
+  expect(isPantryIngredient("麻油（或香油）")).toBe(true);
 });

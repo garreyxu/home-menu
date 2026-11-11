@@ -178,7 +178,12 @@ function ShoppingSheet({
           {checked ? <span>✓</span> : null}
         </span>
         <span className="shopping-copy">
-          <span className="shopping-name">{item.name}</span>
+          <span
+            className="shopping-name"
+            style={{ textDecorationLine: checked ? "line-through" : "none" }}
+          >
+            {item.name}
+          </span>
           {item.optional ? (
             <small className="shopping-optional">（可选）</small>
           ) : null}
