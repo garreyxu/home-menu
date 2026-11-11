@@ -31,6 +31,7 @@ import {
   MEAL_FULL,
   MEAL_SHORT,
   slotLabel,
+  emptySlotLabel,
   type WeekMenuItemView,
 } from "@/lib/menu-slots";
 import { categoryFilterHref } from "@/lib/category-filter";
@@ -484,6 +485,12 @@ function Slot({
     <div
       ref={setNodeRef}
       data-slot={`${day}:${meal}`}
+      role={!items.length && !selectingDish ? "group" : undefined}
+      aria-label={
+        !items.length && !selectingDish
+          ? emptySlotLabel(day, meal, false)
+          : undefined
+      }
       className={cn(
         isOver && "move-hover",
         isOver && duplicate && "move-duplicate",
@@ -502,7 +509,11 @@ function Slot({
         <button
           type="button"
           className="slot-target focus-ring"
-          aria-label={`${slotLabel(day, meal)}${disabled ? "，这顿已经有了" : ""}`}
+          aria-label={
+            !items.length
+              ? emptySlotLabel(day, meal, true)
+              : `${slotLabel(day, meal)}${disabled ? "，这顿已经有了" : ""}`
+          }
           aria-disabled={disabled}
           onClick={() => {
             if (!disabled) onSelect?.(day, meal);
@@ -513,12 +524,7 @@ function Slot({
           ) : null}
         </button>
       ) : null}
-      {!items.length ? (
-        <>
-          <span aria-hidden="true">＋</span>
-          <span className="sr-only">空</span>
-        </>
-      ) : null}
+      {!items.length ? <span aria-hidden="true">＋</span> : null}
       <ul className="week-slot-list">
         {shown.map((item) => {
           const thumb = thumbs[item.dishId ?? ""];

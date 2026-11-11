@@ -1,3 +1,4 @@
+import { slotButton } from "./slots";
 import {
   test,
   expect,
@@ -77,9 +78,7 @@ for (const width of [1440, 390]) {
         editor.getByText(`${name.length}/40`, { exact: true }),
       ).toBeVisible();
       await expect(submit).toBeDisabled();
-      await editor
-        .getByRole("button", { name: "周一晚餐", exact: true })
-        .click();
+      await slotButton(editor, "周一晚餐").click();
       await expect(editor.getByText("✓ 加这顿")).toBeVisible();
       if (width === 390) {
         const cells = await editor
@@ -109,7 +108,7 @@ for (const width of [1440, 390]) {
           editor,
           submit,
           editor.getByText(`${name.length}/40`, { exact: true }),
-          editor.getByRole("button", { name: "周一晚餐", exact: true }),
+          slotButton(editor, "周一晚餐"),
         ]) {
           const fit = (await target.boundingBox())!;
           expect(fit.x).toBeGreaterThanOrEqual(16);
@@ -158,10 +157,7 @@ for (const width of [1440, 390]) {
         exact: true,
       });
       await liveEditor.getByRole("textbox").fill(` ${name.toUpperCase()} `);
-      const liveSlot = liveEditor.getByRole("button", {
-        name: "周一晚餐",
-        exact: true,
-      });
+      const liveSlot = slotButton(liveEditor, "周一晚餐");
       await expect(liveSlot).toContainText(name);
       await liveSlot.click();
       await expect(liveEditor.getByRole("alert")).toHaveText("这顿已经有了");
@@ -181,9 +177,7 @@ for (const width of [1440, 390]) {
         .click();
       editor = page.getByRole("dialog", { name: "自定义条目", exact: true });
       await editor.getByRole("textbox").fill(` ${name.toUpperCase()} `);
-      await editor
-        .getByRole("button", { name: "周一晚餐", exact: true })
-        .click();
+      await slotButton(editor, "周一晚餐").click();
       await expect(editor.getByRole("alert")).toHaveText("这顿已经有了");
       await expect(
         editor.getByRole("button", { name: "放进去", exact: true }),
@@ -204,9 +198,10 @@ for (const width of [1440, 390]) {
         exact: true,
       });
       await expect(editor.getByRole("textbox")).toHaveValue(name);
-      await expect(
-        editor.getByRole("button", { name: "周一晚餐", exact: true }),
-      ).toHaveAttribute("aria-pressed", "true");
+      await expect(slotButton(editor, "周一晚餐")).toHaveAttribute(
+        "aria-pressed",
+        "true",
+      );
       await editor.getByRole("textbox").fill(renamed);
       const renameCell =
         width === 390
@@ -214,7 +209,7 @@ for (const width of [1440, 390]) {
               .locator(".add-day-cell")
               .filter({ hasNotText: renamed })
               .first()
-          : editor.getByRole("button", { name: "周三午餐", exact: true });
+          : slotButton(editor, "周三午餐");
       renamedSlot = (await renameCell.getAttribute("aria-label"))!;
       await renameCell.click();
       await editor.getByRole("button", { name: "保存", exact: true }).click();

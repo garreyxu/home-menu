@@ -1,3 +1,4 @@
+import { slotButton } from "./slots";
 import {
   test,
   expect,
@@ -53,7 +54,7 @@ async function addCustom(page: Page, name: string) {
     .click();
   const editor = page.getByRole("dialog", { name: "自定义条目", exact: true });
   await editor.getByRole("textbox").fill(name);
-  await editor.getByRole("button", { name: "周一午餐", exact: true }).click();
+  await slotButton(editor, "周一午餐").click();
   await editor.getByRole("button", { name: "放进去", exact: true }).click();
   await expect(editor).toHaveCount(0);
   await expect(chip(page, name)).toHaveCount(1);
@@ -214,9 +215,7 @@ for (const width of [1440, 390]) {
             .click();
           menu = page.getByRole("dialog");
           await expect(menu.getByText("现在在这")).toBeVisible();
-          await menu
-            .getByRole("button", { name: "周三晚餐", exact: true })
-            .click();
+          await slotButton(menu, "周三晚餐").click();
           await expect(menu.getByText("✓ 移到这")).toBeVisible();
           for (const row of await menu.locator(".add-day-cell").all()) {
             const rect = (await row.boundingBox())!;

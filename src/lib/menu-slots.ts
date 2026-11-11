@@ -49,3 +49,11 @@ export type MenuActionResult =
 export function slotLabel(dayOfWeek: number, meal: Meal): string {
   return `${DAY_LABELS[dayOfWeek] ?? ""}${MEAL_FULL[meal]}`;
 }
+
+export function emptySlotLabel(
+  dayOfWeek: number,
+  meal: Meal,
+  interactive: boolean,
+): string {
+  return `${slotLabel(dayOfWeek, meal)}，还没点菜${interactive ? "，点按加菜" : ""}`;
+}
