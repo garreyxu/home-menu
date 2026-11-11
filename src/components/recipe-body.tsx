@@ -1,3 +1,4 @@
+import { normalizeRecipeSpans, normalizeRecipeText } from "@/lib/recipe-text";
 import type { ReactNode } from "react";
 import type { RecipeBlock, RecipeSpan } from "@/lib/recipe-blocks";
 
@@ -92,7 +93,9 @@ function RecipeNode({ block }: { block: RecipeBlock }) {
       return <hr className="recipe-divider" />;
     case "placeholder":
       if (block.label === "图片") return null;
-      return <p className="recipe-placeholder">{block.label}</p>;
+      return (
+        <p className="recipe-placeholder">{normalizeRecipeText(block.label)}</p>
+      );
     case "bulleted_list_item":
     case "numbered_list_item":
     case "to_do":
@@ -101,7 +104,7 @@ function RecipeNode({ block }: { block: RecipeBlock }) {
 }
 
 function RecipeText({ spans }: { spans: readonly RecipeSpan[] }) {
-  return spans.map((span, index) => {
+  return normalizeRecipeSpans(spans).map((span, index) => {
     let node: ReactNode = span.text;
     if (span.italic) node = <em>{node}</em>;
     if (span.bold) node = <strong>{node}</strong>;

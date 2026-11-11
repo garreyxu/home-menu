@@ -29,6 +29,48 @@ const blocks: RecipeBlock[] = [
 ];
 
 describe("RecipeBody", () => {
+  it("localizes body text in every block without mutating the recipe", () => {
+    const blocks: RecipeBlock[] = [
+      { type: "heading", level: 2, spans: [{ text: "10 min" }] },
+      { type: "paragraph", spans: [{ text: "炖60 min", bold: true }] },
+      {
+        type: "bulleted_list_item",
+        spans: [{ text: "酱豆腐1勺(option)" }],
+        children: [
+          {
+            type: "numbered_list_item",
+            spans: [{ text: "焖5 mins", italic: true }],
+            children: [],
+          },
+        ],
+      },
+      {
+        type: "to_do",
+        spans: [{ text: "盐（OPTIONAL）" }],
+        checked: false,
+        children: [],
+      },
+      { type: "quote", spans: [{ text: "1hr" }] },
+      { type: "callout", spans: [{ text: "2 hours" }] },
+      { type: "placeholder", label: "嵌入内容" },
+    ];
+    const original = JSON.stringify(blocks);
+    const html = renderToStaticMarkup(createElement(RecipeBody, { blocks }));
+    for (const text of [
+      "10 分钟",
+      "<strong>炖60 分钟</strong>",
+      "酱豆腐1勺（可选）",
+      "<em>焖5 分钟</em>",
+      "盐（可选）",
+      "1 小时",
+      "2 小时",
+    ]) {
+      expect(html).toContain(text);
+    }
+    expect(html).not.toMatch(/min|option|hours?/i);
+    expect(JSON.stringify(blocks)).toBe(original);
+  });
+
   it("renders rich text as elements and never as HTML or a Notion link", () => {
     const html = renderToStaticMarkup(createElement(RecipeBody, { blocks }));
     expect(html).toContain("<strong>鸡蛋打散</strong>");
