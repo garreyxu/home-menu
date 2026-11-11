@@ -693,32 +693,34 @@ iframe[src*="vercel.live"] {
 
 .week-remove {
   display: inline-flex;
-  width: 24px;
-  height: 24px;
+  width: 28px;
+  height: 28px;
   flex: none;
   align-items: center;
   justify-content: center;
   margin: 0;
   padding: 0;
   border: 0;
+  border-radius: 50%;
   background: transparent;
-  color: #b9a98f;
+  color: color-mix(in srgb, var(--color-sumi) 40%, transparent);
   font-family: var(--font-sans), "Noto Sans SC", sans-serif;
   font-size: 13px;
   font-weight: 400;
   line-height: 1;
-  opacity: 0;
+  opacity: 1;
   cursor: pointer;
 }
 
 .week-remove:focus-visible {
-  opacity: 1;
+  outline: 2px solid var(--color-shu);
+  outline-offset: 2px;
 }
 
 @media (hover: hover) and (pointer: fine) {
-  .week-chip:hover > .week-remove,
-  .week-chip:focus-within > .week-remove {
-    opacity: 1;
+  .week-remove:hover {
+    color: var(--color-shu);
+    background: var(--color-washi);
   }
 }
 

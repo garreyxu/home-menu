@@ -301,7 +301,22 @@ export async function seedE2E(
             i === 6 ? "秘制蜜汁叉烧配手工鸡蛋面条" : seedDishes[i - 1]!.name,
           isActive: true,
           hasBody: true,
-          recipeBlocks: [{ type: "paragraph", spans: [{ text: "鸡蛋打散" }] }],
+          recipeBlocks: [
+            {
+              type: "paragraph",
+              spans: [{ text: "鸡蛋打散，准备10 min，炖60 min" }],
+            },
+            {
+              type: "bulleted_list_item",
+              spans: [{ text: "酱豆腐1勺(option)" }],
+              children: [],
+            },
+            {
+              type: "numbered_list_item",
+              spans: [{ text: "焖5 mins，加盐（OPTIONAL）" }],
+              children: [],
+            },
+          ],
         })
         .onConflictDoNothing();
     }
