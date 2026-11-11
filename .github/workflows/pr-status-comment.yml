@@ -1,0 +1,111 @@
+name: pr-status-comment
+
+on:
+  workflow_run:
+    workflows: [ci, preview-e2e]
+    types: [completed]
+  workflow_dispatch:
+
+permissions:
+  actions: read
+  pull-requests: write
+  checks: read
+  statuses: read
+  contents: read
+
+concurrency:
+  group: pr-status-comment
+  cancel-in-progress: true
+
+jobs:
+  comment:
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    timeout-minutes: 5
+    steps:
+      # Never check out or execute PR code with this privileged token.
+      - uses: actions/github-script@v7
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+            const marker = '<!-- pr-status-comment -->';
+            const root = `${context.serverUrl}/${owner}/${repo}`;
+            const prs = await github.paginate(github.rest.pulls.list, {
+              owner, repo, state: 'open', per_page: 100,
+            });
+            const icon = state => {
+              if (state === 'success') return '🟢';
+              if (['failure', 'error', 'cancelled', 'timed_out', 'action_required', 'startup_failure'].includes(state)) return '🔴';
+              if (['pending', 'queued', 'in_progress', 'waiting', 'requested'].includes(state)) return '🟡';
+              return '⚪';
+            };
+            // Only link HTTP(S) URLs; status metadata is untrusted input.
+            const link = (label, url) => {
+              try {
+                const parsed = new URL(url);
+                if (['https:', 'http:'].includes(parsed.protocol)) {
+                  return `[${label}](${parsed.href.replace(/[()]/g, c => c === '(' ? '%28' : '%29')})`;
+                }
+              } catch {}
+              return label;
+            };
+            for (const pr of prs) {
+              if (!pr.head.repo || pr.head.repo.full_name !== pr.base.repo.full_name) continue;
+              try {
+                const sha = pr.head.sha;
+                const comments = await github.paginate(github.rest.issues.listComments, {
+                  owner, repo, issue_number: pr.number, per_page: 100,
+                });
+                const ours = comments.filter(c => c.user?.login === 'github-actions[bot]' && c.body?.includes(marker));
+                const existing = ours[0];
+                const checks = await github.paginate(github.rest.checks.listForRef, {
+                  owner, repo, ref: sha, check_name: 'checks', filter: 'latest', per_page: 100,
+                });
+                const statuses = await github.paginate(github.rest.repos.getCombinedStatusForRef, {
+                  owner, repo, ref: sha, per_page: 100,
+                }, response => response.data.statuses.map(s => ({ ...s, sha: response.data.sha })));
+                const check = checks.filter(c => c.name === 'checks').sort((a, b) => b.id - a.id)[0];
+                const status = name => statuses.filter(s => s.context === name).sort((a, b) => b.id - a.id)[0];
+                const previousSha = existing?.body?.match(/\/commit\/([a-f0-9]{40})\)/)?.[1];
+                const line = (label, result, resultSha, state, url) => {
+                  if (result) {
+                    if (resultSha !== sha) return `${label}: ⚪ ${link('过时', url)}`;
+                    return `${label}: ${icon(state)} ${link(state, url)}`;
+                  }
+                  // Preserve a previously reported result only as explicitly stale.
+                  const previous = existing?.body?.split('\n').find(l => l.startsWith(`${label}: `));
+                  if (previous && (previousSha !== sha || previous.includes('过时')) && !previous.includes('not reported yet')) {
+                    return `${label}: ⚪ 过时 — ${previous.slice(label.length + 2).replace(/^(⚪ 过时 — )+/, '').replace(/[🟢🔴🟡⚪]/gu, '').trim()}`;
+                  }
+                  return `${label}: ⚪ ${link('not reported yet', `${root}/commit/${sha}/checks`)}`;
+                };
+                const preview = status('preview-e2e');
+                const vercel = status('Vercel');
+                const rendered = [
+                  marker,
+                  `Head: [${sha.slice(0, 7)}](${root}/commit/${sha})`,
+                  line('checks', check, check?.head_sha, check?.status === 'completed' ? check.conclusion : check?.status, check?.html_url),
+                  line('preview-e2e', preview, preview?.sha, preview?.state, preview?.target_url),
+                  line('Vercel preview', vercel, vercel?.sha, vercel?.state, vercel?.target_url),
+                ].join('\n');
+                // Keep the last material update time so repeated refreshes do not edit.
+                const oldRendered = existing?.body?.replace(/\n\n更新于 .*$/, '');
+                if (oldRendered !== rendered) {
+                  // Do not publish a result if the PR moved while APIs were being read.
+                  const { data: current } = await github.rest.pulls.get({ owner, repo, pull_number: pr.number });
+                  if (current.state !== 'open' || current.head.sha !== sha) continue;
+                  const body = `${rendered}\n\n更新于 ${new Date().toISOString()} (UTC)`;
+                  if (existing) {
+                    await github.rest.issues.updateComment({ owner, repo, comment_id: existing.id, body });
+                  } else {
+                    await github.rest.issues.createComment({ owner, repo, issue_number: pr.number, body });
+                  }
+                }
+                for (const duplicate of ours.slice(1)) {
+                  await github.rest.issues.deleteComment({ owner, repo, comment_id: duplicate.id });
+                }
+              } catch (error) {
+                core.warning(`Could not refresh PR #${pr.number}: ${error.message}`);
+                core.setFailed('One or more PR status comments could not be refreshed');
+              }
+            }

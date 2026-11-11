@@ -185,6 +185,8 @@ The daily cron starts after that. Clicking the button again is safe: dishes are 
 
 ## CI
 
+- `pr-status-comment` keeps one bot comment on each open same-repository PR with the current head commit, `checks`, `preview-e2e`, and `Vercel` results. It refreshes after either CI workflow completes or via a manual run with no inputs, uses only the default token, and never checks out PR code. Fork PRs are skipped; previous-head results are marked 过时, and unchanged results keep their update time. Automatic `workflow_run` activation requires the workflow on `main`; manual dispatch also requires it to be registered on the default branch. Run `node scripts/pr-status-comment-dry-run.mjs` for a local sample and behavior checks. Real bot posting is verified on the next PR after merge; the new workflow cannot run on this PR before merge.
+
 - `ci` (`.github/workflows/ci.yml`) runs on pull requests and pushes to `main`. Its job `checks` is the required status check: lint, typecheck, unit tests, the production build, and Playwright against the local dev server.
 - `preview-e2e` (`.github/workflows/preview-e2e.yml`) runs when Vercel sends a `vercel.deployment.success` repository dispatch whose `client_payload.environment` is `preview`, checks out `client_payload.git.sha`, and runs Playwright against that preview URL. It posts a `preview-e2e` commit status on that sha and is not a required check. The dispatch trigger takes effect only after this workflow is merged to `main`, and only if Vercel is sending `repository_dispatch` events; `workflow_dispatch` with inputs `url` and `sha` can run it before that.
 
