@@ -32,6 +32,7 @@ beforeEach(() => {
     list: { groups: [], pantry: [] },
     checked: [],
     menuEmpty: true,
+    missing: [],
   });
 });
 describe("shopping server actions", () => {

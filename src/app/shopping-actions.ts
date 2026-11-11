@@ -18,6 +18,7 @@ export type ShoppingData = {
   list: ShoppingList;
   checked: string[];
   menuEmpty: boolean;
+  missing: string[];
 };
 export type ShoppingResult =
   { ok: true; data: ShoppingData } | { ok: false; error: string };

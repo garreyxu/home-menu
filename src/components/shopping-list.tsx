@@ -286,6 +286,11 @@ function ShoppingSheet({
                   {group.rows.map(row)}
                 </section>
               ))}
+              {data.missing.length ? (
+                <p className="shopping-missing text-xs text-sumi-soft break-words">
+                  这些菜还没有食材：{data.missing.join("、")}
+                </p>
+              ) : null}
               {data.list.pantry.length ? (
                 <section className="shopping-pantry">
                   <button

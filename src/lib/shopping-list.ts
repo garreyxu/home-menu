@@ -1,7 +1,7 @@
 import {
   ingredientGroup,
   INGREDIENT_GROUPS,
-  PANTRY,
+  isPantryIngredient,
   type IngredientGroup,
 } from "./ingredient-groups";
 
@@ -44,12 +44,28 @@ export function buildShoppingList(
     groups: INGREDIENT_GROUPS.map((name) => ({
       name,
       rows: all.filter(
-        (row) => !PANTRY.has(row.name) && ingredientGroup(row.name) === name,
+        (row) =>
+          !isPantryIngredient(row.name) && ingredientGroup(row.name) === name,
       ),
     })).filter((group) => group.rows.length),
-    pantry: all.filter((row) => PANTRY.has(row.name)),
+    pantry: all.filter((row) => isPantryIngredient(row.name)),
   };
 }
 export function shoppingRows(list: ShoppingList): ShoppingRow[] {
   return [...list.groups.flatMap((group) => group.rows), ...list.pantry];
+}
+
+export function missingShoppingDishes(
+  items: readonly ShoppingMenuItem[],
+): string[] {
+  return [
+    ...new Set(
+      items
+        .filter(
+          (item) =>
+            !item.customName && item.dishName && !item.ingredients?.trim(),
+        )
+        .map((item) => item.dishName!),
+    ),
+  ];
 }

@@ -172,3 +172,37 @@ test("shopping failures show retry and roll back optimistic checks", async ({
     shoppingBoard(page).getByRole("button", { name: "买菜单", exact: true }),
   ).toBeFocused();
 });
+
+test("missing ingredient properties remain visible without overflowing the shopping sheet", async ({
+  page,
+  world,
+}) => {
+  test.setTimeout(90_000);
+  const credentials = e2eCredentials()!;
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await login(page, credentials.username, credentials.password);
+  await addShoppingDish(page, world, world.weeks[0], "番茄炒蛋");
+  await addShoppingDish(page, world, world.weeks[0], "宫保鸡丁");
+  for (const width of [390, 1440, 3440]) {
+    await page.setViewportSize({ width, height: 900 });
+    await page.reload();
+    const list = await openShoppingList(page);
+    const missing = list.getByText("这些菜还没有食材：宫保鸡丁", {
+      exact: true,
+    });
+    await missing.scrollIntoViewIfNeeded();
+    await expect(missing).toBeVisible();
+    await expect(missing).toBeInViewport();
+    expect(
+      await list
+        .locator(".shopping-paper")
+        .evaluate((node) => node.scrollWidth <= node.clientWidth),
+    ).toBe(true);
+    expect(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= innerWidth,
+      ),
+    ).toBe(true);
+    await list.getByRole("button", { name: "关闭买菜单" }).click();
+  }
+});

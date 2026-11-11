@@ -3,7 +3,11 @@ import { and, eq } from "drizzle-orm";
 import { getDb } from "@/server/db";
 import { shoppingChecks } from "@/server/db/schema";
 import { getWeek } from "@/server/menu";
-import { buildShoppingList, shoppingRows } from "@/lib/shopping-list";
+import {
+  buildShoppingList,
+  shoppingRows,
+  missingShoppingDishes,
+} from "@/lib/shopping-list";
 
 // Match menu.ts's local-only fallback; Vercel without a DB fails in getWeek.
 function localChecks() {
@@ -31,6 +35,7 @@ export async function readShoppingList(weekStart: string) {
   const names = new Set(shoppingRows(list).map((row) => row.name));
   return {
     list,
+    missing: missingShoppingDishes(week?.items ?? []),
     checked: checks.filter((name) => names.has(name)),
     menuEmpty: !week?.items.length,
   };
