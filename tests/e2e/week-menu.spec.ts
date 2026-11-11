@@ -91,6 +91,12 @@ test.describe("weekly menu", () => {
         `把『${dish!.name}』放到哪一顿？`,
       );
       await expect(shownBoard(page).locator(".slot-hint")).toBeFocused();
+      await expect(
+        shownBoard(page).getByRole("button", {
+          name: "周一午餐，还没点菜，点按加菜",
+          exact: true,
+        }),
+      ).toBeVisible();
       await page.keyboard.press("Escape");
       await expect(shownBoard(page).locator(".slot-hint")).toHaveCount(0);
       await stamp.click();
@@ -505,7 +511,9 @@ async function addDish(page: Page, dishName: string, slotName: string) {
   if (desktop) {
     await persistMenuAction(page, () =>
       shownBoard(page)
-        .getByRole("button", { name: slotName, exact: true })
+        .getByRole("button", {
+          name: new RegExp(`^${slotName}(，还没点菜，点按加菜)?$`),
+        })
         .click(),
     );
   } else {
