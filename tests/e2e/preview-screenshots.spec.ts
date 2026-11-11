@@ -394,3 +394,57 @@ for (const width of [390, 1440]) {
     // The world fixture deletes this reserved week and its owned seed data in finally.
   });
 }
+
+// Fixture ownership and cascading cleanup keep every screenshot in a 2090+ week.
+test("shopping list screenshots", async ({ page, world }) => {
+  test.setTimeout(120_000);
+  test.skip(!process.env.PREVIEW_SCREENSHOTS, "preview screenshots only");
+  const { addShoppingDish, openShoppingList } =
+    await import("./shopping-list-helpers");
+  const credentials = e2eCredentials()!;
+  await login(page, credentials.username, credentials.password);
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await addShoppingDish(page, world, world.weeks[0], "番茄炒蛋");
+  await addShoppingDish(page, world, world.weeks[0], "红烧肉");
+  await mkdir("preview-screenshots", { recursive: true });
+  for (const viewport of widths) {
+    await page.setViewportSize(viewport);
+    await page.reload();
+    const list = await openShoppingList(page);
+    await page.evaluate(() => document.fonts.ready);
+    const geometry = await list.locator(".shopping-paper").boundingBox();
+    expect(geometry!.width).toBe(
+      viewport.width === 390 ? 390 : viewport.width === 1440 ? 420 : 480,
+    );
+    expect(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= innerWidth,
+      ),
+    ).toBe(true);
+    expect(
+      await list
+        .locator(".shopping-paper")
+        .evaluate((node) => node.scrollWidth <= node.clientWidth),
+    ).toBe(true);
+    await page.screenshot({
+      path: `preview-screenshots/shopping-list-${viewport.width}.png`,
+    });
+    if (viewport.width === 390) {
+      const egg = list.getByRole("checkbox", { name: /^鸡蛋，/ });
+      await persistMenuAction(page, () => egg.check());
+      await expect(egg).toBeChecked();
+      await page.screenshot({
+        path: "preview-screenshots/shopping-list-checked-390.png",
+      });
+      await list.getByRole("button", { name: /^家里常备/ }).click();
+      await page.screenshot({
+        path: "preview-screenshots/shopping-list-pantry-open-390.png",
+      });
+      await expect(egg).toHaveAttribute("aria-disabled", "false");
+      await expect(egg).toBeChecked();
+      await persistMenuAction(page, () => egg.uncheck());
+      await expect(egg).not.toBeChecked();
+    }
+    await list.getByRole("button", { name: "关闭买菜单" }).click();
+  }
+});

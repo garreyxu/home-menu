@@ -23,6 +23,7 @@ import {
   useDndContext,
   type KeyboardCoordinateGetter,
 } from "@dnd-kit/core";
+import { ShoppingListButton } from "@/components/shopping-list";
 import { moveDuplicate } from "@/lib/move-item";
 import { SlotDialog, SlotTable } from "@/components/add-to-day";
 import { createPortal } from "react-dom";
@@ -199,6 +200,11 @@ export function WeekBoard({
             >
               下一周
             </a>
+            <ShoppingListButton
+              weekStart={weekStart}
+              count={items.length}
+              menuKey={items.map((item) => item.id).join(",")}
+            />
           </div>
           <p className="week-board-range">
             {formatWeekRange(weekStart)} · 已点 {items.length} 道

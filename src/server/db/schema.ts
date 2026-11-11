@@ -151,6 +151,28 @@ export const weeklyMenus = pgTable(
   ],
 );
 
+export const shoppingChecks = pgTable(
+  "shopping_checks",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    weeklyMenuId: uuid("weekly_menu_id")
+      .notNull()
+      .references(() => weeklyMenus.id, { onDelete: "cascade" }),
+    ingredient: text("ingredient").notNull(),
+    checkedAt: timestamp("checked_at", {
+      withTimezone: true,
+      mode: "date",
+    }).defaultNow(),
+    checkedBy: text("checked_by"),
+  },
+  (table) => [
+    unique("shopping_checks_week_ingredient_unique").on(
+      table.weeklyMenuId,
+      table.ingredient,
+    ),
+  ],
+);
+
 export const menuItems = pgTable(
   "menu_items",
   {
