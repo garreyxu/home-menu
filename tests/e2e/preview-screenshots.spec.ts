@@ -1,3 +1,4 @@
+import { slotButton } from "./slots";
 import { test, expect, persistMenuAction } from "./fixtures";
 import { mkdir } from "node:fs/promises";
 
@@ -271,9 +272,7 @@ for (const width of [390, 1440]) {
       has: page.getByRole("heading", { name: dish!.name, exact: true }),
     });
     await card.getByRole("button", { name: /^(＋添加|已加 \d+ 次)$/ }).click();
-    await persistMenuAction(page, () =>
-      board.getByRole("button", { name: "周二晚餐", exact: true }).click(),
-    );
+    await persistMenuAction(page, () => slotButton(board, "周二晚餐").click());
     await page.keyboard.press("Escape");
     await page.setViewportSize({ width, height: 900 });
     await page.reload();
@@ -338,10 +337,10 @@ for (const width of [390, 1440]) {
     await expect(card.locator("img.dish-art")).toHaveCount(0);
     await card.getByRole("button", { name: /^(＋添加|已加 \d+ 次)$/ }).click();
     await persistMenuAction(page, () =>
-      page
-        .getByRole("region", { name: "一周菜单" })
-        .getByRole("button", { name: "周二晚餐", exact: true })
-        .click(),
+      slotButton(
+        page.getByRole("region", { name: "一周菜单" }),
+        "周二晚餐",
+      ).click(),
     );
     await page.keyboard.press("Escape");
     await page.setViewportSize({ width, height: 900 });

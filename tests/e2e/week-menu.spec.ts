@@ -1,3 +1,4 @@
+import { slotButton } from "./slots";
 import {
   test,
   expect,
@@ -139,9 +140,7 @@ test.describe("weekly menu", () => {
       const sheet = page.getByRole("dialog");
       await expect(sheet).toHaveCount(1);
       await expect(sheet).toContainText(`『${dish!.name}』加到哪一顿？`);
-      await expect(
-        sheet.getByRole("button", { name: "周四早餐", exact: true }),
-      ).toBeDisabled();
+      await expect(slotButton(sheet, "周四早餐")).toBeDisabled();
       await expect(sheet.locator(".add-day-cell")).toHaveCount(21);
       expect(
         await sheet.evaluate((node) => node.scrollWidth <= node.clientWidth),
@@ -510,16 +509,12 @@ async function addDish(page: Page, dishName: string, slotName: string) {
   );
   if (desktop) {
     await persistMenuAction(page, () =>
-      shownBoard(page)
-        .getByRole("button", {
-          name: new RegExp(`^${slotName}(，还没点菜，点按加菜)?$`),
-        })
-        .click(),
+      slotButton(shownBoard(page), slotName).click(),
     );
   } else {
     const sheet = page.locator(".add-day-dialog");
     await expect(sheet).toBeVisible();
-    const cell = sheet.getByRole("button", { name: slotName, exact: true });
+    const cell = slotButton(sheet, slotName);
     await cell.click();
     await expect(cell).toHaveAttribute("aria-pressed", "true");
     const box = await cell.boundingBox();
