@@ -18,7 +18,7 @@ export const MEAL_SHORT: Record<Meal, string> = {
 
 export const MEAL_FULL: Record<Meal, string> = {
   breakfast: "早餐",
-  lunch: MEAL_SHORT.lunch,
+  lunch: "午餐",
   dinner: "晚餐",
 };
 
