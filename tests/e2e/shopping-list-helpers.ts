@@ -1,5 +1,6 @@
 import { expect, type Page } from "@playwright/test";
 import { persistMenuAction, type World } from "./fixtures";
+import { slotButton } from "./slots";
 
 export const shoppingBoard = (page: Page) =>
   page.locator(
@@ -34,9 +35,7 @@ export async function addShoppingDish(
     .filter({ has: page.getByRole("heading", { name, exact: true }) });
   await card.getByRole("button", { name: /^(＋添加|已加 \d+ 次)$/ }).click();
   await persistMenuAction(page, () =>
-    shoppingBoard(page)
-      .getByRole("button", { name: "周二晚餐", exact: true })
-      .click(),
+    slotButton(shoppingBoard(page), "周二晚餐").click(),
   );
   await page.keyboard.press("Escape");
 }

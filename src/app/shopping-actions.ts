@@ -7,7 +7,12 @@ import {
   writeShoppingCheck,
   clearStoredShoppingChecks,
 } from "@/server/shopping-list";
-import type { ShoppingList } from "@/lib/shopping-list";
+import {
+  buildShoppingList,
+  shoppingRows,
+  type ShoppingList,
+} from "@/lib/shopping-list";
+import { getWeek } from "@/server/menu";
 
 export type ShoppingData = {
   list: ShoppingList;
@@ -55,6 +60,15 @@ export async function toggleShoppingCheck(
       typeof checked !== "boolean"
     )
       throw new MenuInputError("Invalid shopping check");
+    const menu = await getWeek(week);
+    if (
+      !shoppingRows(buildShoppingList(menu?.items ?? [])).some(
+        (row) => row.name === ingredient,
+      )
+    )
+      throw new MenuInputError(
+        "Ingredient is not in this week's shopping list",
+      );
     await writeShoppingCheck(week, ingredient, checked, subject);
   });
 }
