@@ -2135,6 +2135,12 @@ ol.recipe-list > li + li {
 .shopping-row[data-checked="true"] {
   opacity: 0.55;
 }
+.shopping-row[data-checked="true"] .shopping-name {
+  text-decoration: line-through;
+  text-decoration-color: rgb(28 22 19 / 40%);
+  text-decoration-thickness: 1px;
+  animation: shopping-decoration 180ms step-end;
+}
 .shopping-row[data-checked="true"] .shopping-name::after {
   content: "";
   position: absolute;
@@ -2144,11 +2150,21 @@ ol.recipe-list > li + li {
   height: 1px;
   background: rgb(28 22 19 / 40%);
   transform-origin: left;
-  animation: shopping-strike 180ms ease-out;
+  animation: shopping-strike 180ms ease-out forwards;
 }
 .shopping-pantry {
-  color: rgb(28 22 19 / 60%);
+  color: var(--color-sumi);
   border-top: 1px solid rgb(28 22 19 / 20%);
+}
+.shopping-pantry .shopping-row {
+  opacity: 0.6;
+}
+.shopping-pantry .shopping-row[data-checked="true"] {
+  opacity: 0.33;
+}
+.shopping-pantry > button,
+.shopping-pantry p {
+  color: rgb(28 22 19 / 60%);
 }
 .shopping-pantry > button {
   min-height: 44px;
@@ -2211,12 +2227,25 @@ ol.recipe-list > li + li {
     transform: rotate(-6deg) scale(1);
   }
 }
+@keyframes shopping-decoration {
+  from {
+    text-decoration-color: transparent;
+  }
+  to {
+    text-decoration-color: rgb(28 22 19 / 40%);
+  }
+}
 @keyframes shopping-strike {
   from {
     transform: scaleX(0);
+    opacity: 1;
+  }
+  99% {
+    opacity: 1;
   }
   to {
     transform: scaleX(1);
+    opacity: 0;
   }
 }
 @media (min-width: 768px) {
@@ -2258,7 +2287,11 @@ ol.recipe-list > li + li {
 @media (prefers-reduced-motion: reduce) {
   .shopping-paper,
   .shopping-box > span,
+  .shopping-row[data-checked="true"] .shopping-name,
   .shopping-row[data-checked="true"] .shopping-name::after {
     animation: none;
+  }
+  .shopping-row[data-checked="true"] .shopping-name::after {
+    display: none;
   }
 }

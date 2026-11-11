@@ -46,7 +46,27 @@ test("shopping checks are shared, week-isolated, and survive removing and re-add
   await pantry.click();
   await expect(list.getByRole("checkbox", { name: /^盐，/ })).toBeVisible();
   await pantry.click();
+  const names = list.locator(".shopping-group .shopping-name");
+  const originalOrder = await names.allTextContents();
+  const eggName = egg.locator("..").locator(".shopping-name");
+  const originalPosition = await eggName.boundingBox();
   await persistMenuAction(page, () => egg.check());
+  await expect(eggName).toHaveCSS("text-decoration-line", "line-through");
+  await expect(eggName).toHaveCSS("animation-duration", "0.18s");
+  await expect(eggName).toHaveCSS(
+    "text-decoration-color",
+    "rgba(28, 22, 19, 0.4)",
+  );
+  await expect(names).toHaveText(originalOrder);
+  expect(await eggName.boundingBox()).toEqual(originalPosition);
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await expect(eggName).toHaveCSS("animation-name", "none");
+  await expect(eggName).toHaveCSS("text-decoration-line", "line-through");
+  await expect(eggName).toHaveCSS(
+    "text-decoration-color",
+    "rgba(28, 22, 19, 0.4)",
+  );
+  await page.emulateMedia({ reducedMotion: "no-preference" });
   await persistMenuAction(page, () =>
     list.getByRole("checkbox", { name: /^番茄，/ }).check(),
   );

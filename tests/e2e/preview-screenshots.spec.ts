@@ -433,10 +433,34 @@ test("shopping list screenshots", async ({ page, world }) => {
       const egg = list.getByRole("checkbox", { name: /^鸡蛋，/ });
       await persistMenuAction(page, () => egg.check());
       await expect(egg).toBeChecked();
+      await list.evaluate(async (node) => {
+        await Promise.all(
+          node
+            .getAnimations({ subtree: true })
+            .map((animation) => animation.finished),
+        );
+      });
+      await expect(egg.locator("..").locator(".shopping-name")).toHaveCSS(
+        "text-decoration-line",
+        "line-through",
+      );
       await page.screenshot({
         path: "preview-screenshots/shopping-list-checked-390.png",
       });
-      await list.getByRole("button", { name: /^家里常备/ }).click();
+      const pantry = list.locator(".shopping-pantry");
+      await pantry.getByRole("button", { name: /^家里常备/ }).click();
+      await expect(pantry.getByRole("button")).toHaveAttribute(
+        "aria-expanded",
+        "true",
+      );
+      const pantryRows = pantry.locator(".shopping-row");
+      await expect(pantryRows).toHaveCount(4);
+      await pantryRows.last().scrollIntoViewIfNeeded();
+      for (const row of await pantryRows.all()) {
+        await expect(row).toBeVisible();
+        await expect(row).toBeInViewport();
+        await expect(row).toHaveCSS("opacity", "0.6");
+      }
       await page.screenshot({
         path: "preview-screenshots/shopping-list-pantry-open-390.png",
       });
