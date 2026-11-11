@@ -6,6 +6,8 @@
 
 ### Internal / Tests
 
+- CI posts a webhook when the checks and preview-e2e workflows finish. Empty webhook secrets skip the call, and a failed post does not fail CI.
+
 - Add a sticky PR status comment for checks, preview-e2e, and Vercel preview, with stale-head labeling and manual refresh; skip fork PRs.
 
 - Prepare reusable open-source setup and contribution docs; require explicit Neon and Notion project configuration.

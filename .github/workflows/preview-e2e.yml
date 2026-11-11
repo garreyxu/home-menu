@@ -199,3 +199,70 @@ jobs:
             --raw-field context="preview-e2e" \
             --raw-field target_url="${TARGET_URL}" \
             --raw-field description="${STATUS_DESCRIPTION}"
+
+  # Runs after preview-e2e even when that job fails. Empty webhook secrets skip.
+  # The step continues on error so a webhook failure cannot fail this workflow.
+  # Head SHA comes from the dispatch payload. The PR number comes from
+  # GET /repos/{repo}/commits/{sha}/pulls. No associated PR sends pr: null.
+  notify:
+    name: notify
+    needs: [preview-e2e]
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      pull-requests: read
+    steps:
+      - name: Notify CI webhook
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GROK_CI_WEBHOOK_URL: ${{ secrets.GROK_CI_WEBHOOK_URL }}
+          GROK_CI_WEBHOOK_KEY: ${{ secrets.GROK_CI_WEBHOOK_KEY }}
+          REPO: garreyxu/home-menu
+          HEAD_SHA: ${{ github.event.client_payload.git.sha || inputs.sha }}
+          CONCLUSION: ${{ needs.preview-e2e.result }}
+        run: |
+          set -euo pipefail
+          if [ -z "${GROK_CI_WEBHOOK_URL}" ] || [ -z "${GROK_CI_WEBHOOK_KEY}" ]; then
+            echo "Webhook secrets are unset; skipping notify."
+            exit 0
+          fi
+          pr="null"
+          if [[ "${HEAD_SHA}" =~ ^[0-9a-fA-F]{40}$ ]]; then
+            if pulls="$(gh api \
+              --header "Accept: application/vnd.github+json" \
+              --header "X-GitHub-Api-Version: 2022-11-28" \
+              "/repos/${GITHUB_REPOSITORY}/commits/${HEAD_SHA}/pulls")"; then
+              parsed="$(printf '%s' "${pulls}" | jq -c \
+                --arg sha "${HEAD_SHA}" \
+                'if type != "array" or length == 0 then
+                  null
+                else
+                  ([.[] | select(.state == "open" and ((.head.sha // "") | ascii_downcase) == ($sha | ascii_downcase))] | first | .number)
+                  // ([.[] | select(.state == "open")] | first | .number)
+                  // (.[0].number)
+                  // null
+                end' || true)"
+              if [[ "${parsed}" =~ ^[1-9][0-9]*$ ]]; then
+                pr="${parsed}"
+              fi
+            else
+              echo "Could not list pull requests for the commit; sending pr null."
+            fi
+          else
+            echo "Commit SHA is missing or not 40 hex characters; sending pr null."
+          fi
+          payload="$(jq -nc \
+            --arg repo "${REPO}" \
+            --argjson pr "${pr}" \
+            --arg head_sha "${HEAD_SHA}" \
+            --arg workflow "preview-e2e" \
+            --arg conclusion "${CONCLUSION}" \
+            '{repo:$repo, pr:$pr, head_sha:$head_sha, workflow:$workflow, conclusion:$conclusion}')"
+          echo "Notifying preview-e2e conclusion=${CONCLUSION} pr=${pr}."
+          curl -fsS -o /dev/null -X POST "${GROK_CI_WEBHOOK_URL}" \
+            -H "Authorization: Bearer ${GROK_CI_WEBHOOK_KEY}" \
+            -H "Content-Type: application/json" \
+            -d "${payload}"

@@ -96,3 +96,45 @@ jobs:
           path: playwright-report/
           retention-days: 14
           if-no-files-found: ignore
+
+  # Runs after checks even when checks fails. Empty webhook secrets (fork PRs) skip.
+  # The step continues on error so a webhook failure cannot fail this workflow.
+  notify:
+    name: notify
+    needs: [checks]
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Notify CI webhook
+        continue-on-error: true
+        env:
+          GROK_CI_WEBHOOK_URL: ${{ secrets.GROK_CI_WEBHOOK_URL }}
+          GROK_CI_WEBHOOK_KEY: ${{ secrets.GROK_CI_WEBHOOK_KEY }}
+          REPO: garreyxu/home-menu
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+          CONCLUSION: ${{ needs.checks.result }}
+        run: |
+          set -euo pipefail
+          if [ -z "${GROK_CI_WEBHOOK_URL}" ] || [ -z "${GROK_CI_WEBHOOK_KEY}" ]; then
+            echo "Webhook secrets are unset; skipping notify."
+            exit 0
+          fi
+          if [[ "${PR_NUMBER}" =~ ^[1-9][0-9]*$ ]]; then
+            pr="${PR_NUMBER}"
+          else
+            pr="null"
+          fi
+          payload="$(jq -nc \
+            --arg repo "${REPO}" \
+            --argjson pr "${pr}" \
+            --arg head_sha "${HEAD_SHA}" \
+            --arg workflow "checks" \
+            --arg conclusion "${CONCLUSION}" \
+            '{repo:$repo, pr:$pr, head_sha:$head_sha, workflow:$workflow, conclusion:$conclusion}')"
+          echo "Notifying checks conclusion=${CONCLUSION} pr=${pr}."
+          curl -fsS -o /dev/null -X POST "${GROK_CI_WEBHOOK_URL}" \
+            -H "Authorization: Bearer ${GROK_CI_WEBHOOK_KEY}" \
+            -H "Content-Type: application/json" \
+            -d "${payload}"
