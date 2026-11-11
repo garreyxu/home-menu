@@ -113,9 +113,9 @@ Generic template. Replace `<repo>`, `<neon-project-id>`, `<prod-url>`. No values
 - CI: GitHub Actions. `main` is protected by a ruleset that requires the `checks` job.
 
 ### Pipeline per PR
-1. **`ci.yml`** (on `pull_request` and `push`): install → lint → typecheck → unit tests (Vitest) → build. Job name `checks` is the required status.
+1. **`ci.yml`** (on `pull_request` and `push`): install → lint → typecheck → unit tests (Vitest) → build. Job name `checks` is the required status. A final `notify` job (`if: always()`) posts the checks result.
 2. **Vercel preview** builds automatically. The build runs `scripts/vercel-build.ts`, which runs `pnpm db:migrate` against that preview's Neon branch. Production is never seeded.
-3. **`preview-e2e.yml`**: Vercel sends `repository_dispatch` (Vercel does not create GitHub Deployments). The workflow validates the 40-char SHA and URL from `client_payload`, runs Playwright against the preview using `VERCEL_AUTOMATION_BYPASS_SECRET`, `E2E_USERNAME`, `E2E_PASSWORD`, then writes a commit status (`statuses: write`) and uploads screenshots. Can also be started by hand with `workflow_dispatch` (sha + url).
+3. **`preview-e2e.yml`**: Vercel sends `repository_dispatch` (Vercel does not create GitHub Deployments). The workflow validates the 40-char SHA and URL from `client_payload`, runs Playwright against the preview using `VERCEL_AUTOMATION_BYPASS_SECRET`, `E2E_USERNAME`, `E2E_PASSWORD`, then writes a commit status (`statuses: write`) and uploads screenshots. Can also be started by hand with `workflow_dispatch` (sha + url). A final `notify` job (`if: always()`) posts that result. Its head SHA comes from the dispatch payload. Its PR number comes from `GET /repos/{repo}/commits/{sha}/pulls` (`contents: read`, `pull-requests: read`); no match sends `pr: null`.
 4. **Before merge**: green `checks` + green `preview-e2e` + design screenshots reviewed + a fresh DB snapshot if the PR has a migration (`neon-ops` → `snapshot`).
 5. **Merge** to `main` → Vercel production build runs migrations → verify the deployment is READY (Vercel API `/v13/deployments`, or the dashboard) → run `neon-ops` → `sync-report` when data shape changed → QA on production.
 
@@ -130,7 +130,7 @@ Generic template. Replace `<repo>`, `<neon-project-id>`, `<prod-url>`. No values
 - Neon Free has a 10-branch limit. Previews + snapshots share it, so keep snapshots to 7-day expiry and let cleanup run.
 
 ### Secrets (names only)
-- GitHub Actions secrets: `NEON_API_KEY`, `VERCEL_AUTOMATION_BYPASS_SECRET`, `E2E_USERNAME`, `E2E_PASSWORD`.
+- GitHub Actions secrets: `NEON_API_KEY`, `VERCEL_AUTOMATION_BYPASS_SECRET`, `E2E_USERNAME`, `E2E_PASSWORD`, `GROK_CI_WEBHOOK_URL`, `GROK_CI_WEBHOOK_KEY`. The webhook pair is passed only through the `notify` job environment. Empty values skip the post. Neither value is printed.
 - Vercel env vars (project level, Production + Preview): `DATABASE_URL`, `DATABASE_URL_UNPOOLED`, `AUTH_USERNAME`, `AUTH_PASSWORD_HASH`, `SESSION_SECRET`, `NOTION_TOKEN`, `CRON_SECRET`, optional `NOTION_DATABASE_ID`, `NOTION_DATA_SOURCE_ID`.
 - Coupled pair: the preview `AUTH_PASSWORD_HASH` must match `E2E_PASSWORD`. Change both together or preview E2E breaks.
 - Generate: `pnpm auth:hash` (stdin, not echoed), `openssl rand -base64 48` for `SESSION_SECRET`, `openssl rand -base64 32` for `CRON_SECRET`.
