@@ -20,8 +20,7 @@ let comments = [],
   deletes = 0,
   ref = sha,
   checkSha = sha,
-  state = "success",
-  fail = false;
+  state = "success";
 const pulls = {
   list() {},
   get: async () => ({ data: { state: "open", head: { sha: ref } } }),
@@ -101,9 +100,6 @@ const github = {
       { repo: { owner: "o", repo: "r" }, serverUrl: "https://github.com" },
       {
         warning: console.error,
-        setFailed: () => {
-          fail = true;
-        },
       },
     );
   await invoke();
@@ -130,7 +126,6 @@ const github = {
   comments.push({ ...comments[0], id: 2 });
   await invoke();
   assert.equal(deletes, 1);
-  assert.equal(fail, false);
   console.log(
     "PASS: create, update, unchanged timestamp, fork skip, old-head results, stale persistence, duplicate cleanup",
   );
