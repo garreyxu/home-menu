@@ -12,7 +12,7 @@ export const DAY_LABELS = [
 
 export const MEAL_SHORT: Record<Meal, string> = {
   breakfast: "早",
-  lunch: "中",
+  lunch: "午",
   dinner: "晚",
 };
 

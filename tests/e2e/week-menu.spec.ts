@@ -207,7 +207,7 @@ test.describe("weekly menu", () => {
       // The tray updates optimistically. Wait for the server toast before
       // reload, or the preview read can land before the write commits.
       await expect(page.locator(".menu-toast[role=status]")).toContainText(
-        "已加到 周三·中",
+        "已加到 周三·午",
       );
       await page.keyboard.press("Escape");
 
