@@ -29,7 +29,7 @@ export default async function Home({ searchParams }: PageProps<"/">) {
     weekParam && isSundayWeekStart(weekParam) ? weekParam : null;
   const catalog = await listDishesByCategory();
   const built = buildDishWall(catalog, categoryParam);
-  const wall = toHomeWall(built, illustrationForPage);
+  const wall = toHomeWall(built, illustrationForPage, catalog);
   const week = await loadWeekMenu(weekQuery);
 
   return (

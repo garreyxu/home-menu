@@ -15,5 +15,5 @@ export async function reloadDishWall(
   revalidatePath("/", "layout");
   const catalog = await listDishesByCategory();
   const wall = buildDishWall(catalog, categoryParam);
-  return toHomeWall(wall, illustrationForPage);
+  return toHomeWall(wall, illustrationForPage, catalog);
 }

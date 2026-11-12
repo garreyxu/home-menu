@@ -1,5 +1,5 @@
 import type { DishIllustration } from "@/lib/illustrations";
-import type { DishWall } from "@/server/menu-view";
+import type { CategoryWithDishes, DishWall } from "@/server/menu-view";
 
 export type WallDish = {
   id: string;
@@ -23,13 +23,26 @@ export type HomeWall = {
   categories: WallCategory[];
   selectedCategory: string | null;
   dishes: WallDish[];
+  /**
+   * Watercolor thumbs for every catalog dish, keyed by dish id.
+   * Week-menu chips read this map. It is not limited to `dishes`, which
+   * only contains the selected category.
+   */
+  thumbs: Record<string, string>;
 };
 
 const EMPTY_MENU = "菜单还空着，等家里添几道菜。";
 
+/**
+ * `catalog` is the unfiltered category list. Week-menu thumbs come from
+ * every dish in it, so a selected category cannot replace a scheduled
+ * dish's watercolor with the first-character fallback. `wall.dishes`
+ * stays limited to that category for the dish wall.
+ */
 export function toHomeWall(
   wall: DishWall,
   illustrationFor: (notionPageId: string | null) => DishIllustration | null,
+  catalog: readonly CategoryWithDishes[],
 ): HomeWall {
   const unknown = wall.unknownCategory;
   return {
@@ -53,7 +66,22 @@ export function toHomeWall(
       description: dish.description,
       illustration: illustrationFor(dish.notionPageId),
     })),
+    thumbs: catalogThumbs(catalog, illustrationFor),
   };
+}
+
+function catalogThumbs(
+  catalog: readonly CategoryWithDishes[],
+  illustrationFor: (notionPageId: string | null) => DishIllustration | null,
+): Record<string, string> {
+  const thumbs: Record<string, string> = {};
+  for (const category of catalog) {
+    for (const dish of category.dishes) {
+      const illustration = illustrationFor(dish.notionPageId);
+      if (illustration) thumbs[dish.id] = illustration.thumb;
+    }
+  }
+  return thumbs;
 }
 
 /**

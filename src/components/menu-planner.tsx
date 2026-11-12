@@ -271,10 +271,8 @@ export function MenuPlanner({
     }
   }
 
-  const thumbs: Record<string, string | undefined> = {};
-  for (const dish of wall.dishes) {
-    if (dish.illustration) thumbs[dish.id] = dish.illustration.thumb;
-  }
+  // Week chips use the full catalog. wall.dishes is only the selected category.
+  const thumbs = wall.thumbs;
 
   function move(item: WeekMenuItemView, day: number, meal: Meal) {
     if (item.dayOfWeek === day && item.meal === meal) return;
