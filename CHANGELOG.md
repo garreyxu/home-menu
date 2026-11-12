@@ -4,6 +4,10 @@
 
 ## [Unreleased]
 
+### Fixed
+
+- 周菜单里已经排上的菜，切换菜品墙分类后仍显示自己的水彩缩略图；没有插画的菜继续用菜名首字。
+
 ### Internal / Tests
 
 - CI posts a webhook when the checks and preview-e2e workflows finish. Empty webhook secrets skip the call, and a failed post does not fail CI.
