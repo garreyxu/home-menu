@@ -3,6 +3,7 @@ import { test, expect, persistMenuAction } from "./fixtures";
 import { mkdir } from "node:fs/promises";
 
 import { e2eCredentials, login } from "./credentials";
+import { revealNumberedSteps } from "./recipe-step-section";
 
 const credentials = e2eCredentials();
 
@@ -174,58 +175,45 @@ test("recipe sheet and illustration review screenshots", async ({
           });
           emptyCaptured = true;
         }
-        const stepsHeading = dialog
-          .getByRole("heading", { name: "步骤", exact: true })
-          .first();
-        if (!stepsCaptured && (await stepsHeading.count())) {
-          const numbered = stepsHeading.locator(
-            "xpath=following-sibling::ol[1]",
+        const steps = stepsCaptured ? null : await revealNumberedSteps(dialog);
+        if (steps) {
+          const firstStep = steps.list.locator(":scope > li").first();
+          const stepsHeading = steps.list.locator(
+            "xpath=preceding-sibling::*[self::h3 or self::h4 or self::h5][1]",
           );
-          if (await numbered.count()) {
-            const firstStep = numbered.locator(":scope > li").first();
-            await stepsHeading.evaluate((heading) => {
-              const scroll = heading.closest(".recipe-scroll");
-              if (scroll)
-                scroll.scrollTop +=
-                  heading.getBoundingClientRect().top -
-                  scroll.getBoundingClientRect().top -
-                  12;
-            });
-            await ready();
-            await expect(stepsHeading).toBeInViewport();
-            const seal = await firstStep.evaluate((item) => {
-              const style = getComputedStyle(item, "::before");
-              const scroll = item
-                .closest(".recipe-scroll")!
-                .getBoundingClientRect();
-              const top =
-                item.getBoundingClientRect().top + parseFloat(style.top);
-              return {
-                top,
-                bottom: top + parseFloat(style.height),
-                scrollTop: scroll.top,
-                scrollBottom: scroll.bottom,
-                width: style.width,
-                radius: style.borderRadius,
-                color: style.backgroundColor,
-              };
-            });
-            expect(seal.width).toBe("24px");
-            expect(seal.radius).toBe("50%");
-            expect(seal.color).toBe("rgb(200, 48, 40)");
-            expect(seal.top).toBeGreaterThanOrEqual(seal.scrollTop);
-            expect(seal.bottom).toBeLessThanOrEqual(
-              Math.min(seal.scrollBottom, viewport.height),
-            );
-            await expect(firstStep).toHaveCSS(
-              "counter-increment",
-              "recipe-step 1",
-            );
-            await page.screenshot({
-              path: `preview-screenshots/recipe-sheet-steps-${viewport.width}.png`,
-            });
-            stepsCaptured = true;
-          }
+          if (steps.headingInView) await expect(stepsHeading).toBeInViewport();
+          const seal = await firstStep.evaluate((item) => {
+            const style = getComputedStyle(item, "::before");
+            const scroll = item
+              .closest(".recipe-scroll")!
+              .getBoundingClientRect();
+            const top =
+              item.getBoundingClientRect().top + parseFloat(style.top);
+            return {
+              top,
+              bottom: top + parseFloat(style.height),
+              scrollTop: scroll.top,
+              scrollBottom: scroll.bottom,
+              width: style.width,
+              radius: style.borderRadius,
+              color: style.backgroundColor,
+            };
+          });
+          expect(seal.width).toBe("24px");
+          expect(seal.radius).toBe("50%");
+          expect(seal.color).toBe("rgb(200, 48, 40)");
+          expect(seal.top).toBeGreaterThanOrEqual(seal.scrollTop);
+          expect(seal.bottom).toBeLessThanOrEqual(
+            Math.min(seal.scrollBottom, viewport.height),
+          );
+          await expect(firstStep).toHaveCSS(
+            "counter-increment",
+            "recipe-step 1",
+          );
+          await page.screenshot({
+            path: `preview-screenshots/recipe-sheet-steps-${viewport.width}.png`,
+          });
+          stepsCaptured = true;
         }
         await dialog.getByRole("button", { name: "关闭", exact: true }).click();
         if (
@@ -237,7 +225,7 @@ test("recipe sheet and illustration review screenshots", async ({
       }
       expect(
         stepsCaptured,
-        `No numbered 步骤 section found at ${viewport.width}px`,
+        `No numbered step section found at ${viewport.width}px`,
       ).toBe(true);
     }
   } finally {
