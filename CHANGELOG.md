@@ -10,6 +10,8 @@
 
 ### Internal / Tests
 
+- Preview recipe screenshots capture the numbered step seals under whatever section heading the recipe uses, including 步骤 and workstation titles such as 烹煮.
+
 - CI posts a webhook when the checks and preview-e2e workflows finish. Empty webhook secrets skip the call, and a failed post does not fail CI.
 
 - Add a sticky PR status comment for checks, preview-e2e, and Vercel preview, with stale-head labeling and manual refresh; skip fork PRs.
