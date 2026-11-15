@@ -453,6 +453,62 @@ test.describe("weekly menu", () => {
       0,
     );
   });
+
+  test("早餐 filter shows the seeded bun and adds it to Monday breakfast", async ({
+    page,
+    world,
+  }) => {
+    const breakfast = world.dishes.find((dish) => dish.category === "早餐");
+    expect(breakfast).toMatchObject({ name: "肉包子", category: "早餐" });
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await login(page, credentials!.username, credentials!.password);
+    await page.goto(`/?week=${world.weeks[0]}`);
+
+    const nav = page.getByRole("navigation", { name: "菜品分类" });
+    const categoryLink = nav.getByRole("link", { name: "早餐", exact: true });
+    await categoryLink.click();
+    await expect(page).toHaveURL(/category=/);
+    await expect(categoryLink).toHaveAttribute("aria-current", "page");
+
+    const card = page.locator("li[data-category='早餐']").filter({
+      has: page.locator(`[data-recipe-for="${breakfast!.id}"]`),
+    });
+    await expect(card).toHaveCount(1);
+    for (const other of world.dishes) {
+      if (other.id === breakfast!.id) continue;
+      await expect(page.locator(`[data-recipe-for="${other.id}"]`)).toHaveCount(
+        0,
+      );
+    }
+    const visible = page.locator("ul.dish-grid > li");
+    const count = await visible.count();
+    expect(count).toBeGreaterThan(0);
+    for (let index = 0; index < count; index += 1) {
+      await expect(visible.nth(index)).toHaveAttribute("data-category", "早餐");
+    }
+
+    const remove = removeLabel("周一早餐", breakfast!.name);
+    try {
+      await removeIfPresent(page, remove);
+      await card
+        .getByRole("button", { name: /^(＋添加|已加 \d+ 次)$/ })
+        .click();
+      const board = shownBoard(page);
+      await expect(slotButton(board, "周一午餐")).toBeEnabled();
+      await expect(slotButton(board, "周一晚餐")).toBeEnabled();
+      await persistMenuAction(page, () =>
+        slotButton(board, "周一早餐").click(),
+      );
+      await expect(page.locator(".menu-toast[role=status]")).toContainText(
+        "已加到 周一·早",
+      );
+      await page.keyboard.press("Escape");
+      await revealRemove(page, remove);
+    } finally {
+      await page.keyboard.press("Escape");
+      await removeIfPresent(page, remove);
+    }
+  });
 });
 
 function removeLabel(slot: string, dish: string): string {

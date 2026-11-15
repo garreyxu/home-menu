@@ -202,6 +202,44 @@ describe("classifyNotionPage", () => {
     }
   });
 
+  it("maps 主要食材种类 早餐 to the 早餐 category and ignores 类型", () => {
+    const bun = classifyNotionPage(
+      page({
+        properties: {
+          菜名: { type: "title", title: [{ plain_text: "肉包子" }] },
+          "已尝试?": { type: "checkbox", checkbox: true },
+          类型: { type: "select", select: { name: "主食" } },
+          主要食材种类: { type: "select", select: { name: "早餐" } },
+        },
+      }),
+    );
+    expect(bun.kind).toBe("dish");
+    if (bun.kind !== "dish") return;
+    expect(bun.dish.categoryName).toBe("早餐");
+    expect(bun.dish.mainIngredient).toBe("早餐");
+    expect(bun.dish.name).toBe("肉包子");
+  });
+
+  it("still skips a 早餐 page that has no cooking steps", () => {
+    const toast = classifyNotionPage(
+      page({
+        properties: {
+          菜名: { type: "title", title: [{ plain_text: "吐司" }] },
+          "已尝试?": { type: "checkbox", checkbox: true },
+          主要食材种类: { type: "select", select: { name: "早餐" } },
+        },
+        blocks: [
+          {
+            id: "h",
+            type: "heading_2",
+            heading_2: { rich_text: [{ plain_text: "步骤" }] },
+          },
+        ],
+      }),
+    );
+    expect(toast).toEqual({ kind: "no_steps", name: "吐司" });
+  });
+
   it("uses the 主要食材种类 option name and ignores 类型", () => {
     const duck = classifyNotionPage(
       page({

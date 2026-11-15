@@ -256,12 +256,14 @@ describe("sampleDishCatalog", () => {
   it("follows sort_order and dish name, with no photos", () => {
     const catalog = sampleDishCatalog();
     expect(catalog.map((category) => category.name)).toEqual([
+      "早餐",
       "家常菜",
       "汤品",
       "主食",
       "凉菜",
     ]);
-    const home = catalog[0]?.dishes ?? [];
+    const home =
+      catalog.find((category) => category.name === "家常菜")?.dishes ?? [];
     expect(home.map((dish) => dish.name)).toEqual(
       [...home.map((dish) => dish.name)].sort((a, b) =>
         a.localeCompare(b, "zh-CN"),
@@ -270,7 +272,31 @@ describe("sampleDishCatalog", () => {
     expect(home.every((dish) => dish.isActive && dish.photoKey === null)).toBe(
       true,
     );
-    expect(catalog.flatMap((category) => category.dishes)).toHaveLength(12);
+    expect(catalog.flatMap((category) => category.dishes)).toHaveLength(13);
+    expect(
+      catalog
+        .find((category) => category.name === "早餐")
+        ?.dishes.map((dish) => dish.name),
+    ).toEqual(["肉包子"]);
+  });
+
+  it("filters to 早餐 and hides the category when it has no dishes", () => {
+    const catalog = sampleDishCatalog();
+    const wall = buildDishWall(catalog, "早餐");
+    expect(wall.unknownCategory).toBe(false);
+    expect(wall.selectedCategory).toBe("早餐");
+    expect(wall.dishes.map((dish) => dish.name)).toEqual(["肉包子"]);
+    expect(wall.dishes.every((dish) => dish.categoryName === "早餐")).toBe(
+      true,
+    );
+
+    const emptied = catalog.map((category) =>
+      category.name === "早餐" ? { ...category, dishes: [] } : category,
+    );
+    const hidden = buildDishWall(emptied, null);
+    expect(hidden.categories.map((category) => category.name)).not.toContain(
+      "早餐",
+    );
   });
 });
 

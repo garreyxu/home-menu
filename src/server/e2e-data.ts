@@ -6,6 +6,7 @@ import { getDb } from "@/server/db";
 import { categories, dishes, menuItems, weeklyMenus } from "@/server/db/schema";
 import { sampleDishCatalog } from "@/server/sample-catalog";
 import { seedDishes } from "@/server/db/seed-data";
+import { CATEGORY_DISPLAY_ORDER } from "@/server/notion/category-order";
 import {
   assertE2ECategory,
   assertE2EDish,
@@ -41,6 +42,17 @@ function ephemeralWeeks() {
   return (scope.__homeMenuEphemeralWeeks ??= new Map());
 }
 const ephemeral = () => !process.env.DATABASE_URL?.trim();
+const BREAKFAST_CATEGORY = "早餐";
+/** dishCount stops at 12, so this page id stays out of the shared e2e category. */
+const BREAKFAST_FIXTURE_INDEX = 13;
+function withBreakfastFixture<T extends { category: string }>(
+  rows: readonly T[],
+  limit: number | null,
+): T[] {
+  const breakfast = rows.filter((row) => row.category === BREAKFAST_CATEGORY);
+  const rest = rows.filter((row) => row.category !== BREAKFAST_CATEGORY);
+  return [...(limit === null ? rest : rest.slice(0, limit)), ...breakfast];
+}
 async function ownedWeeks(runId: string) {
   assertRunId(runId);
   const rows = ephemeral()
@@ -270,8 +282,8 @@ export async function seedE2E(
     hasRecipe: boolean;
   }[];
   if (ephemeral()) {
-    catalog = sampleDishCatalog()
-      .flatMap((c) =>
+    catalog = withBreakfastFixture(
+      sampleDishCatalog().flatMap((c) =>
         c.dishes.map((d) => ({
           id: d.id,
           name: d.name,
@@ -279,8 +291,9 @@ export async function seedE2E(
           hasRecipe: !!seedDishes.find((s) => s.name === d.name)?.recipeBlocks
             ?.length,
         })),
-      )
-      .slice(0, n);
+      ),
+      n,
+    );
   } else {
     const name = `e2e-${runId}`;
     assertE2ECategory(runId, name);
@@ -324,13 +337,62 @@ export async function seedE2E(
         })
         .onConflictDoNothing();
     }
-    catalog = (
-      await getDb()
-        .select()
-        .from(dishes)
-        .where(sql`${dishes.notionPageId} ~ ${`^e2e:${runId}:[1-9][0-9]*$`}`)
-        .orderBy(dishes.notionPageId)
-    ).map((d) => ({ id: d.id, name: d.name, category: name, hasRecipe: true }));
+    const breakfastSeed = seedDishes.find(
+      (dish) => dish.categoryName === BREAKFAST_CATEGORY,
+    );
+    if (!breakfastSeed) throw new Error("Seed catalog is missing 早餐");
+    const breakfastSort = CATEGORY_DISPLAY_ORDER.indexOf(BREAKFAST_CATEGORY);
+    await getDb()
+      .insert(categories)
+      .values({ name: BREAKFAST_CATEGORY, sortOrder: breakfastSort })
+      .onConflictDoNothing();
+    const [breakfastCategory] = await getDb()
+      .select()
+      .from(categories)
+      .where(eq(categories.name, BREAKFAST_CATEGORY));
+    if (!breakfastCategory) throw new Error("Seed catalog is missing 早餐");
+    const breakfastNotionId = `e2e:${runId}:${BREAKFAST_FIXTURE_INDEX}`;
+    assertE2EDish(runId, breakfastNotionId);
+    await getDb()
+      .insert(dishes)
+      .values({
+        categoryId: breakfastCategory.id,
+        notionPageId: breakfastNotionId,
+        name: breakfastSeed.name,
+        ingredients: breakfastSeed.ingredients ?? null,
+        description: breakfastSeed.description,
+        isActive: true,
+        hasBody: true,
+        recipeBlocks: [
+          {
+            type: "numbered_list_item",
+            spans: [{ text: "发面，包馅，蒸 15 分钟" }],
+            children: [],
+          },
+        ],
+      })
+      .onConflictDoNothing();
+    catalog = withBreakfastFixture(
+      (
+        await getDb()
+          .select({
+            id: dishes.id,
+            name: dishes.name,
+            category: categories.name,
+            hasRecipe: dishes.hasBody,
+          })
+          .from(dishes)
+          .innerJoin(categories, eq(dishes.categoryId, categories.id))
+          .where(sql`${dishes.notionPageId} ~ ${`^e2e:${runId}:[1-9][0-9]*$`}`)
+          .orderBy(dishes.notionPageId)
+      ).map((d) => ({
+        id: d.id,
+        name: d.name,
+        category: d.category,
+        hasRecipe: d.hasRecipe,
+      })),
+      null,
+    );
   }
   for (const week of weeks) {
     const id = claimedWeekId(runId, week, label);

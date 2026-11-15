@@ -9,6 +9,16 @@ import {
 const KNOWN = [...CATEGORY_DISPLAY_ORDER];
 
 describe("orderCategoryNames", () => {
+  it("keeps 早餐 in the known order, after 饼 and before 酱汁", () => {
+    expect(orderCategoryNames(["酱汁", "早餐", "其他", "饼", "猪"])).toEqual([
+      "猪",
+      "饼",
+      "早餐",
+      "酱汁",
+      "其他",
+    ]);
+  });
+
   it("keeps known options in the display order and drops ones with no dishes", () => {
     expect(
       orderCategoryNames(["酱汁", "鸡", "其他", "猪", "汤", "猪"]),

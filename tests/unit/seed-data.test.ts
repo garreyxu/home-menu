@@ -3,13 +3,14 @@ import { describe, expect, it } from "vitest";
 import { seedCategories, seedDishes } from "@/server/db/seed-data";
 
 describe("seed catalog", () => {
-  it("has four categories and twelve dishes with no photos", () => {
-    expect(seedCategories).toHaveLength(4);
-    expect(seedDishes).toHaveLength(12);
+  it("has five categories and thirteen dishes with no photos", () => {
+    expect(seedCategories).toHaveLength(5);
+    expect(seedDishes).toHaveLength(13);
+    expect(seedCategories[0]).toEqual({ name: "早餐", sortOrder: 0 });
     expect(new Set(seedCategories.map((category) => category.name)).size).toBe(
-      4,
+      5,
     );
-    expect(new Set(seedDishes.map((dish) => dish.name)).size).toBe(12);
+    expect(new Set(seedDishes.map((dish) => dish.name)).size).toBe(13);
 
     const categoryNames = new Set(
       seedCategories.map((category) => category.name),
