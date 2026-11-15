@@ -54,10 +54,11 @@ const tomatoEggRecipe: RecipeBlock[] = [
 ];
 
 export const seedCategories: readonly SeedCategory[] = [
-  { name: "家常菜", sortOrder: 0 },
-  { name: "汤品", sortOrder: 1 },
-  { name: "主食", sortOrder: 2 },
-  { name: "凉菜", sortOrder: 3 },
+  { name: "早餐", sortOrder: 0 },
+  { name: "家常菜", sortOrder: 1 },
+  { name: "汤品", sortOrder: 2 },
+  { name: "主食", sortOrder: 3 },
+  { name: "凉菜", sortOrder: 4 },
 ];
 
 export const seedDishes: readonly SeedDish[] = [
@@ -123,5 +124,11 @@ export const seedDishes: readonly SeedDish[] = [
     name: "凉拌木耳",
     categoryName: "凉菜",
     description: "木耳凉拌，清爽。",
+  },
+  {
+    name: "肉包子",
+    categoryName: "早餐",
+    description: "发面肉馅，早上蒸一笼。",
+    ingredients: "面粉，猪肉，葱",
   },
 ];

@@ -29,7 +29,11 @@ it("rejects real weeks, preserves unrelated data, and claims idempotently", asyn
   });
   await expect(seedE2E("run-1234", ["2026-12-27"])).rejects.toThrow();
   const world = await seedE2E("run-1234", ["2090-01-01"], 6, "a");
-  expect(world!.dishes).toHaveLength(6);
+  expect(world!.dishes).toHaveLength(7);
+  expect(world!.dishes.slice(0, 6).every((d) => d.category === "家常菜")).toBe(
+    true,
+  );
+  expect(world!.dishes[6]).toMatchObject({ name: "肉包子", category: "早餐" });
   expect(world!.dishes.some((d) => d.hasRecipe)).toBe(true);
   expect(await seedE2E("run-1234", ["2090-01-01"], 6, "a")).toEqual(world);
   expect(await seedE2E("other-run", ["2090-01-01"], 6, "a")).toBeNull();
