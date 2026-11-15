@@ -1,6 +1,7 @@
 import { describe, expect, it, vi, afterEach } from "vitest";
 import {
   buildShoppingList,
+  partitionByChecked,
   shoppingRows,
   missingShoppingDishes,
 } from "../../src/lib/shopping-list";
@@ -82,6 +83,80 @@ describe("shopping list", () => {
         { customName: "聚餐", dishName: "聚餐", ingredients: "鸡腿" },
       ]),
     ).toEqual({ groups: [], pantry: [] });
+  });
+});
+
+describe("partitionByChecked", () => {
+  const row = (name: string, checked = false) => ({ name, checked });
+
+  it("keeps a stable order with unchecked items before checked ones", () => {
+    const items = [
+      row("番茄"),
+      row("鸡蛋", true),
+      row("葱"),
+      row("五花肉", true),
+      row("八角"),
+    ];
+    expect(partitionByChecked(items).map((item) => item.name)).toEqual([
+      "番茄",
+      "葱",
+      "八角",
+      "鸡蛋",
+      "五花肉",
+    ]);
+    expect(
+      partitionByChecked(
+        items.map((item) => ({ ...item, checked: false })),
+      ).map((item) => item.name),
+    ).toEqual(["番茄", "鸡蛋", "葱", "五花肉", "八角"]);
+    expect(
+      partitionByChecked(items.map((item) => ({ ...item, checked: true }))).map(
+        (item) => item.name,
+      ),
+    ).toEqual(["番茄", "鸡蛋", "葱", "五花肉", "八角"]);
+    expect(partitionByChecked([])).toEqual([]);
+    expect(items.map((item) => item.checked)).toEqual([
+      false,
+      true,
+      false,
+      true,
+      false,
+    ]);
+    expect(partitionByChecked(items)[0]).toBe(items[0]);
+    expect(partitionByChecked(items)[3]).toBe(items[1]);
+  });
+
+  it("partitions each group on its own and does not mix them", () => {
+    const groups = [
+      [row("五花肉", true), row("鸡腿")],
+      [row("番茄"), row("葱", true), row("土豆")],
+    ];
+    expect(
+      groups.map((group) => partitionByChecked(group).map((item) => item.name)),
+    ).toEqual([
+      ["鸡腿", "五花肉"],
+      ["番茄", "土豆", "葱"],
+    ]);
+  });
+
+  it("returns an item to its original slot when it is unchecked again", () => {
+    const source = [row("番茄"), row("葱"), row("土豆")];
+    const checked = source.map((item) =>
+      item.name === "葱" ? { ...item, checked: true } : item,
+    );
+    expect(partitionByChecked(checked).map((item) => item.name)).toEqual([
+      "番茄",
+      "土豆",
+      "葱",
+    ]);
+    const restored = checked.map((item) =>
+      item.name === "葱" ? { ...item, checked: false } : item,
+    );
+    expect(partitionByChecked(restored).map((item) => item.name)).toEqual([
+      "番茄",
+      "葱",
+      "土豆",
+    ]);
   });
 });
 

@@ -256,3 +256,135 @@ test("checked names stay struck and stamps cover the centered box at every shopp
     await list.getByRole("button", { name: "关闭买菜单" }).click();
   }
 });
+
+test("checking an item moves it after the unchecked ones in its group without reloading or jumping to the top", async ({
+  page,
+  world,
+}) => {
+  test.setTimeout(90_000);
+  const credentials = e2eCredentials()!;
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await login(page, credentials.username, credentials.password);
+  const week = world.weeks[0];
+  await addShoppingDish(page, world, week, "番茄炒蛋");
+  await addShoppingDish(page, world, week, "红烧肉");
+  await page.setViewportSize({ width: 390, height: 640 });
+  await page.reload();
+  const list = await openShoppingList(page);
+  const group = list.locator('section[aria-label="蔬菜菌菇"]');
+  const names = group.locator(".shopping-name");
+  await expect(names).toHaveText(["番茄", "葱"]);
+  const tomato = list.getByRole("checkbox", { name: /^番茄，/ });
+  await expect(tomato.locator("..")).toHaveCSS("min-height", "56px");
+  await page.evaluate(() => {
+    const probe = document.createElement("div");
+    probe.dataset.scrollProbe = "true";
+    probe.style.height = "1800px";
+    document.body.append(probe);
+    document.body.style.overflow = "auto";
+    window.scrollTo(0, 420);
+    (window as unknown as { __shoppingStay?: string }).__shoppingStay = "kept";
+  });
+  const scrollY = await page.evaluate(() => window.scrollY);
+  expect(scrollY).toBeGreaterThan(0);
+  const scroller = list.locator(".shopping-scroll");
+  const listScroll = await scroller.evaluate((node) => {
+    node.scrollTop = Math.min(80, node.scrollHeight - node.clientHeight);
+    return node.scrollTop;
+  });
+  expect(listScroll).toBeGreaterThan(0);
+  await tomato.evaluate((node: HTMLElement) =>
+    node.focus({ preventScroll: true }),
+  );
+  await tomato.locator("..").evaluate((node) => {
+    const target = node;
+    (
+      window as unknown as { __shoppingSlide?: Promise<string> }
+    ).__shoppingSlide = new Promise((resolve) => {
+      const timeout = window.setTimeout(
+        () => resolve(getComputedStyle(target).transform),
+        800,
+      );
+      target.addEventListener(
+        "transitionstart",
+        () => {
+          window.clearTimeout(timeout);
+          resolve(getComputedStyle(target).transform);
+        },
+        { once: true },
+      );
+    });
+  });
+  await persistMenuAction(page, () => page.keyboard.press("Space"));
+  const transform = await page.evaluate(
+    () =>
+      (window as unknown as { __shoppingSlide: Promise<string> })
+        .__shoppingSlide,
+  );
+  const slide = transform.match(
+    /matrix\([^,]+,[^,]+,[^,]+,[^,]+,[^,]+,\s*(-?\d+(?:\.\d+)?)\)/,
+  );
+  expect(slide, transform).not.toBeNull();
+  expect(Math.abs(Number(slide![1]))).toBeGreaterThan(20);
+  expect(Math.abs(Number(slide![1]))).toBeLessThan(160);
+  await expect(names).toHaveText(["葱", "番茄"]);
+  await expect(tomato).toBeChecked();
+  await expect(tomato).toBeFocused();
+  await expect(
+    list.locator('section[aria-label="肉"] .shopping-name'),
+  ).toHaveText(["五花肉"]);
+  await expect(
+    list.locator('section[aria-label="豆蛋"] .shopping-name'),
+  ).toHaveText(["鸡蛋"]);
+  expect(
+    await page.evaluate(
+      () => (window as unknown as { __shoppingStay?: string }).__shoppingStay,
+    ),
+  ).toBe("kept");
+  expect(await page.evaluate(() => window.scrollY)).toBe(scrollY);
+  expect(await scroller.evaluate((node) => node.scrollTop)).toBe(listScroll);
+  await expect(page).toHaveURL(new RegExp(`[?&]week=${week}`));
+  await persistMenuAction(page, () => page.keyboard.press("Space"));
+  await expect(tomato).not.toBeChecked();
+  await expect(tomato).toBeFocused();
+  await expect(names).toHaveText(["番茄", "葱"]);
+  expect(await page.evaluate(() => window.scrollY)).toBe(scrollY);
+  expect(await scroller.evaluate((node) => node.scrollTop)).toBe(listScroll);
+  const pantry = list.getByRole("button", { name: /^家里常备/ });
+  await expect(pantry).toHaveAttribute("aria-expanded", "false");
+  await pantry.click();
+  await expect(pantry).toHaveAttribute("aria-expanded", "true");
+  const pantryNames = list.locator(".shopping-pantry .shopping-name");
+  const pantryOrder = await pantryNames.allTextContents();
+  expect(pantryOrder[0]).toBe("盐");
+  const salt = list.getByRole("checkbox", { name: /^盐，/ });
+  await salt.evaluate((node: HTMLElement) =>
+    node.focus({ preventScroll: true }),
+  );
+  await persistMenuAction(page, () => page.keyboard.press("Space"));
+  await expect(pantryNames).toHaveText([...pantryOrder.slice(1), "盐"]);
+  await expect(salt).toBeChecked();
+  await expect(salt).toBeFocused();
+  await expect(pantry).toHaveAttribute("aria-expanded", "true");
+  await persistMenuAction(page, () => page.keyboard.press("Space"));
+  await expect(salt).not.toBeChecked();
+  await expect(pantryNames).toHaveText(pantryOrder);
+  await pantry.click();
+  await expect(pantry).toHaveAttribute("aria-expanded", "false");
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await tomato.evaluate((node: HTMLElement) =>
+    node.focus({ preventScroll: true }),
+  );
+  await persistMenuAction(page, () => page.keyboard.press("Space"));
+  await expect(names).toHaveText(["葱", "番茄"]);
+  await expect(tomato.locator("..")).toHaveCSS("transition-duration", "0s");
+  await persistMenuAction(page, () => page.keyboard.press("Space"));
+  await expect(names).toHaveText(["番茄", "葱"]);
+  await expect(tomato).not.toBeChecked();
+  expect(
+    await page.evaluate(
+      () => (window as unknown as { __shoppingStay?: string }).__shoppingStay,
+    ),
+  ).toBe("kept");
+  expect(await page.evaluate(() => window.scrollY)).not.toBe(0);
+});
