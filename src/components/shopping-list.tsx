@@ -4,8 +4,10 @@ import {
   useCallback,
   useEffect,
   useId,
+  useLayoutEffect,
   useRef,
   useState,
+  type ReactNode,
 } from "react";
 import { createPortal } from "react-dom";
 import {
@@ -14,8 +16,124 @@ import {
   toggleShoppingCheck,
   type ShoppingData,
 } from "@/app/shopping-actions";
-import { shoppingRows, type ShoppingRow } from "@/lib/shopping-list";
+import {
+  partitionByChecked,
+  shoppingRows,
+  type ShoppingRow,
+} from "@/lib/shopping-list";
 import { formatWeekRange } from "@/server/week";
+
+const REORDER_MS = 180;
+
+function orderedShoppingRows(
+  rows: readonly ShoppingRow[],
+  checked: readonly string[],
+) {
+  const bought = new Set(checked);
+  return partitionByChecked(
+    rows.map((row) => ({ ...row, checked: bought.has(row.name) })),
+  );
+}
+
+function orderKey(rows: readonly { name: string }[]) {
+  return rows.map((row) => row.name).join("\0");
+}
+
+/** Slide a row from its previous slot. Offset ignores scroll and transforms. */
+function useReorderMotion<T extends HTMLElement>(
+  signature: string,
+  enabled = true,
+) {
+  const ref = useRef<T>(null);
+  const previous = useRef(new Map<string, number>());
+  const generation = useRef(0);
+  useLayoutEffect(() => {
+    const root = ref.current;
+    if (!root || !enabled) {
+      previous.current = new Map();
+      return;
+    }
+    const rows = [
+      ...root.querySelectorAll<HTMLElement>(":scope > .shopping-row"),
+    ];
+    const reduce = window.matchMedia(
+      "(prefers-reduced-motion: reduce)",
+    ).matches;
+    const next = new Map<string, number>();
+    const moves: { row: HTMLElement; delta: number }[] = [];
+    for (const row of rows) {
+      const name = row.dataset.ingredient;
+      if (!name) continue;
+      const top = row.offsetTop;
+      next.set(name, top);
+      const from = previous.current.get(name);
+      if (reduce || from === undefined) continue;
+      const delta = from - top;
+      if (Math.abs(delta) < 1) continue;
+      moves.push({ row, delta });
+    }
+    const token = ++generation.current;
+    for (const { row, delta } of moves) {
+      row.style.transition = "none";
+      row.style.transform = `translateY(${delta}px)`;
+    }
+    if (moves.length) root.getBoundingClientRect();
+    for (const { row } of moves) {
+      row.style.transition = `transform ${REORDER_MS}ms ease-out`;
+      row.style.transform = "";
+      const done = (event: Event) => {
+        if (token !== generation.current) return;
+        if (
+          !(event instanceof TransitionEvent) ||
+          event.propertyName !== "transform"
+        )
+          return;
+        row.style.transition = "";
+        row.removeEventListener("transitionend", done);
+      };
+      row.addEventListener("transitionend", done);
+    }
+    previous.current = next;
+  }, [signature, enabled]);
+  return ref;
+}
+
+function ShoppingGroup({
+  name,
+  rows,
+  checked,
+  render,
+}: {
+  name: string;
+  rows: ShoppingRow[];
+  checked: readonly string[];
+  render: (item: ShoppingRow) => ReactNode;
+}) {
+  const ordered = orderedShoppingRows(rows, checked);
+  const ref = useReorderMotion<HTMLElement>(orderKey(ordered));
+  return (
+    <section ref={ref} className="shopping-group" aria-label={name}>
+      <h3 className="font-brush">{name}</h3>
+      {ordered.map(render)}
+    </section>
+  );
+}
+
+function PantryRows({
+  rows,
+  checked,
+  open,
+  render,
+}: {
+  rows: ShoppingRow[];
+  checked: readonly string[];
+  open: boolean;
+  render: (item: ShoppingRow) => ReactNode;
+}) {
+  const ordered = orderedShoppingRows(rows, checked);
+  const ref = useReorderMotion<HTMLDivElement>(orderKey(ordered), open);
+  return <div ref={ref}>{ordered.map(render)}</div>;
+}
 
 export function ShoppingListButton({
   weekStart,
@@ -74,6 +192,11 @@ function ShoppingSheet({
   const pending = useRef(false);
   const version = useRef(0);
   const mounted = useRef(true);
+  const place = useRef<{
+    pageY: number;
+    list: number;
+    focus: HTMLElement | null;
+  } | null>(null);
   const invalidate = useCallback(() => {
     version.current++;
   }, []);
@@ -124,8 +247,34 @@ function ShoppingSheet({
     const timer = window.setTimeout(() => setToast(""), 5000);
     return () => window.clearTimeout(timer);
   }, [toast]);
+  useLayoutEffect(() => {
+    const held = place.current;
+    if (!held) return;
+    const scroller = dialog.current?.querySelector(".shopping-scroll");
+    if (scroller instanceof HTMLElement) scroller.scrollTop = held.list;
+    if (window.scrollY !== held.pageY)
+      window.scrollTo(window.scrollX, held.pageY);
+    const focus = held.focus;
+    if (
+      focus?.isConnected &&
+      document.activeElement !== focus &&
+      (document.activeElement === document.body ||
+        document.activeElement === dialog.current)
+    )
+      focus.focus({ preventScroll: true });
+    if (!pending.current) place.current = null;
+  });
   async function change(name?: string, checked?: boolean) {
     if (!data || pending.current) return;
+    const scroller = dialog.current?.querySelector(".shopping-scroll");
+    place.current = {
+      pageY: window.scrollY,
+      list: scroller instanceof HTMLElement ? scroller.scrollTop : 0,
+      focus:
+        document.activeElement instanceof HTMLElement
+          ? document.activeElement
+          : null,
+    };
     const previous = data;
     pending.current = true;
     version.current++;
@@ -164,7 +313,12 @@ function ShoppingSheet({
   function row(item: ShoppingRow) {
     const checked = data!.checked.includes(item.name);
     return (
-      <label key={item.name} className="shopping-row" data-checked={checked}>
+      <label
+        key={item.name}
+        className="shopping-row"
+        data-checked={checked}
+        data-ingredient={item.name}
+      >
         <input
           type="checkbox"
           checked={checked}
@@ -282,14 +436,13 @@ function ShoppingSheet({
                 <p className="shopping-state">这周的菜还没有食材清单</p>
               ) : null}
               {data.list.groups.map((group) => (
-                <section
+                <ShoppingGroup
                   key={group.name}
-                  className="shopping-group"
-                  aria-label={group.name}
-                >
-                  <h3 className="font-brush">{group.name}</h3>
-                  {group.rows.map(row)}
-                </section>
+                  name={group.name}
+                  rows={group.rows}
+                  checked={data.checked}
+                  render={row}
+                />
               ))}
               {data.missing.length ? (
                 <p className="shopping-missing text-xs text-sumi-soft break-words">
@@ -309,7 +462,12 @@ function ShoppingSheet({
                   </button>
                   <div id={pantryId} hidden={!pantryOpen}>
                     <p>看一眼家里还有没有</p>
-                    {data.list.pantry.map(row)}
+                    <PantryRows
+                      rows={data.list.pantry}
+                      checked={data.checked}
+                      open={pantryOpen}
+                      render={row}
+                    />
                   </div>
                 </section>
               ) : null}

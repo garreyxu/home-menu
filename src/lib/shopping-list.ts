@@ -55,6 +55,16 @@ export function shoppingRows(list: ShoppingList): ShoppingRow[] {
   return [...list.groups.flatMap((group) => group.rows), ...list.pantry];
 }
 
+/** Unchecked items, then checked items, each side in its original order. */
+export function partitionByChecked<T extends { checked: boolean }>(
+  items: readonly T[],
+): T[] {
+  const open: T[] = [];
+  const done: T[] = [];
+  for (const item of items) (item.checked ? done : open).push(item);
+  return [...open, ...done];
+}
+
 export function missingShoppingDishes(
   items: readonly ShoppingMenuItem[],
 ): string[] {
