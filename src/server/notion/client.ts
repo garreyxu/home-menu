@@ -1,5 +1,9 @@
 import { readBlockChildrenPage } from "@/server/notion/block-page";
 import { MAIN_INGREDIENT_PROPERTY } from "@/server/notion/category-order";
+import {
+  DRINKS_DATABASE_ID,
+  DRINKS_DATA_SOURCE_ID,
+} from "@/server/notion/config";
 import { normalizeNotionId } from "@/server/notion/ids";
 import { assertTriedProperty } from "@/server/notion/map-page";
 import type {
@@ -12,6 +16,18 @@ import type {
 const NOTION_VERSION = "2026-03-11";
 const MAX_DEPTH = 8;
 const MAX_BLOCKS = 400;
+
+export class NotionRequestError extends Error {
+  readonly status: number;
+  readonly code: string | null;
+
+  constructor(message: string, status: number, code: string | null) {
+    super(message);
+    this.name = "NotionRequestError";
+    this.status = status;
+    this.code = code;
+  }
+}
 
 export type NotionSnapshotBatch = {
   pages: NotionPageSnapshot[];
@@ -44,6 +60,8 @@ export type NotionReadSession = {
     | { status: "timeout" }
     | { status: "failed" }
   >;
+  /** Cocktail pages. Access errors throw NotionRequestError; an empty list does not. */
+  listDrinks: () => Promise<NotionListedPage[]>;
 };
 
 export function openNotionRead(options: {
@@ -89,6 +107,14 @@ export function openNotionRead(options: {
       } catch {
         return { status: "failed" };
       }
+    },
+    async listDrinks() {
+      const database = await notion(`/databases/${DRINKS_DATABASE_ID}`);
+      const dataSourceId = chooseDataSource(
+        readDataSources(database),
+        DRINKS_DATA_SOURCE_ID,
+      );
+      return queryAllPages(dataSourceId, notion);
     },
   };
 }
@@ -365,20 +391,37 @@ async function notionRequest(
       await new Promise((resolve) => setTimeout(resolve, seconds * 1000));
       continue;
     }
-    if (!response.ok) throw notionStatusError(response.status);
+    if (!response.ok) {
+      throw new NotionRequestError(
+        notionStatusMessage(response.status),
+        response.status,
+        await readErrorCode(response),
+      );
+    }
     return response.json() as Promise<unknown>;
   }
   throw new Error("Notion 请求太频繁，请稍后再同步。");
 }
 
-function notionStatusError(status: number): Error {
-  if (status === 401)
-    return new Error("Notion 令牌被拒绝。请检查 NOTION_TOKEN。");
+function notionStatusMessage(status: number): string {
+  if (status === 401) return "Notion 令牌被拒绝。请检查 NOTION_TOKEN。";
   if (status === 403) {
-    return new Error("Notion 集成没有读取权限。请把集成邀请到 Recipe 数据库。");
+    return "Notion 集成没有读取权限。请把集成邀请到 Recipe 数据库。";
   }
-  if (status === 404) return new Error("找不到 Notion 数据库或数据源。");
-  return new Error(`Notion 请求失败（${status}）。`);
+  if (status === 404) return "找不到 Notion 数据库或数据源。";
+  return `Notion 请求失败（${status}）。`;
+}
+
+async function readErrorCode(response: Response): Promise<string | null> {
+  try {
+    const payload = (await response.json()) as { code?: unknown };
+    const code = payload?.code;
+    if (typeof code !== "string" || !/^[a-z0-9_]{1,64}$/.test(code))
+      return null;
+    return code;
+  } catch {
+    return null;
+  }
 }
 
 function createSlotter(intervalMs: number): () => Promise<void> {

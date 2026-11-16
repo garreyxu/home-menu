@@ -1,5 +1,16 @@
 import { normalizeNotionId } from "@/server/notion/ids";
 
+/**
+ * Cocktail database. These ids are not secrets.
+ * The recipe database stays in NOTION_DATABASE_ID and NOTION_DATA_SOURCE_ID.
+ */
+export const DRINKS_DATABASE_ID = normalizeNotionId(
+  "419758b3080f8168bd89cbb70785af72",
+);
+export const DRINKS_DATA_SOURCE_ID = normalizeNotionId(
+  "419758b3-080f-8111-9560-000b305e6c3e",
+);
+
 export class NotionConfigError extends Error {
   constructor(message: string) {
     super(message);

@@ -3,7 +3,14 @@ import { clearLocalShoppingWeek } from "@/server/shopping-list";
 import { createHash } from "node:crypto";
 import { and, eq, gte, lte, lt, sql, inArray } from "drizzle-orm";
 import { getDb } from "@/server/db";
-import { categories, dishes, menuItems, weeklyMenus } from "@/server/db/schema";
+import { ephemeralDrinks, type EphemeralDrink } from "@/server/drinks";
+import {
+  categories,
+  dishes,
+  drinks,
+  menuItems,
+  weeklyMenus,
+} from "@/server/db/schema";
 import { sampleDishCatalog } from "@/server/sample-catalog";
 import { seedDishes } from "@/server/db/seed-data";
 import { CATEGORY_DISPLAY_ORDER } from "@/server/notion/category-order";
@@ -172,7 +179,11 @@ export async function cleanupE2E(
         );
     }
   }
-  if (weeks || ephemeral()) return;
+  if (ephemeral()) {
+    if (!weeks) removeEphemeralRunDrink(runId);
+    return;
+  }
+  if (weeks) return;
   const categoryName = `e2e-${runId}`;
   assertE2ECategory(runId, categoryName);
   // Regex is anchored and runId cannot contain regex metacharacters.
@@ -202,10 +213,18 @@ export async function cleanupE2E(
           : []),
       ),
     );
+  await deleteStoredRunDrink(runId, olderThan);
 }
 export async function leftoversE2E(runId: string) {
   const weeks = (await ownedWeeks(runId)).length;
-  if (ephemeral()) return { weeks, dishes: 0, categories: 0 };
+  if (ephemeral()) {
+    return {
+      weeks,
+      dishes: 0,
+      categories: 0,
+      drinks: ephemeralDrinks().has(e2eDrinkNotionId(runId)) ? 1 : 0,
+    };
+  }
   const [d] = await getDb()
     .select({ n: sql<number>`count(*)::int` })
     .from(dishes)
@@ -214,7 +233,11 @@ export async function leftoversE2E(runId: string) {
     .select({ n: sql<number>`count(*)::int` })
     .from(categories)
     .where(eq(categories.name, `e2e-${runId}`));
-  return { weeks, dishes: d.n, categories: c.n };
+  const [drinkCount] = await getDb()
+    .select({ n: sql<number>`count(*)::int` })
+    .from(drinks)
+    .where(eq(drinks.notionPageId, e2eDrinkNotionId(runId)));
+  return { weeks, dishes: d.n, categories: c.n, drinks: drinkCount.n };
 }
 async function sweep(runId: string) {
   if (ephemeral()) {
@@ -419,4 +442,129 @@ export async function seedE2E(
     }
   }
   return { runId, weeks, dishes: catalog };
+}
+
+export function e2eDrinkNotionId(runId: string): string {
+  assertRunId(runId);
+  return `e2e-drink:${runId}`;
+}
+
+export function e2eDrinkRowId(runId: string): string {
+  assertRunId(runId);
+  const hash = createHash("sha256")
+    .update(`home-menu:e2e-drink:${runId}`)
+    .digest("hex");
+  return `${hash.slice(0, 8)}-${hash.slice(8, 12)}-5${hash.slice(13, 16)}-a${hash.slice(17, 20)}-${hash.slice(20, 32)}`;
+}
+
+const E2E_DRINK_STEP = "倒入金酒，再注汤力水。";
+
+export async function seedDrinkE2E(runId: string) {
+  assertRunId(runId);
+  if (ephemeral() && process.env.VERCEL_ENV !== undefined) {
+    throw new Error("Preview database required");
+  }
+  const notionPageId = e2eDrinkNotionId(runId);
+  const row: EphemeralDrink = {
+    id: e2eDrinkRowId(runId),
+    notionPageId,
+    name: `夜来香-${runId}`,
+    baseSpirits: ["金酒"],
+    flavors: ["清爽"],
+    ingredients: "金酒 45ml、汤力水",
+    sourceUrl: "https://example.com/night-bloom",
+    tried: true,
+    hasPhoto: false,
+    blocks: [
+      {
+        type: "numbered_list_item",
+        spans: [{ text: E2E_DRINK_STEP }],
+        children: [],
+      },
+    ],
+    photo: null,
+    photoType: null,
+    isActive: true,
+    createdAt: new Date(),
+  };
+  if (ephemeral()) {
+    ephemeralDrinks().set(notionPageId, row);
+  } else {
+    await getDb()
+      .insert(drinks)
+      .values({
+        id: row.id,
+        notionPageId,
+        name: row.name,
+        baseSpirits: [...row.baseSpirits],
+        flavors: [...row.flavors],
+        ingredients: row.ingredients,
+        sourceUrl: row.sourceUrl,
+        tried: true,
+        hasBody: true,
+        recipeBlocks: row.blocks,
+        isActive: true,
+      })
+      .onConflictDoUpdate({
+        target: drinks.notionPageId,
+        set: {
+          name: row.name,
+          baseSpirits: [...row.baseSpirits],
+          flavors: [...row.flavors],
+          ingredients: row.ingredients,
+          sourceUrl: row.sourceUrl,
+          tried: true,
+          hasBody: true,
+          recipeBlocks: row.blocks,
+          isActive: true,
+          updatedAt: new Date(),
+        },
+      });
+  }
+  return {
+    id: row.id,
+    name: row.name,
+    baseSpirit: row.baseSpirits[0],
+    flavor: row.flavors[0],
+    ingredients: row.ingredients,
+    sourceUrl: row.sourceUrl,
+    step: E2E_DRINK_STEP,
+  };
+}
+
+export async function cleanupDrinkE2E(runId: string) {
+  assertRunId(runId);
+  if (ephemeral()) {
+    for (const [key, drink] of ephemeralDrinks()) {
+      if (drink.notionPageId.startsWith("e2e-drink:")) {
+        ephemeralDrinks().delete(key);
+      }
+    }
+    return;
+  }
+  await deleteStoredRunDrink(runId);
+  const cutoff = new Date(Date.now() - 6 * 3600_000);
+  await getDb()
+    .delete(drinks)
+    .where(
+      and(
+        sql`${drinks.notionPageId} ~ '^e2e-drink:[a-z0-9-]{4,40}$'`,
+        lt(drinks.createdAt, cutoff),
+      ),
+    );
+}
+
+function removeEphemeralRunDrink(runId: string) {
+  ephemeralDrinks().delete(e2eDrinkNotionId(runId));
+}
+
+async function deleteStoredRunDrink(runId: string, olderThan?: Date) {
+  await getDb()
+    .delete(drinks)
+    .where(
+      and(
+        eq(drinks.notionPageId, e2eDrinkNotionId(runId)),
+        ...(olderThan ? [lt(drinks.createdAt, olderThan)] : []),
+      ),
+    );
 }

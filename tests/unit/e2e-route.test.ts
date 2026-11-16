@@ -12,6 +12,8 @@ vi.mock("@/server/e2e-data", () => ({
   seedE2E: mocks.seed,
   cleanupE2E: mocks.cleanup,
   leftoversE2E: mocks.leftovers,
+  seedDrinkE2E: mocks.seed,
+  cleanupDrinkE2E: mocks.cleanup,
 }));
 import { POST } from "@/app/api/e2e/route";
 const request = (body: unknown, header = "run-1234") =>
@@ -27,7 +29,7 @@ beforeEach(() => {
 });
 afterEach(() => vi.unstubAllEnvs());
 describe("route environment, session, and data scope", () => {
-  it.each(["seed", "cleanup", "leftovers"])(
+  it.each(["seed", "cleanup", "leftovers", "seed-drink", "cleanup-drink"])(
     "returns 404 before authentication or storage for production %s",
     async (action) => {
       vi.stubEnv("VERCEL_ENV", "production");
