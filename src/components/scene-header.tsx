@@ -15,22 +15,20 @@ export function SceneHeader({
   const season = seasonRecommendation(new Date());
 
   return (
-    <>
-      <header className="scene-header">
-        <div className="scene-deco scene-deco-start">
-          <Persimmon />
-        </div>
-        <div className="scene-title-lockup">
-          <SealBadge id="header-seal" label="荐" decorative />
-          <h1 className="page-title font-brush text-sumi">{siteName}</h1>
-          <p className="scene-season">{season}</p>
-        </div>
-        <div className="scene-deco scene-deco-end">
-          <MapleLeaf />
-        </div>
-        {actions ? <div className="scene-actions">{actions}</div> : null}
-      </header>
+    <header className="scene-header">
+      <div className="scene-deco scene-deco-start">
+        <Persimmon />
+      </div>
+      <div className="scene-title-lockup">
+        <SealBadge id="header-seal" label="荐" decorative />
+        <h1 className="page-title font-brush text-sumi">{siteName}</h1>
+        <p className="scene-season">{season}</p>
+      </div>
+      <div className="scene-deco scene-deco-end">
+        <MapleLeaf />
+      </div>
       <SiteNav current={current} />
-    </>
+      {actions ? <div className="scene-actions">{actions}</div> : null}
+    </header>
   );
 }

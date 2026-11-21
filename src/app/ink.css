@@ -2309,10 +2309,13 @@ ol.recipe-list > li + li {
 }
 
 .site-nav {
+  position: absolute;
+  left: 50%;
+  bottom: 12px;
+  z-index: 3;
   display: flex;
-  justify-content: center;
   gap: 8px;
-  padding: 0 16px 12px;
+  transform: translateX(-50%);
 }
 
 .site-nav a {
