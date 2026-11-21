@@ -8,8 +8,15 @@ import { createPortal } from "react-dom";
 import { loadDishRecipe } from "@/app/recipe-actions";
 import { RecipeBody } from "@/components/recipe-body";
 import { StampButton } from "@/components/stamp-button";
+import { cn } from "@/lib/utils";
 import type { DishIllustration } from "@/lib/illustrations";
 import type { RecipeBlock } from "@/lib/recipe-blocks";
+
+export type RecipeBoardAction = {
+  id: string;
+  label: string;
+  run: (anchor: HTMLElement) => void;
+};
 
 const FOCUSABLE =
   'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])';
@@ -33,6 +40,7 @@ export function RecipeSheet({
   onAdd,
   illustration,
   tried = false,
+  boardActions,
 }: {
   dishId: string;
   dishName: string;
@@ -40,6 +48,8 @@ export function RecipeSheet({
   onAdd: () => void;
   illustration?: DishIllustration | null;
   tried?: boolean;
+  /** Move and remove for a dish opened from the week board. Absent from the catalog. */
+  boardActions?: readonly RecipeBoardAction[];
 }) {
   const titleId = useId();
   const dialogRef = useRef<HTMLDivElement>(null);
@@ -185,7 +195,12 @@ export function RecipeSheet({
             ) : null}
           </div>
         </header>
-        <div className="recipe-scroll">
+        <div
+          className={cn(
+            "recipe-scroll",
+            boardActions?.length && "has-board-actions",
+          )}
+        >
           {state.status === "loading" ? (
             <p className="recipe-empty">正在打开做法</p>
           ) : null}
@@ -208,6 +223,23 @@ export function RecipeSheet({
             <RecipeBody blocks={state.blocks} />
           ) : null}
         </div>
+        {boardActions?.length ? (
+          <div className="recipe-board-actions">
+            {boardActions.map((action) => (
+              <button
+                key={action.id}
+                type="button"
+                className={cn(
+                  "focus-ring",
+                  action.id === "remove" && "is-remove",
+                )}
+                onClick={(event) => action.run(event.currentTarget)}
+              >
+                {action.label}
+              </button>
+            ))}
+          </div>
+        ) : null}
       </div>
     </div>,
     document.body,

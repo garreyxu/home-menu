@@ -17,7 +17,7 @@ import { RecipeSheet } from "@/components/recipe-sheet";
 import { NotionSyncButton } from "@/components/notion-sync-button";
 import { EmptyMenu } from "@/components/empty-menu";
 import { StampButton } from "@/components/stamp-button";
-import { WeekBoard } from "@/components/week-board";
+import { WeekBoard, chipMenuActions } from "@/components/week-board";
 import { reconcileWall, wallKey, type HomeWall } from "@/lib/home-wall";
 import {
   DAY_LABELS,
@@ -92,7 +92,11 @@ export function MenuPlanner({
   const [flash, setFlash] = useState<string | null>(null);
   const [recipeDishId, setRecipeDishId] = useState<string | null>(null);
   const [recipeDishName, setRecipeDishName] = useState<string | null>(null);
+  const [recipeMenuItem, setRecipeMenuItem] = useState<WeekMenuItemView | null>(
+    null,
+  );
   const recipeReturn = useRef<HTMLElement | null>(null);
+  const beginMoveRef = useRef<((item: WeekMenuItemView) => void) | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [trayOpen, setTrayOpen] = useState(false);
   const [trackedWallKey, setTrackedWallKey] = useState(() =>
@@ -361,6 +365,7 @@ export function MenuPlanner({
         setCustomEditor({ anchor, item });
       }}
       onRemove={remove}
+      beginMoveRef={beginMoveRef}
       onOpenRecipe={(item) => {
         if (!item.dishId) return;
         setOpenDishId(null);
@@ -369,6 +374,7 @@ export function MenuPlanner({
           `[data-item-id="${CSS.escape(item.id)}"]`,
         );
         setRecipeDishName(item.dishName);
+        setRecipeMenuItem(item);
         setRecipeDishId(item.dishId);
       }}
     />
@@ -449,6 +455,7 @@ export function MenuPlanner({
                       onOpenRecipe={() => {
                         setOpenDishId(null);
                         recipeReturn.current = null;
+                        setRecipeMenuItem(null);
                         setRecipeDishName(dish.name);
                         setRecipeDishId(dish.id);
                       }}
@@ -544,9 +551,36 @@ export function MenuPlanner({
             wall.dishes.find((dish) => dish.id === recipeDishId)?.illustration
           }
           tried={wall.dishes.find((dish) => dish.id === recipeDishId)?.tried}
+          boardActions={
+            recipeMenuItem
+              ? chipMenuActions({
+                  item: recipeMenuItem,
+                  onMove: () => {
+                    const item = recipeMenuItem;
+                    recipeReturn.current = null;
+                    setRecipeMenuItem(null);
+                    setRecipeDishName(null);
+                    setRecipeDishId(null);
+                    beginMoveRef.current?.(item);
+                  },
+                  onRename: () => {},
+                  onRemove: () => {
+                    const item = recipeMenuItem;
+                    recipeReturn.current = null;
+                    setRecipeMenuItem(null);
+                    setRecipeDishName(null);
+                    setRecipeDishId(null);
+                    remove(item);
+                  },
+                }).filter(
+                  (action) => action.id === "move" || action.id === "remove",
+                )
+              : undefined
+          }
           onAdd={() => {
             const id = recipeDishId;
             recipeReturn.current = null;
+            setRecipeMenuItem(null);
             setRecipeDishName(null);
             setRecipeDishId(null);
             setOpenDishId(id);
@@ -555,6 +589,7 @@ export function MenuPlanner({
             const id = recipeDishId;
             const chip = recipeReturn.current;
             recipeReturn.current = null;
+            setRecipeMenuItem(null);
             setRecipeDishName(null);
             setRecipeDishId(null);
             window.requestAnimationFrame(() => {

@@ -7,6 +7,7 @@ import {
   useRef,
   useState,
   useSyncExternalStore,
+  type MutableRefObject,
 } from "react";
 import {
   DndContext,
@@ -21,7 +22,6 @@ import {
   type UniqueIdentifier,
 } from "@dnd-kit/core";
 import { HoldThenDragSensor } from "@/components/hold-then-drag-sensor";
-import { HOLD_BEFORE_DRAG_MS, HOLD_MOVE_PX } from "@/lib/week-chip-gesture";
 import { ShoppingListButton } from "@/components/shopping-list";
 import { moveDuplicate } from "@/lib/move-item";
 import { SlotDialog, SlotTable } from "@/components/add-to-day";
@@ -65,11 +65,14 @@ export function WeekBoard({
   onMove,
   onToast,
   onOpenRecipe,
+  beginMoveRef,
   interactive = false,
 }: {
   onMove?: (item: WeekMenuItemView, day: number, meal: Meal) => void;
   onToast?: (text: string) => void;
   onOpenRecipe?: (item: WeekMenuItemView) => void;
+  /** Same move-sheet opener the long-press menu uses. */
+  beginMoveRef?: MutableRefObject<((item: WeekMenuItemView) => void) | null>;
   interactive?: boolean;
   selectingDish?: { id: string; name: string };
   onSelect?: (day: number, meal: Meal) => void;
@@ -129,13 +132,21 @@ export function WeekBoard({
       },
     };
   }, [items, onOpenRecipe]);
+  const beginMove = useCallback((item: WeekMenuItemView) => {
+    setMoving(item);
+    setDestination(null);
+    setPressed(null);
+  }, []);
+  useEffect(() => {
+    if (!beginMoveRef) return;
+    beginMoveRef.current = beginMove;
+    return () => {
+      if (beginMoveRef.current === beginMove) beginMoveRef.current = null;
+    };
+  }, [beginMove, beginMoveRef]);
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
     useSensor(HoldThenDragSensor, {
-      activationConstraint: {
-        delay: HOLD_BEFORE_DRAG_MS,
-        tolerance: HOLD_MOVE_PX,
-      },
       onHeld: (id) => gestureRef.current.onHeld(id),
       onOpen: (id) => gestureRef.current.onOpen(id),
     }),
@@ -339,11 +350,7 @@ export function WeekBoard({
               setPressed(null);
               onRemove(item);
             }}
-            onMove={() => {
-              setMoving(pressed.item);
-              setDestination(null);
-              setPressed(null);
-            }}
+            onMove={() => beginMove(pressed.item)}
             onRename={(anchor) => {
               onCustom(anchor, pressed.item);
               setPressed(null);
