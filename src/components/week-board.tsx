@@ -7,22 +7,21 @@ import {
   useRef,
   useState,
   useSyncExternalStore,
-  type PointerEvent as ReactPointerEvent,
-  type MouseEvent as ReactMouseEvent,
 } from "react";
 import {
   DndContext,
   DragOverlay,
   PointerSensor,
-  TouchSensor,
   KeyboardSensor,
   useSensor,
   useSensors,
   useDraggable,
   useDroppable,
-  useDndContext,
   type KeyboardCoordinateGetter,
+  type UniqueIdentifier,
 } from "@dnd-kit/core";
+import { HoldThenDragSensor } from "@/components/hold-then-drag-sensor";
+import { HOLD_BEFORE_DRAG_MS, HOLD_MOVE_PX } from "@/lib/week-chip-gesture";
 import { ShoppingListButton } from "@/components/shopping-list";
 import { moveDuplicate } from "@/lib/move-item";
 import { SlotDialog, SlotTable } from "@/components/add-to-day";
@@ -42,8 +41,6 @@ import { MEALS, type Meal } from "@/server/meals";
 import { addCalendarDays, formatWeekRange, shiftWeek } from "@/server/week";
 
 const VISIBLE_DISHES = 3;
-const LONG_PRESS_MS = 350;
-const LONG_PRESS_TOLERANCE = 8;
 
 type PressTarget = {
   anchor: HTMLElement;
@@ -67,10 +64,12 @@ export function WeekBoard({
   flash,
   onMove,
   onToast,
+  onOpenRecipe,
   interactive = false,
 }: {
   onMove?: (item: WeekMenuItemView, day: number, meal: Meal) => void;
   onToast?: (text: string) => void;
+  onOpenRecipe?: (item: WeekMenuItemView) => void;
   interactive?: boolean;
   selectingDish?: { id: string; name: string };
   onSelect?: (day: number, meal: Meal) => void;
@@ -86,24 +85,66 @@ export function WeekBoard({
   onRemove: (item: WeekMenuItemView) => void;
 }) {
   const [dragged, setDragged] = useState<WeekMenuItemView | null>(null);
+  const [heldId, setHeldId] = useState<string | null>(null);
+  const [pressed, setPressed] = useState<PressTarget | null>(null);
   const [moving, setMoving] = useState<WeekMenuItemView | null>(null);
   const [destination, setDestination] = useState<{
     day: number;
     meal: Meal;
   } | null>(null);
+  const boardRef = useRef<HTMLDivElement>(null);
+  const gestureRef = useRef<{
+    onHeld: (id: UniqueIdentifier) => void;
+    onOpen: (id: UniqueIdentifier) => void;
+  }>({
+    onHeld() {},
+    onOpen() {},
+  });
+  useEffect(() => {
+    gestureRef.current = {
+      onHeld(id) {
+        setHeldId(String(id));
+        if (window.matchMedia("(prefers-reduced-motion: reduce)").matches)
+          return;
+        if (typeof navigator.vibrate === "function") navigator.vibrate(10);
+      },
+      onOpen(id) {
+        setHeldId(null);
+        const item = items.find((entry) => entry.id === String(id));
+        if (!item || item.id.startsWith("pending:")) return;
+        if (item.dishId) {
+          onOpenRecipe?.(item);
+          return;
+        }
+        const anchor = boardRef.current?.querySelector<HTMLElement>(
+          `[data-item-id="${CSS.escape(item.id)}"]`,
+        );
+        if (anchor)
+          setPressed({
+            item,
+            day: item.dayOfWeek,
+            meal: item.meal,
+            anchor,
+          });
+      },
+    };
+  }, [items, onOpenRecipe]);
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
-    useSensor(TouchSensor, {
-      activationConstraint: { delay: 350, tolerance: 8 },
+    useSensor(HoldThenDragSensor, {
+      activationConstraint: {
+        delay: HOLD_BEFORE_DRAG_MS,
+        tolerance: HOLD_MOVE_PX,
+      },
+      onHeld: (id) => gestureRef.current.onHeld(id),
+      onOpen: (id) => gestureRef.current.onOpen(id),
     }),
     useSensor(KeyboardSensor, { coordinateGetter: cellKeyboardCoordinates }),
   );
-  const boardRef = useRef<HTMLDivElement>(null);
   const previous = categoryFilterHref(categoryParam, shiftWeek(weekStart, -1));
   const next = categoryFilterHref(categoryParam, shiftWeek(weekStart, 1));
   const current = categoryFilterHref(categoryParam, null);
   const letter = frameLetter(weekStart);
-  const [pressed, setPressed] = useState<PressTarget | null>(null);
   const hintRef = useRef<HTMLDivElement>(null);
   const selectingDishId = selectingDish?.id;
   useEffect(() => {
@@ -116,10 +157,15 @@ export function WeekBoard({
       id={useId()}
       sensors={sensors}
       autoScroll={{ threshold: { x: 0.1, y: 0.1 } }}
-      onDragStart={({ active }) =>
-        setDragged(items.find((i) => i.id === active.id) ?? null)
-      }
-      onDragCancel={() => setDragged(null)}
+      onDragStart={({ active }) => {
+        setHeldId(null);
+        setDragged(items.find((i) => i.id === active.id) ?? null);
+      }}
+      onDragAbort={() => setHeldId(null)}
+      onDragCancel={() => {
+        setHeldId(null);
+        setDragged(null);
+      }}
       onDragEnd={({ over, activatorEvent }) => {
         if (dragged && over) {
           const { day, meal } = over.data.current as {
@@ -138,6 +184,7 @@ export function WeekBoard({
               ?.focus(),
           );
         }
+        setHeldId(null);
         setDragged(null);
       }}
       accessibility={{
@@ -276,9 +323,7 @@ export function WeekBoard({
                     flash={flash}
                     onCustom={onCustom}
                     onRemove={onRemove}
-                    onLongPress={(item, anchor) =>
-                      setPressed({ item, day, meal, anchor })
-                    }
+                    heldId={heldId}
                   />
                 ))}
               </div>
@@ -407,6 +452,7 @@ function WeekThumb({ src, size }: { src: string; size: number }) {
       alt=""
       width={size}
       height={size}
+      draggable={false}
     />
   );
 }
@@ -440,11 +486,11 @@ function Slot({
   items,
   thumbs,
   onRemove,
-  onLongPress,
   onCustom,
   selectingDish,
   onSelect,
   flash,
+  heldId,
 }: {
   interactive: boolean;
   dragged: WeekMenuItemView | null;
@@ -458,7 +504,7 @@ function Slot({
   thumbs: Record<string, string | undefined>;
   onRemove: (item: WeekMenuItemView) => void;
   onCustom: (anchor: HTMLElement, item: WeekMenuItemView | null) => void;
-  onLongPress: (item: WeekMenuItemView, anchor: HTMLElement) => void;
+  heldId: string | null;
 }) {
   const { setNodeRef, isOver } = useDroppable({
     id: `cell:${day}:${meal}`,
@@ -543,9 +589,9 @@ function Slot({
               thumb={thumb}
               dayLabel={dayLabel}
               mealName={mealName}
+              lifted={heldId === item.id}
               onCustom={onCustom}
               onRemove={onRemove}
-              onLongPress={(anchor) => onLongPress(item, anchor)}
             />
           );
         })}
@@ -570,8 +616,8 @@ function Chip({
   flash,
   dayLabel,
   mealName,
+  lifted = false,
   onRemove,
-  onLongPress,
   onCustom,
 }: {
   interactive: boolean;
@@ -580,35 +626,26 @@ function Chip({
   thumb: string | undefined;
   dayLabel: string;
   mealName: string;
+  lifted?: boolean;
   onRemove: (item: WeekMenuItemView) => void;
   onCustom: (anchor: HTMLElement, item: WeekMenuItemView | null) => void;
-  onLongPress: (anchor: HTMLElement) => void;
 }) {
-  const chipRef = useRef<HTMLLIElement | null>(null);
+  const pointerType = useRef("");
   const { setNodeRef, listeners, attributes, isDragging } = useDraggable({
     id: item.id,
     disabled: !interactive || item.id.startsWith("pending:"),
     data: { day: item.dayOfWeek, meal: item.meal },
   });
-  const { active } = useDndContext();
-  const moved = useRef(false);
   const actions = chipMenuActions({
     item,
-    onMove: onLongPress,
+    onMove: () => {},
     onRename: (anchor) => onCustom(anchor, item),
     onRemove: () => onRemove(item),
-  });
-  const press = useLongPress(() => {
-    if (!moved.current && !item.id.startsWith("pending:") && chipRef.current)
-      onLongPress(chipRef.current);
   });
 
   return (
     <li
-      ref={(node) => {
-        chipRef.current = node;
-        setNodeRef(node);
-      }}
+      ref={setNodeRef}
       title={item.customName ?? item.dishName}
       data-item-id={item.id}
       {...attributes}
@@ -619,28 +656,26 @@ function Chip({
           ? { opacity: 0.3, border: "1px dashed var(--color-shu)" }
           : undefined
       }
-      onPointerDown={(e) => {
-        moved.current = false;
-        if (!item.id.startsWith("pending:")) press.onPointerDown(e);
-        if (e.pointerType === "mouse") listeners?.onPointerDown?.(e);
+      onPointerDown={(event) => {
+        pointerType.current = event.pointerType;
+        // A click that never arrived should not swallow the next tap.
+        event.currentTarget.removeAttribute("data-suppress-click");
+        if (event.pointerType === "mouse") listeners?.onPointerDown?.(event);
       }}
-      onPointerMove={(e) => {
-        press.onPointerMove(e);
-        if (active) moved.current = true;
+      onContextMenu={(event) => {
+        if (pointerType.current === "touch") event.preventDefault();
       }}
-      onPointerUp={press.onPointerUp}
-      onPointerCancel={press.onPointerCancel}
-      onContextMenu={press.onContextMenu}
-      onClickCapture={(e) => {
-        if (press.wasHeld()) {
-          e.preventDefault();
-          e.stopPropagation();
-        }
+      onClickCapture={(event) => {
+        if (!event.currentTarget.hasAttribute("data-suppress-click")) return;
+        event.currentTarget.removeAttribute("data-suppress-click");
+        event.preventDefault();
+        event.stopPropagation();
       }}
       className={cn(
         "week-chip",
         flash && "slot-flash",
         item.customName && "week-custom-chip",
+        lifted && "is-held",
       )}
     >
       {item.customName ? (
@@ -685,72 +720,6 @@ function Chip({
       </button>
     </li>
   );
-}
-
-function useLongPress(onLongPress: () => void) {
-  const timer = useRef<number | null>(null);
-  const origin = useRef<{ x: number; y: number } | null>(null);
-  const held = useRef(false);
-  const onPress = useRef(onLongPress);
-
-  useEffect(() => {
-    onPress.current = onLongPress;
-  }, [onLongPress]);
-
-  useEffect(() => {
-    return () => {
-      if (timer.current !== null) window.clearTimeout(timer.current);
-    };
-  }, []);
-
-  function clearTimer() {
-    if (timer.current !== null) window.clearTimeout(timer.current);
-    timer.current = null;
-  }
-
-  function reset() {
-    clearTimer();
-    held.current = false;
-    origin.current = null;
-  }
-
-  const suppressClick = useRef(false);
-  const touchPointer = useRef(false);
-  return {
-    wasHeld: () => suppressClick.current,
-    onPointerDown(event: ReactPointerEvent<HTMLLIElement>) {
-      touchPointer.current = event.pointerType === "touch";
-      suppressClick.current = false;
-      if (event.pointerType === "mouse" || event.button !== 0) return;
-      held.current = false;
-      origin.current = { x: event.clientX, y: event.clientY };
-      clearTimer();
-      timer.current = window.setTimeout(() => {
-        timer.current = null;
-        held.current = true;
-      }, LONG_PRESS_MS);
-    },
-    onPointerMove(event: ReactPointerEvent<HTMLLIElement>) {
-      if (!origin.current) return;
-      const dx = event.clientX - origin.current.x;
-      const dy = event.clientY - origin.current.y;
-      if (dx * dx + dy * dy > LONG_PRESS_TOLERANCE * LONG_PRESS_TOLERANCE) {
-        reset();
-      }
-    },
-    onPointerUp() {
-      const shouldOpen = held.current;
-      reset();
-      if (shouldOpen) {
-        suppressClick.current = true;
-        onPress.current();
-      }
-    },
-    onPointerCancel: reset,
-    onContextMenu(event: ReactMouseEvent) {
-      if (touchPointer.current) event.preventDefault();
-    },
-  };
 }
 
 function useIsClient() {

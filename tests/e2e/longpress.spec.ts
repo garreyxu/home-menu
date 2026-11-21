@@ -1,3 +1,4 @@
+import { HOLD_BEFORE_DRAG_MS } from "../../src/lib/week-chip-gesture";
 import { slotButton } from "./slots";
 import { mkdir } from "node:fs/promises";
 import {
@@ -44,7 +45,7 @@ test("long-press sheet buttons fit the 390x660 touch viewport", async ({
       type: "touchStart",
       touchPoints: [{ x: box.x + box.width / 2, y: box.y + box.height / 2 }],
     });
-    await page.waitForTimeout(400);
+    await page.waitForTimeout(HOLD_BEFORE_DRAG_MS + 120);
     await session.send("Input.dispatchTouchEvent", {
       type: "touchEnd",
       touchPoints: [],

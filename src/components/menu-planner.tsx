@@ -91,6 +91,8 @@ export function MenuPlanner({
   const [openDishId, setOpenDishId] = useState<string | null>(null);
   const [flash, setFlash] = useState<string | null>(null);
   const [recipeDishId, setRecipeDishId] = useState<string | null>(null);
+  const [recipeDishName, setRecipeDishName] = useState<string | null>(null);
+  const recipeReturn = useRef<HTMLElement | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [trayOpen, setTrayOpen] = useState(false);
   const [trackedWallKey, setTrackedWallKey] = useState(() =>
@@ -359,6 +361,16 @@ export function MenuPlanner({
         setCustomEditor({ anchor, item });
       }}
       onRemove={remove}
+      onOpenRecipe={(item) => {
+        if (!item.dishId) return;
+        setOpenDishId(null);
+        setCustomEditor(null);
+        recipeReturn.current = document.querySelector(
+          `[data-item-id="${CSS.escape(item.id)}"]`,
+        );
+        setRecipeDishName(item.dishName);
+        setRecipeDishId(item.dishId);
+      }}
     />
   );
 
@@ -436,6 +448,8 @@ export function MenuPlanner({
                       plannedCount={plannedCount}
                       onOpenRecipe={() => {
                         setOpenDishId(null);
+                        recipeReturn.current = null;
+                        setRecipeDishName(dish.name);
                         setRecipeDishId(dish.id);
                       }}
                       action={
@@ -522,20 +536,32 @@ export function MenuPlanner({
           key={recipeDishId}
           dishId={recipeDishId}
           dishName={
-            wall.dishes.find((dish) => dish.id === recipeDishId)?.name ?? ""
+            recipeDishName ??
+            wall.dishes.find((dish) => dish.id === recipeDishId)?.name ??
+            ""
           }
           illustration={
             wall.dishes.find((dish) => dish.id === recipeDishId)?.illustration
           }
           tried={wall.dishes.find((dish) => dish.id === recipeDishId)?.tried}
           onAdd={() => {
+            const id = recipeDishId;
+            recipeReturn.current = null;
+            setRecipeDishName(null);
             setRecipeDishId(null);
-            setOpenDishId(recipeDishId);
+            setOpenDishId(id);
           }}
           onClose={() => {
             const id = recipeDishId;
+            const chip = recipeReturn.current;
+            recipeReturn.current = null;
+            setRecipeDishName(null);
             setRecipeDishId(null);
             window.requestAnimationFrame(() => {
+              if (chip?.isConnected) {
+                chip.focus();
+                return;
+              }
               document
                 .querySelector<HTMLElement>(
                   `[data-recipe-for="${CSS.escape(id)}"]`,
