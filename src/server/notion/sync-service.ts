@@ -11,6 +11,12 @@ import {
   upsertFromMapped,
 } from "@/server/notion/import-catalog";
 import { classifyNotionPage } from "@/server/notion/map-page";
+import { createDrinkRepository } from "@/server/notion/drink-repository";
+import {
+  DRINKS_READ_FAILED,
+  keepDrinkNote,
+  syncDrinkCatalog,
+} from "@/server/notion/drink-sync";
 import { createDishRepository } from "@/server/notion/repository";
 import {
   safeSyncError,
@@ -172,6 +178,8 @@ export async function runSync(
       dishes,
       allowMassRemoval: options?.allowMassRemoval === true,
     });
+    const drinkNote = await drinkNoteForRun(session, db, deadline);
+    report.warnings = keepDrinkNote(report.warnings, drinkNote);
     await db
       .update(notionSyncRuns)
       .set({
@@ -329,6 +337,34 @@ function asSkips(value: unknown): NotionSkip[] {
 function asStrings(value: unknown): string[] {
   if (!Array.isArray(value)) return [];
   return value.filter((item): item is string => typeof item === "string");
+}
+
+async function drinkNoteForRun(
+  session: {
+    listDrinks: () => Promise<NotionListedPage[]>;
+    loadBlocks: (
+      pageId: string,
+      deadline: number,
+    ) => Promise<
+      | { status: "ok"; blocks: import("@/server/notion/types").NotionBlock[] }
+      | { status: "timeout" }
+      | { status: "failed" }
+    >;
+  },
+  db: Database,
+  deadline: number,
+): Promise<string> {
+  try {
+    return await syncDrinkCatalog({
+      list: () => session.listDrinks(),
+      loadBlocks: (pageId, blockDeadline) =>
+        session.loadBlocks(pageId, blockDeadline),
+      repo: createDrinkRepository(db),
+      deadline,
+    });
+  } catch {
+    return DRINKS_READ_FAILED;
+  }
 }
 
 function toSnapshot(

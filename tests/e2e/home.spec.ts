@@ -106,7 +106,11 @@ test.describe("dish wall", () => {
     await expect(
       page.locator("ul.dish-grid").getByRole("listitem"),
     ).toHaveCount(0);
-    await expect(page.locator("[aria-current='page']")).toHaveCount(0);
+    await expect(
+      page
+        .getByRole("navigation", { name: "菜品分类" })
+        .locator("[aria-current='page']"),
+    ).toHaveCount(0);
   });
 
   const viewports = [

@@ -1,10 +1,17 @@
 import type { ReactNode } from "react";
 import { MapleLeaf, Persimmon } from "@/components/scene-decor";
 import { SealBadge } from "@/components/seal-badge";
+import { SiteNav } from "@/components/site-nav";
 import { seasonRecommendation } from "@/lib/season";
 import { siteName } from "@/lib/site";
 
-export function SceneHeader({ actions }: { actions?: ReactNode }) {
+export function SceneHeader({
+  actions,
+  current = "menu",
+}: {
+  actions?: ReactNode;
+  current?: "menu" | "drinks";
+}) {
   const season = seasonRecommendation(new Date());
 
   return (
@@ -20,6 +27,7 @@ export function SceneHeader({ actions }: { actions?: ReactNode }) {
       <div className="scene-deco scene-deco-end">
         <MapleLeaf />
       </div>
+      <SiteNav current={current} />
       {actions ? <div className="scene-actions">{actions}</div> : null}
     </header>
   );

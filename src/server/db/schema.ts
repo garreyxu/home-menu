@@ -215,6 +215,41 @@ export const menuItems = pgTable(
   ],
 );
 
+export const drinks = pgTable(
+  "drinks",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    notionPageId: text("notion_page_id").notNull().unique(),
+    name: text("name").notNull(),
+    baseSpirits: jsonb("base_spirits")
+      .$type<string[]>()
+      .notNull()
+      .default(sql`'[]'::jsonb`),
+    flavors: jsonb("flavors")
+      .$type<string[]>()
+      .notNull()
+      .default(sql`'[]'::jsonb`),
+    ingredients: text("ingredients"),
+    sourceUrl: text("source_url"),
+    tried: boolean("tried").notNull().default(false),
+    recipeBlocks: jsonb("recipe_blocks").$type<RecipeBlock[]>(),
+    hasBody: boolean("has_body").notNull().default(false),
+    // Base64 image copied at sync time. Never a Notion URL.
+    photo: text("photo"),
+    photoType: text("photo_type"),
+    photoFingerprint: text("photo_fingerprint"),
+    isActive: boolean("is_active").notNull().default(true),
+    createdAt: timestamp("created_at", { withTimezone: true, mode: "date" })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true, mode: "date" })
+      .notNull()
+      .defaultNow()
+      .$onUpdate(() => new Date()),
+  },
+  (table) => [index("drinks_name_idx").on(table.name)],
+);
+
 export const categoriesRelations = relations(categories, ({ many }) => ({
   dishes: many(dishes),
 }));

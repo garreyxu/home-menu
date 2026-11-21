@@ -46,6 +46,7 @@ it("deletes run-scoped children, owned weeks, tagged dishes, then category", asy
     "weekly_menus",
     "dishes",
     "categories",
+    "drinks",
   ]);
   const taggedItems = deletes[0];
   expect(taggedItems.query).toContain('"menu_items"."dish_id" in (select');

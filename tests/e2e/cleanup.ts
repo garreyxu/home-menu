@@ -11,5 +11,10 @@ test("removes every run row and proves there are no leftovers", async ({
   expect((await dataAction(page.request, "cleanup")).status()).toBe(200);
   const response = await dataAction(page.request, "leftovers");
   expect(response.status()).toBe(200);
-  expect(await response.json()).toEqual({ weeks: 0, dishes: 0, categories: 0 });
+  expect(await response.json()).toEqual({
+    weeks: 0,
+    dishes: 0,
+    categories: 0,
+    drinks: 0,
+  });
 });

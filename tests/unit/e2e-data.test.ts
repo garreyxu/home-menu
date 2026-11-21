@@ -14,11 +14,15 @@ beforeEach(() => {
   vi.stubEnv("DATABASE_URL", "");
   scope.__homeMenuEphemeralWeeks = new Map();
   scope.__homeMenuE2ELeases = new Map();
+  delete (globalThis as { __homeMenuEphemeralDrinks?: unknown })
+    .__homeMenuEphemeralDrinks;
 });
 afterEach(() => {
   vi.unstubAllEnvs();
   delete scope.__homeMenuEphemeralWeeks;
   delete scope.__homeMenuE2ELeases;
+  delete (globalThis as { __homeMenuEphemeralDrinks?: unknown })
+    .__homeMenuEphemeralDrinks;
 });
 it("rejects real weeks, preserves unrelated data, and claims idempotently", async () => {
   scope.__homeMenuEphemeralWeeks!.set("2026-12-27", {
@@ -46,6 +50,7 @@ it("rejects real weeks, preserves unrelated data, and claims idempotently", asyn
     weeks: 0,
     dishes: 0,
     categories: 0,
+    drinks: 0,
   });
   expect(scope.__homeMenuEphemeralWeeks!.get("2026-12-27")!.id).toBe("real");
 });

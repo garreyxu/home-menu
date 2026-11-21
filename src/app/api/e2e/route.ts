@@ -6,7 +6,13 @@ import {
   e2eEnabled,
   E2EInputError,
 } from "@/lib/e2e-guard";
-import { cleanupE2E, leftoversE2E, seedE2E } from "@/server/e2e-data";
+import {
+  cleanupDrinkE2E,
+  cleanupE2E,
+  leftoversE2E,
+  seedDrinkE2E,
+  seedE2E,
+} from "@/server/e2e-data";
 
 export const runtime = "nodejs";
 export async function POST(request: Request) {
@@ -62,6 +68,11 @@ export async function POST(request: Request) {
       return json({ ok: true });
     }
     if (action === "leftovers") return json(await leftoversE2E(runId));
+    if (action === "seed-drink") return json(await seedDrinkE2E(runId));
+    if (action === "cleanup-drink") {
+      await cleanupDrinkE2E(runId);
+      return json({ ok: true });
+    }
     throw new E2EInputError("Unknown action");
   } catch (error) {
     if (error instanceof E2EInputError || error instanceof SyntaxError)

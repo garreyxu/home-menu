@@ -15,6 +15,7 @@ export type NotionProperty = {
   number?: number | null;
   status?: { name?: string } | null;
   url?: string | null;
+  files?: NotionFileItem[] | null;
   formula?: {
     type?: string;
     string?: string | null;
@@ -25,6 +26,13 @@ export type NotionProperty = {
 export type NotionFile = {
   type?: string;
   file?: { url?: string };
+  external?: { url?: string };
+};
+
+export type NotionFileItem = {
+  name?: string;
+  type?: string;
+  file?: { url?: string; expiry_time?: string };
   external?: { url?: string };
 };
 
