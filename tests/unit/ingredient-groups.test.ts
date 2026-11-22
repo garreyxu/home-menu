@@ -18,15 +18,31 @@ it.each([
   ["肥牛", "肉"],
   ["羊通脊", "肉"],
   ["牛腱或牛腩", "肉"],
+  ["牛排骨", "肉"],
+  ["牛肋条", "肉"],
+  ["牛肋排", "肉"],
+  ["猪排", "肉"],
   ["皱皮青椒", "蔬菜菌菇"],
   ["白洋葱", "蔬菜菌菇"],
   ["红黄甜椒", "蔬菜菌菇"],
   ["海鲜菇", "蔬菜菌菇"],
+  ["大蒜叶", "蔬菜菌菇"],
+  ["包菜", "蔬菜菌菇"],
+  ["茄子", "蔬菜菌菇"],
+  ["莲藕", "蔬菜菌菇"],
+  ["甘蔗", "蔬菜菌菇"],
+  ["羊肚菌", "蔬菜菌菇"],
+  ["虫草花", "蔬菜菌菇"],
   ["粉丝", "主食面粉"],
   ["红薯粉丝", "主食面粉"],
   ["土豆粉", "主食面粉"],
   ["鸡蛋面", "主食面粉"],
   ["番茄酱", "调料干货"],
+  ["黄油", "调料干货"],
+  ["蜂蜜", "调料干货"],
+  ["猪油", "调料干货"],
+  ["chick-fil-a sauce", "调料干货"],
+  ["Chick-fil-a sauce", "其他"],
   ["辣椒面", "调料干货"],
   ["干辣椒", "调料干货"],
   ["干红辣椒", "调料干货"],
@@ -56,13 +72,22 @@ it("uses group order for equal keyword lengths", () => {
   ]);
 });
 it("matches pantry exactly after normalization, without swallowing shopped sauces or fats", () => {
-  for (const name of "生抽 老抽 蚝油 盐 糖 白糖 冰糖 黄冰糖 醋 陈醋 米醋 浙红醋 料酒 淀粉 酱油 食用油 油 香油 胡椒粉 黑胡椒 鸡精".split(
+  for (const name of "生抽 老抽 蚝油 盐 糖 白糖 冰糖 黄冰糖 醋 陈醋 米醋 浙红醋 料酒 淀粉 酱油 食用油 橄榄油 油 香油 胡椒粉 黑胡椒 鸡精".split(
     " ",
   )) {
     expect(isPantryIngredient(name)).toBe(true);
     expect(isPantryIngredient(`${name}（或其他牌子）`)).toBe(true);
   }
-  for (const name of ["番茄酱", "黄油", "蜂蜜", "油豆腐", "花生米", "蒸鱼豉油"])
+  for (const name of [
+    "番茄酱",
+    "黄油",
+    "蜂蜜",
+    "猪油",
+    "chick-fil-a sauce",
+    "油豆腐",
+    "花生米",
+    "蒸鱼豉油",
+  ])
     expect(isPantryIngredient(name)).toBe(false);
 });
 
